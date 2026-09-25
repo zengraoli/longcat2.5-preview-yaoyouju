@@ -1,0 +1,70 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "腰有据",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/qa/qa",
+      "style": {
+        "navigationBarTitleText": "问与解释"
+      }
+    },
+    {
+      "path": "pages/timeline/timeline",
+      "style": {
+        "navigationBarTitleText": "病程"
+      }
+    },
+    {
+      "path": "pages/followup/followup",
+      "style": {
+        "navigationBarTitleText": "复诊准备"
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F4F6F8"
+  },
+  "tabBar": {
+    "color": "#98A1AE",
+    "selectedColor": "#0F6E74",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "#E4E8EE",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "当前情况",
+        "iconPath": "",
+        "selectedIconPath": ""
+      },
+      {
+        "pagePath": "pages/qa/qa",
+        "text": "问与解释"
+      },
+      {
+        "pagePath": "pages/timeline/timeline",
+        "text": "病程"
+      },
+      {
+        "pagePath": "pages/followup/followup",
+        "text": "复诊准备"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      }
+    ]
+  }
+}
