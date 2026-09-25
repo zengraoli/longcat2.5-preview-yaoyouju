@@ -267,6 +267,27 @@ export class SeedService implements OnModuleInit {
         is_out_of_scope INTEGER DEFAULT 0,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS error_report (
+        id TEXT PRIMARY KEY,
+        feedback_id TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        category TEXT,
+        description TEXT,
+        analysis_version INTEGER,
+        model_version TEXT,
+        content_version TEXT,
+        rule_set_version TEXT,
+        status TEXT DEFAULT 'open',
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS feedback_view_grant (
+        id TEXT PRIMARY KEY,
+        feedback_id TEXT NOT NULL,
+        grantee_id TEXT NOT NULL,
+        granted_at TEXT NOT NULL
+      );
     `);
   }
 
