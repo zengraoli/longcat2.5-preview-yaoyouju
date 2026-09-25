@@ -256,6 +256,17 @@ export class SeedService implements OnModuleInit {
         created_at TEXT NOT NULL,
         updated_at TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS qa_session (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES "user"(id),
+        episode_id TEXT NOT NULL REFERENCES episode(id),
+        analysis_id TEXT,
+        question TEXT NOT NULL,
+        answer TEXT,
+        is_out_of_scope INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
     `);
   }
 

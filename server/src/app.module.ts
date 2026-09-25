@@ -11,9 +11,10 @@ import { FeatureSwitchModule } from './modules/features/feature-switch.module';
 import { EpisodeModule } from './modules/episodes/episode.module';
 import { ReportModule } from './modules/reports/report.module';
 import { AnalysisModule } from './modules/analyses/analysis.module';
+import { QaModule } from './modules/qa/qa.module';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule, ReportModule, AnalysisModule],
+  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule, ReportModule, AnalysisModule, QaModule],
   controllers: [HealthController],
   providers: [EncryptionService, SeedService],
 })
