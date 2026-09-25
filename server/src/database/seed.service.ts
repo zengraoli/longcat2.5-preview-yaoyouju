@@ -241,6 +241,21 @@ export class SeedService implements OnModuleInit {
         created_at TEXT NOT NULL,
         expires_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS analysis_task (
+        id TEXT PRIMARY KEY,
+        episode_id TEXT NOT NULL REFERENCES episode(id),
+        user_id TEXT NOT NULL REFERENCES "user"(id),
+        report_id TEXT,
+        status TEXT DEFAULT 'queued',
+        analysis_id TEXT,
+        safety_flag TEXT,
+        safety_message TEXT,
+        retry_count INTEGER DEFAULT 0,
+        error_message TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      );
     `);
   }
 
