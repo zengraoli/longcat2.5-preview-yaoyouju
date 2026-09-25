@@ -53,5 +53,6 @@ export const api = {
   exportFollowup: (episodeId: string, format: string) => request('/followup/export', { method: 'POST', body: JSON.stringify({ episodeId, format }) }),
   getPublishedContents: () => request('/contents'),
   askQuestion: (data: any) => request('/qa/ask', { method: 'POST', body: JSON.stringify(data) }),
+  getSessionHistory: (episodeId: string) => request(`/qa/history?episodeId=${episodeId}`),
   safetyCheck: (text: string) => request('/safety/check', { method: 'POST', body: JSON.stringify({ text }) }),
 };
