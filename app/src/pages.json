@@ -37,6 +37,18 @@
       "style": {
         "navigationBarTitleText": "我的"
       }
+    },
+    {
+      "path": "pages/change/change",
+      "style": {
+        "navigationBarTitleText": "关键变化确认"
+      }
+    },
+    {
+      "path": "pages/redflag/redflag",
+      "style": {
+        "navigationBarTitleText": "就医提示"
+      }
     }
   ],
   "globalStyle": {
