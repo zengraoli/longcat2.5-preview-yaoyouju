@@ -16,9 +16,10 @@ import { FollowupModule } from './modules/followup/followup.module';
 import { ContentModule } from './modules/contents/content.module';
 import { EvidenceModule } from './modules/evidence/evidence.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { ModelReleaseModule } from './modules/models/model-release.module';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule, ReportModule, AnalysisModule, QaModule, FollowupModule, ContentModule, EvidenceModule, FeedbackModule],
+  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule, ReportModule, AnalysisModule, QaModule, FollowupModule, ContentModule, EvidenceModule, FeedbackModule, ModelReleaseModule],
   controllers: [HealthController],
   providers: [EncryptionService, SeedService],
 })
