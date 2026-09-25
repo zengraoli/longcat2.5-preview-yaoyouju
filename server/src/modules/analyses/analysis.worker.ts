@@ -26,7 +26,7 @@ export class AnalysisWorker implements OnModuleInit, OnModuleDestroy {
     this.processTask(task, db);
   }
 
-  private processTask(task: any, db: any) {
+  processTask(task: any, db: any) {
     db.prepare("UPDATE analysis_task SET status = 'processing' WHERE id = ?").run(task.id);
 
     try {

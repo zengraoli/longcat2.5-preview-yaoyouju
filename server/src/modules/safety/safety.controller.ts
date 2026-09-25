@@ -6,7 +6,7 @@ import { AuthGuard } from '../auth/auth.guard';
 export class SafetyController {
   constructor(private readonly safetyService: SafetyService) {}
 
-  @Get('check')
+  @Post('check')
   check(@Body() dto: { text: string }) {
     const result = this.safetyService.fullCheck(dto.text);
     return result;

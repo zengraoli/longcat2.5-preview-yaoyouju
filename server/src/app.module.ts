@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { IdentityDatabaseModule } from './database/identity-database.module';
@@ -20,7 +21,24 @@ import { ModelReleaseModule } from './modules/models/model-release.module';
 import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule, ReportModule, AnalysisModule, QaModule, FollowupModule, ContentModule, EvidenceModule, FeedbackModule, ModelReleaseModule, AdminModule],
+  imports: [
+    ConfigModule,
+    DatabaseModule,
+    IdentityDatabaseModule,
+    AuthModule,
+    SafetyModule,
+    FeatureSwitchModule,
+    EpisodeModule,
+    ReportModule,
+    AnalysisModule,
+    QaModule,
+    FollowupModule,
+    ContentModule,
+    EvidenceModule,
+    FeedbackModule,
+    ModelReleaseModule,
+    AdminModule,
+  ],
   controllers: [HealthController],
   providers: [EncryptionService, SeedService],
 })
