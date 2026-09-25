@@ -233,12 +233,13 @@ export class SeedService implements OnModuleInit {
         revoked_at TEXT
       );
 
-      CREATE TABLE IF NOT EXISTS consent (
+      CREATE TABLE IF NOT EXISTS user_session (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES "user"(id),
-        scope TEXT NOT NULL,
-        granted_at TEXT NOT NULL,
-        revoked_at TEXT
+        phone_enc TEXT NOT NULL,
+        token TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
       );
     `);
   }
