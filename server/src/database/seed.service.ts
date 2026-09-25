@@ -168,7 +168,17 @@ export class SeedService implements OnModuleInit {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         role_id TEXT NOT NULL,
-        mfa_enabled INTEGER DEFAULT 1
+        mfa_enabled INTEGER DEFAULT 1,
+        failed_attempts INTEGER DEFAULT 0,
+        locked_until TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS admin_session (
+        id TEXT PRIMARY KEY,
+        admin_user_id TEXT NOT NULL,
+        token TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS role (
@@ -183,7 +193,9 @@ export class SeedService implements OnModuleInit {
         action TEXT NOT NULL,
         target TEXT,
         diff TEXT,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        hash TEXT,
+        prev_hash TEXT
       );
 
       CREATE TABLE IF NOT EXISTS model_release (

@@ -1,0 +1,49 @@
+import { Body, Controller, Get, Headers, Post, UseGuards } from '@nestjs/common';
+import { AdminService } from './admin.service';
+import { AdminLoginDto, CreateAdminUserDto, DualConfirmDto } from './dto/admin.dto';
+
+@Controller('admin')
+export class AdminController {
+  constructor(private readonly adminService: AdminService) {}
+
+  @Post('login')
+  login(@Body() dto: AdminLoginDto) {
+    return this.adminService.login(dto);
+  }
+
+  @Get('users')
+  getUsers(@Headers('x-admin-token') token: string) {
+    const session = this.adminService.validateSession(token);
+    if (!session) throw new Error('未登录');
+    if (!this.adminService.checkPermission(session.roleId, '*')) throw new Error('无权限');
+    return this.adminService.getAdminUsers();
+  }
+
+  @Post('users')
+  createUser(@Headers('x-admin-token') token: string, @Body() dto: CreateAdminUserDto) {
+    const session = this.adminService.validateSession(token);
+    if (!session) throw new Error('未登录');
+    if (!this.adminService.checkPermission(session.roleId, '*')) throw new Error('无权限');
+    const result = this.adminService.createAdminUser(dto);
+    this.adminService.logAudit(session.adminUserId, 'admin.user.created', result.id, JSON.stringify(dto));
+    return result;
+  }
+
+  @Get('audit/verify')
+  verifyAudit(@Headers('x-admin-token') token: string) {
+    const session = this.adminService.validateSession(token);
+    if (!session) throw new Error('未登录');
+    return this.adminService.verifyAuditChain();
+  }
+
+  @Post('dual-confirm')
+  dualConfirm(@Headers('x-admin-token') token: string, @Body() dto: DualConfirmDto) {
+    const session = this.adminService.validateSession(token);
+    if (!session) throw new Error('未登录');
+    if (dto.primaryApproverId === dto.secondaryApproverId) {
+      throw new Error('双人确认需不同审批人');
+    }
+    this.adminService.logAudit(session.adminUserId, 'dual_confirm.executed', dto.targetId, JSON.stringify(dto));
+    return { confirmed: true };
+  }
+}
