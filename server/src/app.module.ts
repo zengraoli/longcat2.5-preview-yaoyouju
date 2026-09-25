@@ -14,9 +14,10 @@ import { AnalysisModule } from './modules/analyses/analysis.module';
 import { QaModule } from './modules/qa/qa.module';
 import { FollowupModule } from './modules/followup/followup.module';
 import { ContentModule } from './modules/contents/content.module';
+import { EvidenceModule } from './modules/evidence/evidence.module';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule, ReportModule, AnalysisModule, QaModule, FollowupModule, ContentModule],
+  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule, ReportModule, AnalysisModule, QaModule, FollowupModule, ContentModule, EvidenceModule],
   controllers: [HealthController],
   providers: [EncryptionService, SeedService],
 })
