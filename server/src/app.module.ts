@@ -8,9 +8,10 @@ import { HealthController } from './health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { FeatureSwitchModule } from './modules/features/feature-switch.module';
+import { EpisodeModule } from './modules/episodes/episode.module';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule],
+  imports: [ConfigModule, DatabaseModule, IdentityDatabaseModule, AuthModule, SafetyModule, FeatureSwitchModule, EpisodeModule],
   controllers: [HealthController],
   providers: [EncryptionService, SeedService],
 })
