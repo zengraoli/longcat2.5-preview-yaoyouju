@@ -5,7 +5,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.yaoyouju.app.ui.screens.AnalysisScreen
 import com.yaoyouju.app.ui.screens.ChangeScreen
+import com.yaoyouju.app.ui.screens.ComparisonScreen
 import com.yaoyouju.app.ui.screens.HomeScreen
 import com.yaoyouju.app.ui.screens.LoginScreen
 import com.yaoyouju.app.ui.screens.RedflagScreen
@@ -48,8 +50,15 @@ fun YyjNavHost(
         composable(Routes.CONFUSION) { PlaceholderScreen("A04 选择主要困惑") }
         composable(Routes.REPORT) { PlaceholderScreen("A05 录入报告与医嘱") }
         composable(Routes.VERIFY) { PlaceholderScreen("A06 核对整理后的信息") }
-        composable(Routes.ANALYSIS) { PlaceholderScreen("A07 一页分析") }
-        composable(Routes.COMPARISON) { PlaceholderScreen("A08 原文对照") }
+        composable(Routes.ANALYSIS) {
+            AnalysisScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) },
+            )
+        }
+        composable(Routes.COMPARISON) {
+            ComparisonScreen(onBack = { navController.popBackStack() })
+        }
         composable(Routes.QA) { PlaceholderScreen("A09 问与解释") }
         composable(Routes.TIMELINE) { PlaceholderScreen("A10 病程") }
         composable(Routes.TODAY) { PlaceholderScreen("A11 记录今天") }

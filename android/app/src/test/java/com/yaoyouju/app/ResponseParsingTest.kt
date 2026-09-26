@@ -52,7 +52,7 @@ class ResponseParsingTest {
 
     @Test
     fun `episode dto parses with null onset date`() {
-        val text = """{"id":"e1","userId":"u1","title":"腰痛","onsetDate":null,"onsetCertainty":"已确认","status":"active"}"""
+        val text = """{"id":"e1","user_id":"u1","title":"腰痛","onset_date":null,"onset_certainty":"已确认","status":"active"}"""
         val episode = json.decodeFromString<com.yaoyouju.app.data.api.Episode>(text)
         assertEquals("e1", episode.id)
         assertEquals(null, episode.onsetDate)

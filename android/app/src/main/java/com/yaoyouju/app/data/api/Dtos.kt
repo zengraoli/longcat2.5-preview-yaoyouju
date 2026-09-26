@@ -1,5 +1,6 @@
 package com.yaoyouju.app.data.api
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.Serializable
 
@@ -29,27 +30,27 @@ data class ConsentItem(
 @Serializable
 data class Episode(
     val id: String,
-    val userId: String,
+    @SerialName("user_id") val userId: String,
     val title: String,
-    val onsetDate: String? = null,
-    val onsetCertainty: String = "尚未确认",
+    @SerialName("onset_date") val onsetDate: String? = null,
+    @SerialName("onset_certainty") val onsetCertainty: String = "尚未确认",
     val status: String = "active",
 )
 
 @Serializable
 data class CareEvent(
     val id: String,
-    val episodeId: String,
-    val eventType: String,
-    val occurredAt: String,
-    val sourceType: String,
-    val rawText: String? = null,
-    val verifyStatus: String = "尚未确认",
-    val sitMinutes: Int? = null,
-    val plannedActivityDone: String? = null,
-    val sleepImpact: Int? = null,
-    val topWorry: String? = null,
-    val legChange: String? = null,
+    @SerialName("episode_id") val episodeId: String,
+    @SerialName("event_type") val eventType: String,
+    @SerialName("occurred_at") val occurredAt: String,
+    @SerialName("source_type") val sourceType: String,
+    @SerialName("raw_text") val rawText: String? = null,
+    @SerialName("verify_status") val verifyStatus: String = "尚未确认",
+    @SerialName("sit_minutes") val sitMinutes: Int? = null,
+    @SerialName("planned_activity_done") val plannedActivityDone: String? = null,
+    @SerialName("sleep_impact") val sleepImpact: Int? = null,
+    @SerialName("top_worry") val topWorry: String? = null,
+    @SerialName("leg_change") val legChange: String? = null,
 )
 
 // ---------- 报告 ----------
@@ -120,9 +121,9 @@ data class ContentItem(
     val id: String,
     val type: String,
     val title: String,
-    val applicableScope: String? = null,
-    val notApplicable: String? = null,
-    val currentStatus: String = "已发布",
+    @SerialName("applicable_scope") val applicableScope: String? = null,
+    @SerialName("not_applicable") val notApplicable: String? = null,
+    @SerialName("current_status") val currentStatus: String = "已发布",
     val latestVersion: String? = null,
 )
 

@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 @Serializable
@@ -34,10 +35,13 @@ interface YyjApi {
     suspend fun createReport(@Body body: Map<String, String>): ApiResponse<Map<String, String>>
 
     @GET("/episodes/{id}/timeline")
-    suspend fun getTimeline(@Query("episodeId") episodeId: String): ApiResponse<List<CareEvent>>
+    suspend fun getTimeline(@Path("id") id: String): ApiResponse<List<CareEvent>>
 
     @GET("/reports")
     suspend fun getReportsByEpisode(@Query("episodeId") episodeId: String): ApiResponse<List<Map<String, String?>>>
+
+    @GET("/reports/{id}/structured")
+    suspend fun getStructuredReport(@Path("id") id: String): ApiResponse<StructuredReport>
 
     @GET("/analyses/latest")
     suspend fun getLatestAnalysis(@Query("episodeId") episodeId: String): ApiResponse<Analysis>

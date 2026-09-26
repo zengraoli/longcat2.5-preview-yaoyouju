@@ -15,12 +15,14 @@ import com.yaoyouju.app.ui.theme.Error
 import com.yaoyouju.app.ui.theme.ErrorTagTint
 import com.yaoyouju.app.ui.theme.Info
 import com.yaoyouju.app.ui.theme.InfoTagTint
+import com.yaoyouju.app.ui.theme.Text3
+import com.yaoyouju.app.ui.theme.Bg
 import com.yaoyouju.app.ui.theme.Ok
 import com.yaoyouju.app.ui.theme.OkTint
 import com.yaoyouju.app.ui.theme.Warn
 import com.yaoyouju.app.ui.theme.WarnTagTint
 
-enum class TagType { OK, WARN, ERROR, INFO }
+enum class TagType { OK, WARN, ERROR, INFO, MUTED }
 
 /** 状态标签（三端语义一致） */
 @Composable
@@ -30,12 +32,14 @@ fun StatusTag(label: String, type: TagType, modifier: Modifier = Modifier) {
         TagType.WARN -> Warn
         TagType.ERROR -> Error
         TagType.INFO -> Info
+        TagType.MUTED -> Text3
     }
     val bg = when (type) {
         TagType.OK -> OkTint
         TagType.WARN -> WarnTagTint
         TagType.ERROR -> ErrorTagTint
         TagType.INFO -> InfoTagTint
+        TagType.MUTED -> Bg
     }
     Text(
         text = label,
