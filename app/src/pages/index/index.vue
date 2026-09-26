@@ -2,9 +2,6 @@
   <view class="home-page">
     <view class="header">
       <text class="page-title">当前情况</text>
-      <view class="emergency-btn" @click="goEmergency">
-        <text class="emergency-text">紧急求助</text>
-      </view>
     </view>
 
     <view class="section" v-if="pendingItems.length > 0">
@@ -30,21 +27,32 @@
     <view class="section">
       <text class="section-title">快捷入口</text>
       <view class="quick-grid">
+        <view class="quick-item" @click="goToPage('/pages/today/today')">
+          <image src="/static/icons/ic_pen.png" class="quick-icon" />
+          <text class="quick-label">记录今天</text>
+        </view>
+        <view class="quick-item" @click="goToPage('/pages/report/report')">
+          <image src="/static/icons/ic_upload.png" class="quick-icon" />
+          <text class="quick-label">录入报告</text>
+        </view>
         <view class="quick-item" @click="goToPage('/pages/qa/qa')">
-          <text class="quick-icon">💬</text>
+          <image src="/static/icons/ic_chat.png" class="quick-icon" />
           <text class="quick-label">问与解释</text>
         </view>
-        <view class="quick-item" @click="goToPage('/pages/timeline/timeline')">
-          <text class="quick-icon">📋</text>
-          <text class="quick-label">病程记录</text>
-        </view>
         <view class="quick-item" @click="goToPage('/pages/followup/followup')">
-          <text class="quick-icon">📝</text>
-          <text class="quick-label">复诊准备</text>
+          <image src="/static/icons/ic_doc.png" class="quick-icon" />
+          <text class="quick-label">复诊摘要</text>
         </view>
-        <view class="quick-item" @click="goToPage('/pages/mine/mine')">
-          <text class="quick-icon">👤</text>
-          <text class="quick-label">我的</text>
+      </view>
+    </view>
+
+    <view class="section" v-if="recommendItems.length > 0">
+      <text class="section-title">为你推荐</text>
+      <view class="card" v-for="item in recommendItems" :key="item.id" @click="goToContent">
+        <view class="rec-info">
+          <text class="rec-title">{{ item.title }}</text>
+          <text class="rec-meta">{{ item.type }} · 已审核 v{{ item.version || 1 }}</text>
+          <text class="rec-reason" v-if="item.recommendReason">推荐理由：{{ item.recommendReason }}</text>
         </view>
       </view>
     </view>
@@ -56,27 +64,28 @@
       </view>
     </view>
 
-    <TabBar :tabs="tabs" active-tab="index" @change="onTabChange" />
+    <view class="section emergency-section">
+      <view class="emergency-bar" @click="goEmergency">
+        <image src="/static/icons/ic_warn.png" class="emergency-icon" />
+        <text class="emergency-text">症状突然变化或出现严重信号？查看就医提示</text>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
-import TabBar from '../../components/TabBar.vue';
 import { api } from '../../api/request';
-
-const tabs = [
-  { key: 'index', label: '当前情况', icon: '🏠', path: '/pages/index/index' },
-  { key: 'qa', label: '问与解释', icon: '💬', path: '/pages/qa/qa' },
-  { key: 'timeline', label: '病程', icon: '📋', path: '/pages/timeline/timeline' },
-  { key: 'followup', label: '复诊准备', icon: '📝', path: '/pages/followup/followup' },
-  { key: 'mine', label: '我的', icon: '👤', path: '/pages/mine/mine' },
-];
 
 const pendingItems = ref<{ id: string; text: string }[]>([]);
 const latestAnalysis = ref<{ summary: string; version: number } | null>(null);
 const followupCountdown = ref<number | null>(null);
+const recommendItems = ref<any[]>([]);
+
+function goToContent() {
+  goToPage('/pages/content/content');
+}
 
 function goEmergency() {
   uni.showModal({
@@ -92,11 +101,7 @@ function goToPage(url: string) {
 }
 
 function goToAnalysis() {
-  uni.navigateTo({ url: '/pages/qa/qa' });
-}
-
-function onTabChange(key: string) {
-  console.log('tab changed:', key);
+  uni.navigateTo({ url: '/pages/change/change' });
 }
 
 onMounted(async () => {
@@ -111,6 +116,11 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('Failed to load episodes:', e);
+  }
+  try {
+    recommendItems.value = await api.getPublishedContents();
+  } catch (e) {
+    console.error('Failed to load contents:', e);
   }
 });
 </script>
@@ -225,13 +235,62 @@ onMounted(async () => {
 }
 
 .quick-icon {
-  font-size: 48rpx;
+  width: 48rpx;
+  height: 48rpx;
   margin-bottom: 12rpx;
+}
+
+.emergency-section {
+  margin-bottom: 160rpx;
+}
+
+.emergency-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(217, 59, 59, 0.1);
+  border-radius: 24rpx;
+  padding: 24rpx 28rpx;
+}
+
+.emergency-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 16rpx;
+}
+
+.emergency-text {
+  font-size: 26rpx;
+  color: var(--error);
+  font-weight: 500;
+  flex: 1;
 }
 
 .quick-label {
   font-size: 24rpx;
   color: var(--text-2);
+}
+
+.rec-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.rec-title {
+  font-size: 26rpx;
+  color: var(--text-1);
+  font-weight: 500;
+}
+
+.rec-meta {
+  font-size: 22rpx;
+  color: var(--text-3);
+  margin-top: 6rpx;
+}
+
+.rec-reason {
+  font-size: 22rpx;
+  color: var(--text-2);
+  margin-top: 6rpx;
 }
 
 .countdown-text {

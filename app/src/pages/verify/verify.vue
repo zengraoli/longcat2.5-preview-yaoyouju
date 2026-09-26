@@ -46,24 +46,26 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
+import { api } from '../../api/request';
 
 const info = ref<any>({});
 
-onMounted(async () => {
+async function loadInfo() {
   try {
-    const episodes = await (await import('../../api/request')).api.getEpisodes();
-    if (episodes && episodes.length > 0) {
-      const episodeId = episodes[0].id;
-      const { api } = await import('../../api/request');
-      const events = await api.getCareEvents(episodeId);
-      if (events && events.length > 0) {
-        const reportId = events[0].id;
-        info.value = await api.getStructuredInfo(reportId);
-      }
+    const episodes = await api.getEpisodes();
+    if (!episodes || episodes.length === 0) return;
+    const episodeId = episodes[0].id;
+    const reports = await api.getReportsByEpisode(episodeId);
+    if (reports && reports.length > 0) {
+      info.value = await api.getStructuredInfo(reports[0].id);
     }
   } catch (e) {
     console.error('Failed to load structured info:', e);
   }
+}
+
+onMounted(() => {
+  loadInfo();
 });
 
 function goEdit() {

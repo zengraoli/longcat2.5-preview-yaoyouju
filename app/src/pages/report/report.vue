@@ -7,8 +7,7 @@
 
     <view class="card">
       <view class="tabs">
-       
-view class="tab" :class="{ active: mode === 'paste' }" @click="mode = 'paste'">粘贴文字</view>
+        <view class="tab" :class="{ active: mode === 'paste' }" @click="mode = 'paste'">粘贴文字</view>
         <view class="tab" :class="{ active: mode === 'ocr' }" @click="mode = 'ocr'">拍照识别</view>
       </view>
 

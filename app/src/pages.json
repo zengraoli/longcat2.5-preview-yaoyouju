@@ -41,13 +41,85 @@
     {
       "path": "pages/change/change",
       "style": {
-        "navigationBarTitleText": "关键变化确认"
+        "navigationBarTitleText": "当前关键变化确认",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/redflag/redflag",
       "style": {
-        "navigationBarTitleText": "就医提示"
+        "navigationBarTitleText": "需要及时寻求专业帮助",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/confusion/confusion",
+      "style": {
+        "navigationBarTitleText": "你现在最想解决什么",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/report/report",
+      "style": {
+        "navigationBarTitleText": "录入报告与医嘱（可选）",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/verify/verify",
+      "style": {
+        "navigationBarTitleText": "核对整理后的信息",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/analysis/analysis",
+      "style": {
+        "navigationBarTitleText": "一页分析",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/comparison/comparison",
+      "style": {
+        "navigationBarTitleText": "原文对照",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/today/today",
+      "style": {
+        "navigationBarTitleText": "记录今天",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/content/content",
+      "style": {
+        "navigationBarTitleText": "审核内容库",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/video/video",
+      "style": {
+        "navigationBarTitleText": "审核视频",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/feedback/feedback",
+      "style": {
+        "navigationBarTitleText": "反馈与举报",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/fallback/fallback",
+      "style": {
+        "navigationBarTitleText": "一页分析",
+        "navigationStyle": "custom"
       }
     }
   ],
@@ -65,24 +137,32 @@
       {
         "pagePath": "pages/index/index",
         "text": "当前情况",
-        "iconPath": "",
-        "selectedIconPath": ""
+        "iconPath": "static/icons/tab_home.png",
+        "selectedIconPath": "static/icons/tab_home_active.png"
       },
       {
         "pagePath": "pages/qa/qa",
-        "text": "问与解释"
+        "text": "问与解释",
+        "iconPath": "static/icons/tab_chat.png",
+        "selectedIconPath": "static/icons/tab_chat_active.png"
       },
       {
         "pagePath": "pages/timeline/timeline",
-        "text": "病程"
+        "text": "病程",
+        "iconPath": "static/icons/tab_pulse.png",
+        "selectedIconPath": "static/icons/tab_pulse_active.png"
       },
       {
         "pagePath": "pages/followup/followup",
-        "text": "复诊准备"
+        "text": "复诊准备",
+        "iconPath": "static/icons/tab_doc.png",
+        "selectedIconPath": "static/icons/tab_doc_active.png"
       },
       {
         "pagePath": "pages/mine/mine",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "static/icons/tab_person.png",
+        "selectedIconPath": "static/icons/tab_person_active.png"
       }
     ]
   }

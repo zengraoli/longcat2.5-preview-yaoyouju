@@ -13,7 +13,7 @@
         :class="{ selected: selected === opt.key }"
         @click="selected = opt.key"
       >
-        <view class="option-icon">{{ opt.icon }}</text>
+        <image :src="opt.icon" class="option-icon" />
         <view class="option-content">
           <text class="option-title">{{ opt.title }}</text>
           <text class="option-desc">{{ opt.desc }}</text>
@@ -33,10 +33,10 @@
 import { ref } from 'vue';
 
 const options = [
-  { key: 'terms', icon: '📖', title: '报告术语', desc: '理解检查报告中的专业术语' },
-  { key: 'changes', icon: '📈', title: '病程变化', desc: '症状是好转了还是加重了' },
-  { key: 'followup', icon: '🏥', title: '复诊准备', desc: '为下次复诊做好准备' },
-  { key: 'life', icon: '🏠', title: '生活影响', desc: '腰痛对日常生活的影响' },
+  { key: 'terms', icon: '/static/icons/ic_doc.png', title: '报告术语', desc: '看懂报告里写的是什么、哪些结论不能得出' },
+  { key: 'changes', icon: '/static/icons/ic_pulse.png', title: '病程变化', desc: '这段时间的变化意味着什么、哪些值得记录' },
+  { key: 'followup', icon: '/static/icons/ic_calendar.png', title: '复诊准备', desc: '复诊时该问什么、带什么、怎么描述' },
+  { key: 'life', icon: '/static/icons/ic_heart.png', title: '生活影响', desc: '日常活动、工作与睡眠要注意什么' },
 ];
 
 const selected = ref('');

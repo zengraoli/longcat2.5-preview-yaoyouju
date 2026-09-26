@@ -21,11 +21,11 @@
     <view class="input-area">
       <view class="quick-questions">
         <text class="qq-label">快捷问题：</text>
-        <scroll-view scroll-x class="qq-scroll">
+        <view class="qq-list">
           <view class="qq-item" v-for="q in quickQuestions" :key="q" @click="askQuestion(q)">
             {{ q }}
           </view>
-        </scroll-view>
+        </view>
       </view>
       <view class="input-row">
         <input
@@ -50,7 +50,7 @@ const messages = ref<{ role: string; content: string; source?: string }[]>([]);
 const question = ref('');
 const scrollTop = ref(0);
 const outOfScopeMsg = ref('');
-const quickQuestions = ['我的情况严重吗？', '需要注意什么？', '多久能好转？', '需要手术吗？'];
+const quickQuestions = ['复诊时该怎么描述？', '哪些变化要提前就医？', '保守治疗一般多久？'];
 
 function scrollToBottom() {
   nextTick(() => {
@@ -177,7 +177,7 @@ function sendQuestion() {
 
 .quick-questions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 16rpx;
 }
 
@@ -185,15 +185,17 @@ function sendQuestion() {
   font-size: 22rpx;
   color: var(--text-3);
   flex-shrink: 0;
+  margin-top: 10rpx;
 }
 
-.qq-scroll {
-  white-space: nowrap;
+.qq-list {
   flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 
 .qq-item {
-  display: inline-block;
   padding: 10rpx 20rpx;
   background: var(--bg);
   border-radius: 20rpx;

@@ -67,6 +67,11 @@
 
       <text class="disclaimer">本产品不作诊断，不提供用药或手术建议</text>
     </view>
+
+    <view class="emergency-bar" @click="goEmergency">
+      <image src="/static/icons/ic_warn.png" class="emergency-icon" />
+      <text class="emergency-bar-text">出现严重症状？无需登录，立即查看就医提示</text>
+    </view>
   </view>
 </template>
 
@@ -156,6 +161,33 @@ async function handleLogin() {
   font-size: 22rpx;
   color: var(--error);
   font-weight: 500;
+}
+
+.emergency-bar {
+  position: fixed;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: 48rpx;
+  display: flex;
+  align-items: center;
+  background: rgba(217, 59, 59, 0.12);
+  border-radius: 24rpx;
+  padding: 24rpx 28rpx;
+  z-index: 50;
+}
+
+.emergency-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.emergency-bar-text {
+  font-size: 26rpx;
+  color: var(--error);
+  font-weight: 500;
+  flex: 1;
 }
 
 .hero {
