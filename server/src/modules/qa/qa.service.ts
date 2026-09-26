@@ -90,7 +90,7 @@ export class QaService {
     return {
       sessionId,
       answer,
-      source: relevantChunk ? `evidence-doc-${relevantChunk.doc_id}` : null,
+      source: relevantChunk ? relevantChunk.doc_id : null,
     };
   }
 

@@ -213,7 +213,10 @@ async function generate() {
       uni.showToast({ title: '请先创建病程', icon: 'none' });
       return;
     }
-    const res = await api.createAnalysis({ episodeId });
+    const res = await api.createAnalysis({
+      episodeId,
+      reportId: report.value.reportId || undefined,
+    });
     if (res.safetyMessage) {
       uni.navigateTo({ url: '/pages/redflag/redflag?items=' + encodeURIComponent(res.safetyMessage) });
       return;
