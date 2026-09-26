@@ -14,9 +14,22 @@
 cd android
 ./gradlew assembleDebug        # 产物 app/build/outputs/apk/debug/app-debug.apk
 ./gradlew test                 # 单元测试
+./gradlew assembleDebug test   # 构建 + 测试一次跑完
 ```
 
 Windows 下使用 `gradlew.bat`。
+
+## 截图测试（Roborazzi + Robolectric）
+
+A01–A18 各页面均有 Roborazzi 截图测试（`RoborazziScreensTest`），通过 `FakeYyjApi` 注入演示数据渲染（Robolectric Native Graphics）。
+
+```bash
+./gradlew recordRoborazziDebug   # 录制截图，输出到 android/screenshots/
+./gradlew verifyRoborazziDebug   # 校验截图与基线一致
+```
+
+截图命名格式：`com.yaoyouju.app.RoborazziScreensTest.a01Login.png`（a01–a18 对应设计稿编号）。
+录制产物 `android/screenshots/` 已纳入版本库，作为视觉回归基线。
 
 ## 安装与联调
 

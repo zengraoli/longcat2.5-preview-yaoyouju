@@ -220,6 +220,7 @@ fun LoginScreen(
                         }
                         result.onSuccess { data ->
                             TokenStore.saveToken(data.token)
+                            TokenStore.savePhone(phone)
                             runCatching { ApiClient.api.grantConsent(ConsentRequest(listOf("健康信息处理"))) }
                             onLoggedIn()
                         }.onFailure {

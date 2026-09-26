@@ -14,6 +14,7 @@ private val Context.dataStore by preferencesDataStore(name = "yyj_prefs")
  */
 object TokenStore {
     private val KEY_TOKEN = stringPreferencesKey("auth_token")
+    private val KEY_PHONE = stringPreferencesKey("auth_phone")
 
     fun init(context: Context) {
         appContext = context.applicationContext
@@ -30,6 +31,16 @@ object TokenStore {
 
     fun getToken(): String? = runBlocking {
         appContext!!.dataStore.data.first()[KEY_TOKEN]
+    }
+
+    fun savePhone(phone: String) {
+        runBlocking {
+            appContext!!.dataStore.edit { it[KEY_PHONE] = phone }
+        }
+    }
+
+    fun getPhone(): String? = runBlocking {
+        appContext!!.dataStore.data.first()[KEY_PHONE]
     }
 
     fun clear() {

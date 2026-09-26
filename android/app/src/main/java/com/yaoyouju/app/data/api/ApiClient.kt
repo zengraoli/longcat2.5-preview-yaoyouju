@@ -39,7 +39,8 @@ object ApiClient {
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
 
-    val api: YyjApi = retrofit.create(YyjApi::class.java)
+    /** 默认为真实服务；测试可替换为演示数据实现（Roborazzi 截图测试用） */
+    var api: YyjApi = retrofit.create(YyjApi::class.java)
 }
 
 /** 同步取数的便捷封装（ViewModel 中用协程，此处供测试与简单场景使用） */

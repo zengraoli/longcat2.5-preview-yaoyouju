@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -35,6 +36,23 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+roborazzi {
+    // 截图输出目录（相对 android/）：录制到 android/screenshots/
+    outputDir.set(file("screenshots"))
+}
+
+// Roborazzi 截图测试依赖 debug manifest 中声明的测试 Activity，仅在 debug 变体运行
+tasks.withType<Test>().configureEach {
+    if (name != "testDebugUnitTest") {
+        exclude("com/yaoyouju/app/RoborazziScreensTest.class")
+    }
 }
 
 dependencies {
@@ -57,4 +75,11 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
+    testImplementation(libs.androidx.ui.test)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.junit.rule)
 }
