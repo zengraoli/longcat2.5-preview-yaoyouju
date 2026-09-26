@@ -8,11 +8,12 @@ import androidx.navigation.compose.composable
 import com.yaoyouju.app.ui.screens.ChangeScreen
 import com.yaoyouju.app.ui.screens.HomeScreen
 import com.yaoyouju.app.ui.screens.LoginScreen
+import com.yaoyouju.app.ui.screens.RedflagScreen
 import com.yaoyouju.app.ui.screens.PlaceholderScreen
 
 /**
- * 导航骨架。A01 登录与 A14 首页为真实实现，其余页面在 T45–T50 依次接入。
- * deepLinkRoute（yaoyouju://A01…A18）在首次组合时导航到对应页面。
+ * 导航骨架：全部路由先接占位页，T44–T50 逐页替换为真实实现。
+ * deep link：yaoyouju://<页面编号>
  */
 @Composable
 fun YyjNavHost(
@@ -36,9 +37,11 @@ fun YyjNavHost(
             })
         }
         composable(Routes.CHANGE) { ChangeScreen(onNavigate = { navController.navigate(it) }) }
+        composable(Routes.REDFLAG) {
+            RedflagScreen(onNavigate = { navController.navigate(it) })
+        }
         composable(Routes.HOME) { HomeScreen(onNavigate = { navController.navigate(it) }) }
 
-        composable(Routes.REDFLAG) { PlaceholderScreen("A03 就医提示") }
         composable(Routes.CONFUSION) { PlaceholderScreen("A04 选择主要困惑") }
         composable(Routes.REPORT) { PlaceholderScreen("A05 录入报告与医嘱") }
         composable(Routes.VERIFY) { PlaceholderScreen("A06 核对整理后的信息") }

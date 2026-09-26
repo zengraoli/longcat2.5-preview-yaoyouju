@@ -40,9 +40,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yaoyouju.app.data.ChangeStore
 import com.yaoyouju.app.data.api.ApiClient
 import com.yaoyouju.app.data.api.unwrap
 import com.yaoyouju.app.ui.components.AlertBar
@@ -84,6 +86,7 @@ fun ChangeScreen(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var change by remember { mutableStateOf("") }
     var flags by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -222,6 +225,7 @@ fun ChangeScreen(
                 error = null
                 scope.launch {
                     val result = runCatching {
+                        ChangeStore.saveRedFlags(context, flags)
                         if (episodeId.isEmpty()) {
                             episodeId = ApiClient.api.createEpisode(mapOf("title" to "本次发作")).unwrap()["id"] ?: ""
                         }
