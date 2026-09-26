@@ -18,6 +18,7 @@ export class FeatureSwitchController {
   }
 
   @Post('switch')
+  @UseGuards(AdminAuthGuard)
   set(@Body() dto: { key: string; enabled: boolean; reason?: string }, @Req() req: any) {
     this.featureSwitchService.setSwitch(dto.key, dto.enabled, dto.reason, req.admin.adminUserId);
     return { updated: true };
