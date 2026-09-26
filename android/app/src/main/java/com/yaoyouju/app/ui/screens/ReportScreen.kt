@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +41,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Calendar
+import com.yaoyouju.app.ui.components.DateField
+import com.yaoyouju.app.ui.components.PrimaryButton
+import com.yaoyouju.app.ui.components.SecondaryButton
+import com.yaoyouju.app.ui.components.SelectField
+import com.yaoyouju.app.ui.components.TextLink
 
 private val Primary = Color(0xFF0F6E74)
 private val Surface = Color(0xFFFFFFFF)
@@ -134,7 +140,7 @@ fun ReportScreen(
                         onValueChange = { rawText = it },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 6,
-                        shape = RoundedCornerRadius(10.dp),
+                        shape = RoundedCornerShape(10.dp),
                     )
                     Spacer(Modifier.height(16.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -145,7 +151,7 @@ fun ReportScreen(
                                 onValueChange = {},
                                 readOnly = true,
                                 modifier = Modifier.fillMaxWidth().clickable { openDatePicker() },
-                                shape = RoundedCornerRadius(10.dp),
+                                shape = RoundedCornerShape(10.dp),
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
@@ -171,7 +177,7 @@ fun ReportScreen(
                 }
             }
 
-            Card(shape = RoundedCornerRadius(16.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
+            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("医生已经给出的建议（可选）", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Text1)
@@ -184,7 +190,7 @@ fun ReportScreen(
                         onValueChange = { doctorAdvice = it },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 4,
-                        shape = RoundedCornerRadius(10.dp),
+                        shape = RoundedCornerShape(10.dp),
                     )
                     Spacer(Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -193,7 +199,7 @@ fun ReportScreen(
                                 onClick = { doctorAdvice = (doctorAdvice + "；" + c).trimStart('；') },
                                 colors = ButtonDefaults.buttonColors(containerColor = Surface, contentColor = Text1),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, BorderC),
-                                shape = RoundedCornerRadius(10.dp),
+                                shape = RoundedCornerShape(10.dp),
                             ) { Text(c, fontSize = 13.sp) }
                         }
                     }
@@ -223,7 +229,7 @@ fun ReportScreen(
                     onNavigate("A06")
                 }
             })
-            TextButton(onClick = { onNavigate("A06") }) {
+            OutlinedButton(onClick = { onNavigate("A06") }) {
                 Text("跳过，先不录入报告", color = Primary)
             }
         }
