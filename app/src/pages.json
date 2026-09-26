@@ -127,43 +127,5 @@
     "navigationBarTextStyle": "black",
     "navigationBarBackgroundColor": "#FFFFFF",
     "backgroundColor": "#F4F6F8"
-  },
-  "tabBar": {
-    "color": "#98A1AE",
-    "selectedColor": "#0F6E74",
-    "backgroundColor": "#FFFFFF",
-    "borderStyle": "#E4E8EE",
-    "list": [
-      {
-        "pagePath": "pages/index/index",
-        "text": "当前情况",
-        "iconPath": "static/icons/tab_home.png",
-        "selectedIconPath": "static/icons/tab_home_active.png"
-      },
-      {
-        "pagePath": "pages/qa/qa",
-        "text": "问与解释",
-        "iconPath": "static/icons/tab_chat.png",
-        "selectedIconPath": "static/icons/tab_chat_active.png"
-      },
-      {
-        "pagePath": "pages/timeline/timeline",
-        "text": "病程",
-        "iconPath": "static/icons/tab_pulse.png",
-        "selectedIconPath": "static/icons/tab_pulse_active.png"
-      },
-      {
-        "pagePath": "pages/followup/followup",
-        "text": "复诊准备",
-        "iconPath": "static/icons/tab_doc.png",
-        "selectedIconPath": "static/icons/tab_doc_active.png"
-      },
-      {
-        "pagePath": "pages/mine/mine",
-        "text": "我的",
-        "iconPath": "static/icons/tab_person.png",
-        "selectedIconPath": "static/icons/tab_person_active.png"
-      }
-    ]
   }
 }

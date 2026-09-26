@@ -70,6 +70,7 @@
         <text class="emergency-text">症状突然变化或出现严重信号？查看就医提示</text>
       </view>
     </view>
+      <MainTabBar active-tab="index" />
   </view>
 </template>
 
@@ -77,6 +78,7 @@
 import { ref, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
 import { api } from '../../api/request';
+import MainTabBar from '../../components/MainTabBar.vue';
 
 const pendingItems = ref<{ id: string; text: string }[]>([]);
 const latestAnalysis = ref<{ summary: string; version: number } | null>(null);

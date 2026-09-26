@@ -47,12 +47,14 @@
         <text class="action-arrow">></text>
       </view>
     </view>
+      <MainTabBar active-tab="mine" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { api } from '../../api/request';
+import MainTabBar from '../../components/MainTabBar.vue';
 
 const consentList = ref<any[]>([]);
 
@@ -101,7 +103,7 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.page {
+.page { padding-bottom: 160rpx;
   min-height: 100vh;
   background: var(--bg);
   padding: 32rpx;

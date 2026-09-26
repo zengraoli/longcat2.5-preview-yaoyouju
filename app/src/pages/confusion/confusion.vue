@@ -1,9 +1,14 @@
 <template>
   <view class="page">
     <view class="header">
-      <text class="page-title">选择您最想了解的</text>
-      <text class="page-subtitle">我们会针对您的困惑提供更有针对性的分析</text>
+      <view class="back-row">
+        <image src="/static/icons/ic_chevron_left.png" class="back-icon" @click="goBack" />
+        <text class="page-title">你现在最想解决什么</text>
+      </view>
+      <text class="step-chip">第 2 / 4 步</text>
     </view>
+
+    <text class="page-desc">选择一个最困扰你的问题（可稍后更改）。系统会按你的选择调整解释的重点、长度和形式。</text>
 
     <view class="option-list">
       <view
@@ -13,24 +18,40 @@
         :class="{ selected: selected === opt.key }"
         @click="selected = opt.key"
       >
-        <image :src="opt.icon" class="option-icon" />
+        <view class="option-icon-wrap">
+          <image :src="opt.icon" class="option-icon" />
+        </view>
         <view class="option-content">
           <text class="option-title">{{ opt.title }}</text>
           <text class="option-desc">{{ opt.desc }}</text>
         </view>
-        <view class="option-check" v-if="selected === opt.key">
-          <text class="check-mark">✓</text>
-        </view>
+        <view class="radio" :class="{ checked: selected === opt.key }"></view>
       </view>
     </view>
 
-    <button class="primary-btn" :disabled="!selected" @click="confirm">确认选择</button>
-    <button class="skip-btn" @click="skip">跳过这步</button>
+    <view class="card">
+      <text class="card-title">希望的解释方式</text>
+      <view class="chip-group">
+        <view
+          v-for="opt in ['简短要点', '详细说明', '带图示视频', '先看原文对照']"
+          :key="opt"
+          class="chip"
+          :class="{ selected: styles.includes(opt) }"
+          @click="toggleStyle(opt)"
+        >{{ opt }}</view>
+      </view>
+      <text class="card-note">不会根据你的选择给你贴任何标签，也不会为了让你更安心而改写事实。</text>
+    </view>
+
+    <view class="footer">
+      <button class="primary-btn" :disabled="!selected" @click="confirm">下一步</button>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { api } from '../../api/request';
 
 const options = [
   { key: 'terms', icon: '/static/icons/ic_doc.png', title: '报告术语', desc: '看懂报告里写的是什么、哪些结论不能得出' },
@@ -40,12 +61,35 @@ const options = [
 ];
 
 const selected = ref('');
+const styles = ref<string[]>([]);
 
-function confirm() {
-  uni.navigateTo({ url: '/pages/report/report' });
+function toggleStyle(opt: string) {
+  const idx = styles.value.indexOf(opt);
+  if (idx >= 0) styles.value.splice(idx, 1);
+  else styles.value.push(opt);
 }
 
-function skip() {
+function goBack() {
+  uni.navigateBack();
+}
+
+async function confirm() {
+  try {
+    const episodes = await api.getEpisodes();
+    const episodeId = episodes[0]?.id;
+    if (episodeId) {
+      await api.createCareEvent({
+        episodeId,
+        eventType: '主要困惑',
+        occurredAt: new Date().toISOString(),
+        sourceType: '自述',
+        rawText: `主要困惑：${options.find((o) => o.key === selected.value)?.title || ''}；解释方式：${styles.value.join('、') || '未选择'}`,
+        verifyStatus: '已确认',
+      });
+    }
+  } catch (e) {
+    console.error('Failed to save confusion:', e);
+  }
   uni.navigateTo({ url: '/pages/report/report' });
 }
 </script>
@@ -54,49 +98,85 @@ function skip() {
 .page {
   min-height: 100vh;
   background: var(--bg);
-  padding: 32rpx;
+  padding: 0 32rpx;
 }
 
 .header {
-  margin-bottom: 40rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx 0 24rpx;
+}
+
+.back-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.back-icon {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .page-title {
-  font-size: 36rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-1);
-  display: block;
 }
 
-.page-subtitle {
-  font-size: 24rpx;
+.step-chip {
+  font-size: 22rpx;
+  color: var(--text-3);
+  background: var(--bg);
+  border-radius: 16rpx;
+  padding: 8rpx 20rpx;
+}
+
+.page-desc {
+  font-size: 26rpx;
   color: var(--text-2);
-  margin-top: 12rpx;
+  line-height: 1.6;
   display: block;
+  margin-bottom: 24rpx;
 }
 
 .option-list {
-  margin-bottom: 40rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
 }
 
 .option-card {
-  background: var(--surface);
-  border-radius: 24rpx;
-  padding: 32rpx;
-  margin-bottom: 20rpx;
   display: flex;
   align-items: center;
-  border: 2rpx solid transparent;
+  gap: 24rpx;
+  background: var(--surface);
+  border: 2rpx solid var(--border);
+  border-radius: 24rpx;
+  padding: 28rpx;
+}
 
-  &.selected {
-    border-color: var(--primary);
-    background: var(--primary-light);
-  }
+.option-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.option-icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 16rpx;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .option-icon {
-  font-size: 48rpx;
-  margin-right: 24rpx;
+  width: 40rpx;
+  height: 40rpx;
 }
 
 .option-content {
@@ -111,51 +191,70 @@ function skip() {
 }
 
 .option-desc {
-  font-size: 22rpx;
-  color: var(--text-2);
-  margin-top: 8rpx;
-  display: block;
-}
-
-.option-check {
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 50%;
-  background: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.check-mark {
-  color: #fff;
   font-size: 24rpx;
+  color: var(--text-2);
+  display: block;
+  margin-top: 6rpx;
 }
 
-.primary-btn {
-  width: 100%;
-  height: 96rpx;
-  line-height: 96rpx;
+.radio {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--border);
+  flex-shrink: 0;
+}
+
+.radio.checked {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 6rpx var(--primary-light);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+
+.card-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-1);
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.chip {
+  padding: 16rpx 40rpx;
+  background: var(--bg);
+  border-radius: 24rpx;
+  font-size: 26rpx;
+  color: var(--text-2);
+  border: 2rpx solid transparent;
+}
+
+.chip.selected {
   background: var(--primary);
   color: #fff;
-  font-size: 30rpx;
-  font-weight: 500;
-  border-radius: 20rpx;
-  border: none;
-
-  &[disabled] {
-    opacity: 0.5;
-  }
 }
 
-.skip-btn {
-  width: 100%;
-  height: 72rpx;
-  line-height: 72rpx;
-  background: transparent;
+.card-note {
+  font-size: 24rpx;
   color: var(--text-2);
-  font-size: 26rpx;
-  border: none;
-  margin-top: 16rpx;
+  line-height: 1.6;
+  display: block;
+  margin-top: 24rpx;
+}
+
+.footer {
+  padding: 24rpx 0 48rpx;
 }
 </style>

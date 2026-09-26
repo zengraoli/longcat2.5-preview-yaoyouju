@@ -61,6 +61,7 @@
       <button class="sub-btn" @click="exportText">复制文本</button>
       <button class="primary-btn" @click="exportPdf">导出 PDF</button>
     </view>
+      <MainTabBar active-tab="followup" />
   </view>
 </template>
 
@@ -68,6 +69,7 @@
 import { ref, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
 import { api } from '../../api/request';
+import MainTabBar from '../../components/MainTabBar.vue';
 
 const sections = ref<any>({});
 
@@ -118,7 +120,7 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-.page {
+.page { padding-bottom: 160rpx;
   min-height: 100vh;
   background: var(--bg);
   padding: 32rpx;

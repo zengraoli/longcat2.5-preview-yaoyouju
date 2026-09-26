@@ -40,6 +40,7 @@
         <button class="sub-btn" @click="goRecord">记录今天</button>
       </view>
     </view>
+      <MainTabBar active-tab="timeline" />
   </view>
 </template>
 
@@ -47,6 +48,7 @@
 import { ref, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
 import { api } from '../../api/request';
+import MainTabBar from '../../components/MainTabBar.vue';
 
 const timeline = ref<any[]>([]);
 
@@ -72,7 +74,7 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-.page {
+.page { padding-bottom: 160rpx;
   min-height: 100vh;
   background: var(--bg);
   padding: 32rpx;

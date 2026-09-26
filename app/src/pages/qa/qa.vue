@@ -39,12 +39,14 @@
         <button class="send-btn" :disabled="!question.trim()" @click="sendQuestion">发送</button>
       </view>
     </view>
+      <MainTabBar active-tab="qa" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue';
 import { api } from '../../api/request';
+import MainTabBar from '../../components/MainTabBar.vue';
 
 const messages = ref<{ role: string; content: string; source?: string }[]>([]);
 const question = ref('');
@@ -89,7 +91,7 @@ function sendQuestion() {
 </script>
 
 <style lang="scss" scoped>
-.qa-page {
+.qa-page { padding-bottom: 160rpx;
   height: 100vh;
   display: flex;
   flex-direction: column;
