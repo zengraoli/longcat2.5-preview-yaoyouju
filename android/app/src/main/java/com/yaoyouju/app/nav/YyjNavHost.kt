@@ -11,10 +11,13 @@ import com.yaoyouju.app.ui.screens.ComparisonScreen
 import com.yaoyouju.app.ui.screens.HomeScreen
 import com.yaoyouju.app.ui.screens.LoginScreen
 import com.yaoyouju.app.ui.screens.RedflagScreen
+import com.yaoyouju.app.ui.screens.ContentScreen
+import com.yaoyouju.app.ui.screens.FollowupScreen
 import com.yaoyouju.app.ui.screens.PlaceholderScreen
 import com.yaoyouju.app.ui.screens.QaScreen
 import com.yaoyouju.app.ui.screens.TimelineScreen
 import com.yaoyouju.app.ui.screens.TodayScreen
+import com.yaoyouju.app.ui.screens.VideoScreen
 
 /**
  * 导航骨架：全部路由先接占位页，T44–T50 逐页替换为真实实现。
@@ -70,9 +73,14 @@ fun YyjNavHost(
                 onNavigate = { navController.navigate(it) },
             )
         }
-        composable(Routes.FOLLOWUP) { PlaceholderScreen("A12 复诊准备") }
-        composable(Routes.CONTENT) { PlaceholderScreen("A13 审核内容库") }
-        composable(Routes.VIDEO) { PlaceholderScreen("A15 视频详情") }
+        composable(Routes.FOLLOWUP) { FollowupScreen(onNavigate = { navController.navigate(it) }) }
+        composable(Routes.CONTENT) {
+            ContentScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) },
+            )
+        }
+        composable(Routes.VIDEO) { VideoScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.FEEDBACK) { PlaceholderScreen("A16 反馈与举报") }
         composable(Routes.MINE) { PlaceholderScreen("A17 我的") }
         composable(Routes.FALLBACK) { PlaceholderScreen("A18 服务不可用回退") }

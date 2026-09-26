@@ -1,7 +1,6 @@
 package com.yaoyouju.app.data.api
 
 import kotlinx.serialization.SerialName
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.Serializable
 
 /** 统一响应格式 {"code":0,"data":...,"message":"ok"} */
@@ -97,22 +96,63 @@ data class Analysis(
     val createdAt: String,
 )
 
-// ---------- 复诊摘要 ----------
+// ---------- 复诊摘要（followup/preview 返回 sections 结构） ----------
 @Serializable
 data class FollowupReport(val date: String, val text: String, val verifyStatus: String = "尚未确认")
-
-@Serializable
-data class FollowupSection<T : Any>(val title: String, val items: List<T> = emptyList())
 
 @Serializable
 data class FollowupPreview(
     val episodeId: String,
     val generatedAt: String,
-    val chiefComplaint: JsonElement? = null,
-    val examinationFindings: List<FollowupReport> = emptyList(),
+    val sections: FollowupSections = FollowupSections(),
+)
+
+@Serializable
+data class FollowupSections(
+    val chiefComplaint: FollowupChiefComplaint? = null,
+    val examinationFindings: FollowupExamination? = null,
+    val diagnosisAndAssessment: FollowupDiagnosis? = null,
+    val symptomsAndChanges: FollowupSymptoms? = null,
+    val concerns: FollowupConcerns? = null,
+    val questionsForDoctor: FollowupQuestions? = null,
+)
+
+@Serializable
+data class FollowupChiefComplaint(
+    val title: String = "主诉与病程",
+    val selfReported: List<String> = emptyList(),
+    val onsetDate: String = "尚未确认",
+)
+
+@Serializable
+data class FollowupExamination(
+    val title: String = "检查与检验",
+    val reports: List<FollowupReport> = emptyList(),
+)
+
+@Serializable
+data class FollowupDiagnosis(
+    val title: String = "诊断与评估",
     val doctorRecords: List<Map<String, String>> = emptyList(),
+    val latestAnalysis: List<String> = emptyList(),
+)
+
+@Serializable
+data class FollowupSymptoms(
+    val title: String = "症状变化",
     val recentLogs: List<Map<String, String?>> = emptyList(),
-    val questionsForDoctor: List<String> = emptyList(),
+)
+
+@Serializable
+data class FollowupConcerns(
+    val title: String = "担心与顾虑",
+    val topWorries: List<String> = emptyList(),
+)
+
+@Serializable
+data class FollowupQuestions(
+    val title: String = "想问医生的问题",
+    val questions: List<String> = emptyList(),
 )
 
 // ---------- 内容库 ----------

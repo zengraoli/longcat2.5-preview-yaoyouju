@@ -50,6 +50,9 @@ interface YyjApi {
     @POST("/followup/preview")
     suspend fun previewFollowup(@Body body: Map<String, String>): ApiResponse<FollowupPreview>
 
+    @POST("/followup/export")
+    suspend fun exportFollowup(@Body body: Map<String, String>): ApiResponse<Map<String, String>>
+
     @POST("/qa/ask")
     suspend fun askQuestion(@Body body: Map<String, String>): ApiResponse<QaResult>
 
