@@ -11,6 +11,7 @@ export interface ExtractedTerm {
 @Injectable()
 export class ReportService {
   private readonly MEDICAL_TERMS = [
+    'L1/2', 'L2/3', 'L3/4', 'L4/5', 'L5/S1',
     'L1', 'L2', 'L3', 'L4', 'L5', 'S1', 'S2',
     '椎间盘突出', '椎间盘退变', '椎管狭窄', '硬膜囊受压',
     '神经根受压', '椎体滑脱', '终板炎', '许莫氏结节',
