@@ -24,6 +24,12 @@ interface YyjApi {
     @GET("/episodes")
     suspend fun getEpisodes(): ApiResponse<List<Episode>>
 
+    @POST("/episodes")
+    suspend fun createEpisode(@Body body: Map<String, String>): ApiResponse<Map<String, String>>
+
+    @POST("/episodes/events")
+    suspend fun createCareEvent(@Body body: Map<String, String>): ApiResponse<Map<String, String>>
+
     @GET("/episodes/{id}/timeline")
     suspend fun getTimeline(@Query("episodeId") episodeId: String): ApiResponse<List<CareEvent>>
 
