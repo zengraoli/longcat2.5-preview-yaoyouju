@@ -192,9 +192,15 @@ onMounted(async () => {
     if (taskId) {
       analysis.value = await api.getAnalysis(taskId);
     } else if (episodeId) {
-      const res = await api.createAnalysis({ episodeId });
-      if (!res.safetyMessage) {
-        analysis.value = await api.getAnalysis(res.taskId);
+      // 优先展示已有最新分析，避免重复创建
+      const latest = await api.getLatestAnalysis(episodeId);
+      if (latest.status === 'ok') {
+        analysis.value = latest;
+      } else {
+        const res = await api.createAnalysis({ episodeId });
+        if (!res.safetyMessage) {
+          analysis.value = await api.getAnalysis(res.taskId);
+        }
       }
     }
     const events = episodeId ? await api.getCareEvents(episodeId) : [];
