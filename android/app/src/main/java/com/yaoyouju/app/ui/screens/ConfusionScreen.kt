@@ -1,5 +1,8 @@
 package com.yaoyouju.app.ui.screens
 
+import com.yaoyouju.app.data.api.ApiClient
+import com.yaoyouju.app.data.api.unwrap
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +19,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import com.yaoyouju.app.ui.components.*
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +76,7 @@ fun ConfusionScreen(
 ) {
     var selected by remember { mutableStateOf(confusionOptions.first().first) }
     var styles by remember { mutableStateOf<List<String>>(emptyList()) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -185,7 +191,7 @@ fun ConfusionScreen(
                     runCatching {
                         val episodes = ApiClient.api.getEpisodes().unwrap()
                         val episodeId = episodes.firstOrNull()?.id ?: run {
-                            ApiClient.api.createEpisode(mapOf("title" to "本次发作")).unwrap().id
+                            (ApiClient.api.createEpisode(mapOf("title" to "本次发作")).unwrap() as Map<*, *>)["id"].toString()
                         }
                         ApiClient.api.createCareEvent(mapOf(
                             "episodeId" to episodeId,
