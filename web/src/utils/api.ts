@@ -47,6 +47,7 @@ export const api = {
   verifyReport: (reportId: string, data: any) => request(`/reports/${reportId}/verify`, { method: 'POST', body: JSON.stringify(data) }),
   createAnalysis: (data: any) => request('/analyses', { method: 'POST', body: JSON.stringify(data) }),
   getAnalysis: (taskId: string) => request(`/analyses/${taskId}`),
+  getLatestAnalysis: (episodeId: string) => request(`/analyses/latest?episodeId=${encodeURIComponent(episodeId)}`),
   createSymptomLog: (data: any) => request('/episodes/symptom-logs', { method: 'POST', body: JSON.stringify(data) }),
   getTimeline: (episodeId: string) => request(`/episodes/${episodeId}/timeline`),
   previewFollowup: (episodeId: string) => request('/followup/preview', { method: 'POST', body: JSON.stringify({ episodeId }) }),

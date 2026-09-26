@@ -323,7 +323,7 @@ for (const key of ['home', 'chat', 'pulse', 'doc', 'person']) {
 // 功能图标（固定颜色）
 const fixed = {
   pen: 'primary', upload: 'primary', play: 'primary', info: 'info', warn: 'warn',
-  heart: 'error', send: 'primary', flag: 'error',
+  heart: 'error', send: 'primary', flag: 'error', doc: 'primary', pulse: 'primary', chat: 'primary',
   error: 'error', check: 'ok', calendar: 'primary', search: 'primary', share: 'primary',
   gear: 'normal', shield: 'primary', download: 'normal', trash: 'error', bell: 'normal',
   clock: 'normal', close: 'normal', chevron_left: 'normal', plus: 'normal', image: 'primary',

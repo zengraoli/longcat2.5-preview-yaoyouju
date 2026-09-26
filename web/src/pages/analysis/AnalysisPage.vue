@@ -54,8 +54,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { api } from '../../utils/api';
 import type { Analysis } from '../../types';
+
+const route = useRoute();
 const loading = ref(true);
 const error = ref('');
 const analysis = ref<Analysis | null>(null);
@@ -77,12 +80,23 @@ onMounted(async () => {
       return;
     }
     const episodeId = episodes[0].id;
-    const task = await api.createAnalysis({ episodeId });
-    if (task.safetyMessage) {
-      error.value = task.safetyMessage;
-      return;
+
+    if (route.params.id === 'latest') {
+      // 工作台“查看详情”：直接取最近一页分析，不重复创建任务
+      const latest = await api.getLatestAnalysis(episodeId);
+      if (latest.status === 'none') {
+        error.value = '尚未生成分析';
+        return;
+      }
+      analysis.value = latest;
+    } else {
+      const task = await api.createAnalysis({ episodeId });
+      if (task.safetyMessage) {
+        error.value = task.safetyMessage;
+        return;
+      }
+      analysis.value = await api.getAnalysis(task.taskId);
     }
-    analysis.value = await api.getAnalysis(task.taskId);
 
     const events = await api.getCareEvents(episodeId);
     if (events && events.length > 0) {

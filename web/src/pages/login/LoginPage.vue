@@ -1,55 +1,83 @@
 <template>
   <div class="login-page">
-    <div class="login-container">
-      <div class="brand-side">
-        <h1 class="brand-title">腰有据</h1>
-        <p class="brand-subtitle">腰痛理解与复诊助手</p>
-        <ul class="brand-features">
-          <li>理解检查报告</li>
-          <li>整理病程变化</li>
-          <li>准备复诊摘要</li>
-        </ul>
+    <div class="brand-side">
+      <div class="brand-row">
+        <span class="brand-logo">腰</span>
+        <span class="brand-title">腰有据</span>
       </div>
-
-      <div class="login-side">
-        <form class="login-form" @submit.prevent="handleLogin">
-          <h2 class="form-title">登录 / 注册</h2>
-
-          <div class="form-group">
-            <label>手机号</label>
-            <input v-model="phone" type="text" placeholder="请输入 11 位手机号" maxlength="11" />
+      <p class="brand-subtitle">腰痛理解与复诊助手</p>
+      <p class="brand-desc">
+        把检查报告、当前症状、病程变化和最困扰你的问题连接起来，说明“已经知道什么、仍不知道什么、接下来怎么办”。帮助理解和复诊，不代替医生诊断。
+      </p>
+      <ul class="brand-features">
+        <li class="brand-feature">
+          <img src="@/assets/icons/ic_doc.png" alt="" />
+          <div>
+            <span class="bf-title">看懂报告</span>
+            <span class="bf-desc">术语解释逐句对应原文；报告未提及的内容不会被写成“已排除”</span>
           </div>
-
-          <div class="form-group">
-            <label>验证码</label>
-            <div class="code-row">
-              <input v-model="code" type="text" placeholder="请输入验证码" maxlength="6" />
-              <button type="button" class="code-btn" :disabled="countdown > 0" @click="sendCode">
-                {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
-              </button>
-            </div>
+        </li>
+        <li class="brand-feature">
+          <img src="@/assets/icons/ic_pulse.png" alt="" />
+          <div>
+            <span class="bf-title">记录病程</span>
+            <span class="bf-desc">低负担记录，保留来源、时间与核实状态</span>
           </div>
-
-          <div class="consent-section">
-            <label class="consent-item">
-              <input type="checkbox" v-model="consents.health" />
-              <span>我同意腰有据处理我的敏感健康信息</span>
-            </label>
-            <label class="consent-item">
-              <input type="checkbox" v-model="consents.share" />
-              <span>我同意将去标识化信息用于产品改进</span>
-            </label>
-            <label class="consent-item">
-              <input type="checkbox" v-model="consents.improve" />
-              <span>我同意参与产品改进调研</span>
-            </label>
+        </li>
+        <li class="brand-feature">
+          <img src="@/assets/icons/ic_calendar.png" alt="" />
+          <div>
+            <span class="bf-title">准备复诊</span>
+            <span class="bf-desc">一页交接摘要，预览后由你自主导出</span>
           </div>
+        </li>
+      </ul>
+    </div>
 
-          <button type="submit" class="btn-primary" :disabled="!canSubmit">登录 / 注册</button>
+    <div class="form-side">
+      <form class="login-card" @submit.prevent="handleLogin">
+        <h2 class="form-title">登录 / 注册</h2>
+        <p class="form-subtitle">使用手机号验证码登录；首次登录即注册。</p>
 
-          <p class="disclaimer">本产品不作诊断，不提供用药或手术建议</p>
-        </form>
-      </div>
+        <div class="form-group">
+          <label>手机号</label>
+          <input v-model="phone" type="text" placeholder="请输入手机号" maxlength="11" />
+        </div>
+
+        <div class="form-group">
+          <label>验证码</label>
+          <div class="code-row">
+            <input v-model="code" type="text" placeholder="6 位验证码" maxlength="6" />
+            <button type="button" class="code-btn" :disabled="countdown > 0" @click="sendCode">
+              {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary btn-block" :disabled="!canSubmit">登录 / 注册</button>
+
+        <label class="consent-item">
+          <input type="checkbox" v-model="consents.health" />
+          <span>我已阅读并同意《用户协议》《隐私政策》</span>
+        </label>
+
+        <div class="consent-card">
+          <input type="checkbox" v-model="consents.share" id="consent-share" />
+          <label for="consent-share">
+            单独同意：处理我的健康信息（含检查报告、症状记录，属敏感个人信息）。可随时在“账户-数据与授权”撤回。
+          </label>
+        </div>
+
+        <div class="info-alert">
+          <img src="@/assets/icons/ic_info.png" alt="" />
+          <span>本产品帮助你理解资料与准备复诊，不代替医生诊断，不提供处方或手术判断。</span>
+        </div>
+
+        <div class="emergency-bar">
+          <img src="@/assets/icons/ic_warn.png" alt="" />
+          <span>出现严重症状？无需登录，立即查看就医提示</span>
+        </div>
+      </form>
     </div>
   </div>
 </template>
@@ -63,20 +91,25 @@ const router = useRouter();
 const phone = ref('');
 const code = ref('');
 const countdown = ref(0);
-const consents = ref({ health: false, share: false, improve: false });
+const consents = ref({ health: false, share: false });
 
 const canSubmit = computed(() => phone.value.length === 11 && code.value.length === 6 && consents.value.health);
 
+function startCountdown() {
+  countdown.value = 60;
+  const timer = setInterval(() => {
+    countdown.value--;
+    if (countdown.value <= 0) clearInterval(timer);
+  }, 1000);
+}
+
 async function sendCode() {
+  if (phone.value.length !== 11) return;
   try {
     await api.sendCode(phone.value);
-    countdown.value = 60;
-    const timer = setInterval(() => {
-      countdown.value--;
-      if (countdown.value <= 0) clearInterval(timer);
-    }, 1000);
-  } catch (e: any) {
-    alert(e.message);
+    startCountdown();
+  } catch {
+    // 演示环境验证码固定为 123456
   }
 }
 
@@ -84,87 +117,132 @@ async function handleLogin() {
   try {
     const res = await api.login(phone.value, code.value);
     setToken(res.token);
-    const scopes = Object.entries(consents.value).filter(([, v]) => v).map(([k]) => {
-      const map: Record<string, string> = { health: '健康信息处理', share: '分享', improve: '产品改进' };
-      return map[k];
-    });
-    await api.grantConsent(scopes);
+    await api.grantConsent(['健康信息处理']);
     router.push('/dashboard');
   } catch (e: any) {
-    alert(e.message);
+    alert(e.message || '登录失败');
   }
 }
 </script>
 
 <style scoped>
 .login-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg);
-}
-
-.login-container {
-  display: flex;
-  width: 960px;
-  background: var(--surface);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 
 .brand-side {
-  flex: 1;
   background: var(--primary);
   color: #fff;
-  padding: 60px 48px;
+  padding: 80px 64px;
   display: flex;
   flex-direction: column;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
   justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
 }
 
 .brand-title {
-  font-size: 36px;
+  font-size: 24px;
   font-weight: 700;
-  margin-bottom: 12px;
 }
 
 .brand-subtitle {
+  margin-top: 96px;
   font-size: 16px;
   opacity: 0.9;
-  margin-bottom: 32px;
+}
+
+.brand-desc {
+  margin-top: 24px;
+  font-size: 14px;
+  line-height: 1.7;
+  opacity: 0.85;
+  max-width: 480px;
 }
 
 .brand-features {
+  margin-top: 48px;
   list-style: none;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.brand-features li {
-  padding: 8px 0;
-  font-size: 14px;
+.brand-feature {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
 }
 
-.brand-features li::before {
-  content: '✓';
-  margin-right: 8px;
-  font-weight: 700;
+.brand-feature img {
+  width: 36px;
+  height: 36px;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  filter: brightness(0) invert(1);
 }
 
-.login-side {
+.bf-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.bf-desc {
+  display: block;
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+.form-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+.login-card {
   width: 440px;
-  padding: 60px 48px;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 32px;
 }
 
 .form-title {
   font-size: 20px;
   font-weight: 500;
-  margin-bottom: 32px;
+}
+
+.form-subtitle {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 6px;
+  margin-bottom: 24px;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
@@ -179,13 +257,19 @@ async function handleLogin() {
   height: 44px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0 16px;
+  padding: 0 14px;
   font-size: 14px;
+  outline: none;
+  background: var(--surface);
+}
+
+.form-group input:focus {
+  border-color: var(--primary);
 }
 
 .code-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .code-row input {
@@ -193,7 +277,7 @@ async function handleLogin() {
 }
 
 .code-btn {
-  width: 120px;
+  width: 110px;
   height: 44px;
   background: var(--primary-light);
   color: var(--primary);
@@ -203,24 +287,89 @@ async function handleLogin() {
   cursor: pointer;
 }
 
-.consent-section {
-  margin: 24px 0;
+.code-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-block {
+  width: 100%;
+  margin-top: 8px;
 }
 
 .consent-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 12px;
+  gap: 10px;
+  margin-top: 20px;
+  font-size: 13px;
   color: var(--text-2);
   cursor: pointer;
 }
 
-.disclaimer {
-  text-align: center;
-  font-size: 11px;
-  color: var(--text-3);
+.consent-item input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.consent-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.consent-card input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+
+.info-alert {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   margin-top: 16px;
+  background: rgba(47, 111, 216, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.info-alert img {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.emergency-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+  background: rgba(217, 59, 59, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 13px;
+  color: var(--error);
+  font-weight: 500;
+}
+
+.emergency-bar img {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 </style>
