@@ -6,6 +6,9 @@
     </div>
 
     <div class="card">
+      <div class="flow-hint">
+        <span class="flow-step">候选</span> → <span class="flow-step">评测门禁</span> → <span class="flow-step">灰度</span> → <span class="flow-step">生效</span>
+      </div>
       <table class="data-table">
         <thead>
           <tr>
@@ -14,6 +17,7 @@
             <th>检索策略</th>
             <th>内容库版本</th>
             <th>状态</th>
+            <th>评测结果</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -27,6 +31,10 @@
               <span class="tag" :class="statusTagClass(item.status)">{{ item.status }}</span>
             </td>
             <td>
+              <span v-if="item.id === currentReleaseId" class="tag" :class="gateResult === '通过' ? 'tag-ok' : 'tag-error'">{{ gateResult }}</span>
+              <span v-else>-</span>
+            </td>
+            <td>
               <button v-if="item.status === '候选'" class="btn-small" @click="submitEval(item)">提交评测</button>
               <button v-if="item.status === '灰度'" class="btn-small" @click="publish(item)">发布</button>
               <button class="btn-small" @click="rollback(item)">回滚</button>
@@ -37,6 +45,28 @@
       <div class="empty-state" v-if="models.length === 0">
         <p>暂无模型发布记录</p>
       </div>
+    </div>
+
+    <div class="card" v-if="evalRuns.length > 0">
+      <h3 class="section-title">评测门禁结果</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>模型</th>
+            <th>评测集</th>
+            <th>结果</th>
+            <th>指标</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="run in evalRuns" :key="run.id">
+            <td>{{ run.model_name }}</td>
+            <td>{{ run.eval_set_name }}</td>
+            <td><span class="tag" :class="run.result === '通过' ? 'tag-ok' : 'tag-error'">{{ run.result }}</span></td>
+            <td>{{ run.metrics || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="modal" v-if="showCreate" @click.self="showCreate = false">
@@ -72,7 +102,10 @@ import { ref, onMounted } from 'vue';
 import { api } from '../../utils/api';
 
 const models = ref<any[]>([]);
+const evalRuns = ref<any[]>([]);
 const showCreate = ref(false);
+const currentReleaseId = ref('');
+const gateResult = ref('通过');
 const newModel = ref({ model_name: '', prompt_version: '', retrieval_strategy: '', content_lib_version: '' });
 
 function statusTagClass(status: string) {
@@ -112,6 +145,11 @@ async function createModel() {
 async function loadModels() {
   try {
     models.value = await api.getModels();
+    evalRuns.value = await api.getEvalRuns();
+    const current = models.value.find((m) => m.status === '生效');
+    currentReleaseId.value = current?.id || models.value[0]?.id || '';
+    const run = evalRuns.value.find((r) => r.model_release_id === currentReleaseId.value);
+    gateResult.value = run?.result || '通过';
   } catch (e) {
     console.error('Failed to load models:', e);
   }
@@ -136,4 +174,7 @@ onMounted(() => { loadModels(); });
 .form-group input { width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 13px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
 .empty-state { text-align: center; padding: 40px; color: var(--text-3); }
+.flow-hint { margin-bottom: 16px; font-size: 13px; color: var(--text-2); }
+.flow-step { background: var(--primary-light); color: var(--primary); border-radius: 4px; padding: 3px 10px; font-size: 12px; }
+.section-title { font-size: 16px; font-weight: 500; margin-bottom: 16px; }
 </style>

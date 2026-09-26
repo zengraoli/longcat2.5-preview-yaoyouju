@@ -108,6 +108,26 @@ export class AdminService {
     return db.prepare('SELECT * FROM admin_user').all();
   }
 
+  getRoles() {
+    const db = getDb();
+    return db.prepare('SELECT id, name, permissions FROM role ORDER BY rowid ASC').all();
+  }
+
+  getAuditLogs() {
+    const db = getDb();
+    return db.prepare('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 50').all();
+  }
+
+  getSafetyEvents() {
+    const db = getDb();
+    return db.prepare('SELECT * FROM safety_event ORDER BY created_at DESC LIMIT 50').all();
+  }
+
+  getCaseSubmissions() {
+    const db = getDb();
+    return db.prepare('SELECT * FROM case_submission ORDER BY rowid DESC LIMIT 50').all();
+  }
+
   getEvalSets() {
     const db = getDb();
     return db.prepare('SELECT id, name, case_count, deidentified FROM eval_set ORDER BY rowid ASC').all();

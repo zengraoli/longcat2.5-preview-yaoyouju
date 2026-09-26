@@ -48,6 +48,30 @@ export class AdminController {
     return result;
   }
 
+  @Get('roles')
+  @UseGuards(AdminAuthGuard)
+  roles() {
+    return this.adminService.getRoles();
+  }
+
+  @Get('audit-logs')
+  @UseGuards(AdminAuthGuard)
+  auditLogs() {
+    return this.adminService.getAuditLogs();
+  }
+
+  @Get('safety-events')
+  @UseGuards(AdminAuthGuard)
+  safetyEvents() {
+    return this.adminService.getSafetyEvents();
+  }
+
+  @Get('case-submissions')
+  @UseGuards(AdminAuthGuard)
+  caseSubmissions() {
+    return this.adminService.getCaseSubmissions();
+  }
+
   @Get('audit/verify')
   verifyAudit(@Headers('x-admin-token') token: string) {
     const session = this.adminService.validateSession(token);

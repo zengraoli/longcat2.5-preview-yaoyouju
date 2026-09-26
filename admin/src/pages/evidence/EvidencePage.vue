@@ -11,7 +11,9 @@
           <tr>
             <th>标题</th>
             <th>来源类型</th>
+            <th>许可</th>
             <th>核实日期</th>
+            <th>入库管线</th>
             <th>状态</th>
             <th>操作</th>
           </tr>
@@ -20,7 +22,9 @@
           <tr v-for="doc in docs" :key="doc.id">
             <td>{{ doc.title }}</td>
             <td><span class="tag tag-info">{{ doc.source_type }}</span></td>
-            <td>{{ doc.verified_at ? doc.verified_at.slice(0, 10) : '-' }}</td>
+            <td>{{ doc.license || '-' }}</td>
+            <td>{{ doc.verified_at ? doc.verified_at.slice(0, 10) : '尚未确认' }}</td>
+            <td><span class="tag tag-ok">已入库</span></td>
             <td>
               <span class="tag" :class="doc.active ? 'tag-ok' : 'tag-error'">
                 {{ doc.active ? '启用' : '停用' }}

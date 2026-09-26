@@ -46,10 +46,20 @@
         <div class="detail-section">
           <h4>可识别风险检查</h4>
           <ul class="risk-list">
-            <li>第三方姓名: 未检出</li>
-            <li>第三方机构: 未检出</li>
-            <li>联系方式: 未检出</li>
+            <li>第三方姓名：未检出</li>
+            <li>第三方机构：未检出</li>
+            <li>联系方式：未检出</li>
+            <li>精确日期与地点：未检出</li>
           </ul>
+        </div>
+        <div class="detail-section">
+          <h4>第三方信息去除对照</h4>
+          <table class="data-table">
+            <thead><tr><th>原文片段</th><th>处理</th></tr></thead>
+            <tbody>
+              <tr><td>（未检出第三方信息）</td><td><span class="tag tag-ok">无需处理</span></td></tr>
+            </tbody>
+          </table>
         </div>
         <div class="detail-section">
           <h4>授权范围</h4>
@@ -66,6 +76,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { api } from '../../utils/api';
 
 const cases = ref<any[]>([]);
 const showDetail = ref(false);
@@ -83,7 +94,9 @@ function publishCase() {
 
 async function loadCases() {
   try {
-    publishEnabled.value = false;
+    cases.value = await api.getCaseSubmissions();
+    const switches = await api.getFeatureSwitches();
+    publishEnabled.value = switches.find((s: any) => s.key === 'case_card')?.enabled ?? false;
   } catch (e) {
     console.error('Failed to load cases:', e);
   }

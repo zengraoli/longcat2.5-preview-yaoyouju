@@ -110,6 +110,24 @@ export class ContentService {
     return { ...content, versions, reviews };
   }
 
+  /**
+   * 后台内容库列表：含最新版本与最近审核记录。
+   */
+  getAllContent() {
+    const db = getDb();
+    const items = db.prepare('SELECT * FROM content_item ORDER BY rowid DESC').all() as any[];
+    return items.map((item) => {
+      const latestVersion = db.prepare('SELECT * FROM content_version WHERE item_id = ? ORDER BY version DESC LIMIT 1').get(item.id) as any | undefined;
+      const latestReview = db.prepare('SELECT * FROM review_record WHERE target_id = ? ORDER BY reviewed_at DESC LIMIT 1').get(item.id) as any | undefined;
+      return {
+        ...item,
+        latestVersion: latestVersion ? `v${latestVersion.version}` : null,
+        reviewer: latestReview?.reviewer_id || null,
+        reviewDecision: latestReview?.decision || null,
+      };
+    });
+  }
+
   getRecommendations(userId: string) {
     const db = getDb();
     const published = db.prepare("SELECT * FROM content_item WHERE current_status = '已发布' AND offline_switch = 0").all() as any[];

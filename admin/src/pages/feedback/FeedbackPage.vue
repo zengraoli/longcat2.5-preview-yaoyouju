@@ -23,6 +23,7 @@
             <th>ID</th>
             <th>类型</th>
             <th>严重度</th>
+            <th>分类</th>
             <th>状态</th>
             <th>时间</th>
             <th>操作</th>
@@ -31,13 +32,15 @@
         <tbody>
           <tr v-for="item in filteredItems" :key="item.id">
             <td>{{ item.id.slice(0, 8) }}</td>
-            <td>{{ item.is_error_report ? '错误举报' : '反馈' }}</td>
+            <td>{{ item.is_error_report ? '错误举报' : '帮助类型反馈' }}</td>
             <td>
               <span v-if="item.is_error_report" :class="['tag', severityTagClass(item.severity)]">
-                {{ item.severity }}
+                {{ severityLabel(item.severity) }}
               </span>
+              <span v-else>-</span>
             </td>
-            <td><span class="tag tag-warn">{{ item.status || 'open' }}</span></td>
+            <td>{{ item.category || '-' }}</td>
+            <td><span class="tag" :class="item.error_status === 'open' ? 'tag-warn' : 'tag-ok'">{{ item.error_status || 'open' }}</span></td>
             <td>{{ formatTime(item.created_at) }}</td>
             <td>
               <button class="btn-small" @click="viewDetail(item)">查看</button>
@@ -54,13 +57,21 @@
       <div class="modal-content card">
         <h3 class="modal-title">详情</h3>
         <div class="detail-body">
-          <p><strong>类型:</strong> {{ detail.is_error_report ? '错误举报' : '反馈' }}</p>
-          <p v-if="detail.is_error_report"><strong>严重度:</strong> {{ detail.severity }}</p>
+          <p><strong>类型:</strong> {{ detail.is_error_report ? '错误举报' : '帮助类型反馈' }}</p>
+          <p v-if="detail.is_error_report"><strong>严重度:</strong> {{ severityLabel(detail.severity) }}</p>
           <p v-if="detail.is_error_report"><strong>分类:</strong> {{ detail.category }}</p>
           <p v-if="detail.is_error_report"><strong>描述:</strong> {{ detail.description }}</p>
           <p><strong>用户ID:</strong> {{ detail.user_id?.slice(0, 8) }}***</p>
+          <div class="version-box">
+            <p class="version-title">自动附带的四类版本</p>
+            <p>分析版本：{{ detail.analysis_version ? 'v' + detail.analysis_version : '尚未确认' }}</p>
+            <p>模型版本：{{ detail.model_version || '尚未确认' }}</p>
+            <p>内容库版本：{{ detail.content_version || '尚未确认' }}</p>
+            <p>检索策略 / 规则集：{{ detail.rule_set_version || '尚未确认' }}</p>
+          </div>
         </div>
         <div class="modal-actions">
+          <button class="btn-small-danger" @click="grantView">单条授权查看</button>
           <button class="btn-secondary" @click="showDetail = false">关闭</button>
         </div>
       </div>
@@ -92,6 +103,15 @@ const filteredItems = computed(() => {
 function severityTagClass(severity: string) {
   const map: Record<string, string> = { low: 'tag-info', medium: 'tag-warn', high: 'tag-error' };
   return map[severity] || 'tag-info';
+}
+
+function severityLabel(severity: string) {
+  const map: Record<string, string> = { low: '低', medium: '中', high: '高' };
+  return map[severity] || severity || '-';
+}
+
+function grantView() {
+  alert('已记录单条授权查看：仅限本条分析涉及的报告与记录，可随时撤回。');
 }
 
 function formatTime(iso: string) {
@@ -133,4 +153,33 @@ onMounted(() => { loadItems(); });
 .detail-body p { margin-bottom: 12px; font-size: 13px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
 .empty-state { text-align: center; padding: 40px; color: var(--text-3); }
+
+.version-box {
+  margin-top: 16px;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.version-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.version-box p {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+
+.btn-small-danger {
+  background: none;
+  color: var(--error);
+  border: 1px solid rgba(217, 59, 59, 0.3);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
 </style>

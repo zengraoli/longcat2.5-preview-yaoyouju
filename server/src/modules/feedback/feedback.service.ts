@@ -64,13 +64,17 @@ export class FeedbackService {
 
   getFeedbackList(filters?: { isErrorReport?: boolean; severity?: string }) {
     const db = getDb();
-    let sql = 'SELECT * FROM feedback WHERE 1=1';
-    const params: any[] = [];
+    const rows = db.prepare(`
+      SELECT f.*, er.severity, er.category, er.description, er.analysis_version, er.model_version, er.content_version, er.rule_set_version, er.status AS error_status
+      FROM feedback f
+      LEFT JOIN error_report er ON er.feedback_id = f.id
+      WHERE 1=1
+    `).all() as any[];
+    let result = rows;
     if (filters?.isErrorReport !== undefined) {
-      sql += ' AND is_error_report = ?';
-      params.push(filters.isErrorReport ? 1 : 0);
+      result = rows.filter((r) => (r.is_error_report ? 1 : 0) === (filters.isErrorReport ? 1 : 0));
     }
-    return db.prepare(sql + ' ORDER BY rowid DESC').all(...params);
+    return result;
   }
 
   getFeedbackById(feedbackId: string) {

@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { ContentService } from './content.service';
 import { CreateContentDto, SubmitReviewDto, ReviewDecisionDto, PublishDto, OfflineDto } from './dto/content.dto';
 
@@ -10,6 +11,12 @@ export class ContentController {
   @Get()
   getPublished() {
     return this.contentService.getPublishedContent();
+  }
+
+  @Get('all')
+  @UseGuards(AdminAuthGuard)
+  getAll() {
+    return this.contentService.getAllContent();
   }
 
   @Get('recommendations')
