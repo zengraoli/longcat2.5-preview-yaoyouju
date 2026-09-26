@@ -42,6 +42,7 @@ export const api = {
   createEpisode: (data: any) => request('/episodes', { method: 'POST', body: JSON.stringify(data) }),
   getCareEvents: (episodeId: string) => request(`/episodes/${episodeId}/events`),
   createCareEvent: (data: any) => request('/episodes/events', { method: 'POST', body: JSON.stringify(data) }),
+  deleteCareEvent: (eventId: string) => request(`/episodes/events/${eventId}`, { method: 'DELETE' }),
   createReport: (data: any) => request('/reports', { method: 'POST', body: JSON.stringify(data) }),
   getStructuredInfo: (reportId: string) => request(`/reports/${reportId}/structured`),
   verifyReport: (reportId: string, data: any) => request(`/reports/${reportId}/verify`, { method: 'POST', body: JSON.stringify(data) }),
