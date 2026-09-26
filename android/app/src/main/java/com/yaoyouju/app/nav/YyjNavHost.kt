@@ -35,7 +35,7 @@ fun YyjNavHost(
                 }
             })
         }
-        composable(Routes.CHANGE) { ChangeScreen(onBack = { navController.popBackStack() }) }
+        composable(Routes.CHANGE) { ChangeScreen(onNavigate = { navController.navigate(it) }) }
         composable(Routes.HOME) { HomeScreen(onNavigate = { navController.navigate(it) }) }
 
         composable(Routes.REDFLAG) { PlaceholderScreen("A03 就医提示") }
