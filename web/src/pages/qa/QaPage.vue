@@ -12,7 +12,7 @@
             <div class="bubble user-bubble">{{ msg }}</div>
           </div>
 
-          <div class="message assistant" v-for="(msg, idx) in assistantMessages" :key="'a' + idx">
+          <div class="message assistant" v-for="(msg, idx) in messages" :key="'a' + idx">
             <div class="avatar">腰</div>
             <div class="bubble assistant-bubble">
               <p class="msg-text">{{ msg.content }}</p>
