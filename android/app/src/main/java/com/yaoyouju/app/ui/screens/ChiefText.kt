@@ -27,7 +27,7 @@ internal fun parseChangeText(raw: String?): ChangeAnswers {
     )
 }
 
-private fun bowelStatus(change: ChangeAnswers): String = when {
+internal fun bowelStatus(change: ChangeAnswers): String = when {
     change.redFlags.any { it.contains("大小便") } -> "有（已确认）"
     change.redFlags.contains("以上都没有") -> "没有（已确认）"
     else -> "尚未确认"

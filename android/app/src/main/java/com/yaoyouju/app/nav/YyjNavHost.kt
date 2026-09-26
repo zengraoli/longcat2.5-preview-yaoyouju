@@ -6,17 +6,23 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.yaoyouju.app.ui.screens.AnalysisScreen
+import com.yaoyouju.app.ui.screens.ConfusionScreen
+import com.yaoyouju.app.ui.screens.ReportScreen
 import com.yaoyouju.app.ui.screens.ChangeScreen
 import com.yaoyouju.app.ui.screens.ComparisonScreen
 import com.yaoyouju.app.ui.screens.HomeScreen
 import com.yaoyouju.app.ui.screens.LoginScreen
 import com.yaoyouju.app.ui.screens.RedflagScreen
 import com.yaoyouju.app.ui.screens.ContentScreen
+import com.yaoyouju.app.ui.screens.FallbackScreen
 import com.yaoyouju.app.ui.screens.FollowupScreen
+import com.yaoyouju.app.ui.screens.FeedbackScreen
+import com.yaoyouju.app.ui.screens.MineScreen
 import com.yaoyouju.app.ui.screens.PlaceholderScreen
 import com.yaoyouju.app.ui.screens.QaScreen
 import com.yaoyouju.app.ui.screens.TimelineScreen
 import com.yaoyouju.app.ui.screens.TodayScreen
+import com.yaoyouju.app.ui.screens.VerifyScreen
 import com.yaoyouju.app.ui.screens.VideoScreen
 
 /**
@@ -53,9 +59,14 @@ fun YyjNavHost(
         }
         composable(Routes.HOME) { HomeScreen(onNavigate = { navController.navigate(it) }) }
 
-        composable(Routes.CONFUSION) { PlaceholderScreen("A04 选择主要困惑") }
-        composable(Routes.REPORT) { PlaceholderScreen("A05 录入报告与医嘱") }
-        composable(Routes.VERIFY) { PlaceholderScreen("A06 核对整理后的信息") }
+        composable(Routes.CONFUSION) { ConfusionScreen(onNavigate = { navController.navigate(it) }) }
+        composable(Routes.REPORT) { ReportScreen(onNavigate = { navController.navigate(it) }) }
+        composable(Routes.VERIFY) {
+            VerifyScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) },
+            )
+        }
         composable(Routes.ANALYSIS) {
             AnalysisScreen(
                 onBack = { navController.popBackStack() },
@@ -81,8 +92,22 @@ fun YyjNavHost(
             )
         }
         composable(Routes.VIDEO) { VideoScreen(onBack = { navController.popBackStack() }) }
-        composable(Routes.FEEDBACK) { PlaceholderScreen("A16 反馈与举报") }
-        composable(Routes.MINE) { PlaceholderScreen("A17 我的") }
-        composable(Routes.FALLBACK) { PlaceholderScreen("A18 服务不可用回退") }
+        composable(Routes.FEEDBACK) { FeedbackScreen(onBack = { navController.popBackStack() }) }
+        composable(Routes.MINE) {
+            MineScreen(
+                onNavigate = { navController.navigate(it) },
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(Routes.FALLBACK) {
+            FallbackScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) },
+            )
+        }
     }
 }

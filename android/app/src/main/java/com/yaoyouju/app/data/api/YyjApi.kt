@@ -23,6 +23,15 @@ interface YyjApi {
     @POST("/auth/consent")
     suspend fun grantConsent(@Body body: ConsentRequest): ApiResponse<Map<String, Boolean>>
 
+    @GET("/auth/consent")
+    suspend fun getConsent(): ApiResponse<List<ConsentItem>>
+
+    @POST("/auth/consent/revoke")
+    suspend fun revokeConsent(@Body body: Map<String, String>): ApiResponse<Map<String, Boolean>>
+
+    @POST("/feedback")
+    suspend fun createFeedback(@Body body: Map<String, Any?>): ApiResponse<Map<String, String>>
+
     @GET("/episodes")
     suspend fun getEpisodes(): ApiResponse<List<Episode>>
 
@@ -44,8 +53,17 @@ interface YyjApi {
     @GET("/reports/{id}/structured")
     suspend fun getStructuredReport(@Path("id") id: String): ApiResponse<StructuredReport>
 
+    @POST("/reports/{id}/verify")
+    suspend fun verifyReport(
+        @Path("id") id: String,
+        @Body body: Map<String, Any?>,
+    ): ApiResponse<Map<String, String>>
+
     @GET("/analyses/latest")
     suspend fun getLatestAnalysis(@Query("episodeId") episodeId: String): ApiResponse<Analysis>
+
+    @POST("/analyses")
+    suspend fun createAnalysis(@Body body: Map<String, String>): ApiResponse<Map<String, String>>
 
     @POST("/followup/preview")
     suspend fun previewFollowup(@Body body: Map<String, String>): ApiResponse<FollowupPreview>
