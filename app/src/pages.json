@@ -10,32 +10,36 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "腰有据",
+        "navigationBarTitleText": "",
         "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/qa/qa",
       "style": {
-        "navigationBarTitleText": "问与解释"
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/timeline/timeline",
       "style": {
-        "navigationBarTitleText": "病程"
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/followup/followup",
       "style": {
-        "navigationBarTitleText": "复诊准备"
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/mine/mine",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
       }
     },
     {
