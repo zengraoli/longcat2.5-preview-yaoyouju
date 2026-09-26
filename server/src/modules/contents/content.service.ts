@@ -1,9 +1,21 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../../database/database.module';
 
 @Injectable()
 export class ContentService {
+  private logContentAudit(action: string, target: string, diff: Record<string, any>) {
+    const db = getDb();
+    const lastEntry = db.prepare('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 1').get() as any | undefined;
+    const prevHash = lastEntry?.hash || 'genesis';
+    const now = new Date().toISOString();
+    const data = `${prevHash}|system|${action}|${target}|${JSON.stringify(diff)}|${now}`;
+    const hash = createHash('sha256').update(data).digest('hex');
+    db.prepare('INSERT INTO audit_log (id, actor_id, action, target, diff, created_at, hash, prev_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+      randomUUID(), 'system', action, target, JSON.stringify(diff), now, hash, prevHash,
+    );
+  }
+
   private readonly VALID_TRANSITIONS: Record<string, string[]> = {
     '草稿': ['待医学审核'],
     '待医学审核': ['草稿', '已审定'],
@@ -19,6 +31,7 @@ export class ContentService {
     db.prepare('INSERT INTO content_item (id, type, title, applicable_scope, not_applicable, current_status, offline_switch) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       id, dto.type, dto.title, dto.applicableScope || null, dto.notApplicable || null, '草稿', 0,
     );
+    this.logContentAudit('content.created', id, { title: dto.title });
     return { id, ...dto, currentStatus: '草稿' };
   }
 
@@ -54,6 +67,8 @@ export class ContentService {
     db.prepare('INSERT INTO review_record (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
       randomUUID(), dto.contentId, 'content_item', dto.reviewerId, dto.decision, '医学准确性', dto.comment || null, new Date().toISOString(),
     );
+
+    this.logContentAudit(dto.decision === '通过' ? 'content.review.approved' : 'content.review.returned', dto.contentId, { decision: dto.decision });
 
     return { reviewed: true, contentId: dto.contentId, newStatus: nextStatus };
   }

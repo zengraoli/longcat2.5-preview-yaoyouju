@@ -37,25 +37,25 @@ export class ContentController {
   }
 
   @Post('submit')
-  @UseGuards(AuthGuard)
+  @UseGuards(AdminAuthGuard)
   submit(@Body() dto: SubmitReviewDto) {
     return this.contentService.submitForReview(dto);
   }
 
   @Post('review')
-  @UseGuards(AuthGuard)
+  @UseGuards(AdminAuthGuard)
   review(@Body() dto: ReviewDecisionDto & { reviewerId: string }) {
     return this.contentService.reviewDecision(dto);
   }
 
   @Post('publish')
-  @UseGuards(AuthGuard)
+  @UseGuards(AdminAuthGuard)
   publish(@Body() dto: PublishDto) {
     return this.contentService.publish(dto);
   }
 
   @Post('offline')
-  @UseGuards(AuthGuard)
+  @UseGuards(AdminAuthGuard)
   offline(@Body() dto: OfflineDto & { operatorId: string }) {
     return this.contentService.offline(dto);
   }

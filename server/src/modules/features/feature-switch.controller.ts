@@ -1,11 +1,13 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { FeatureSwitchService } from './feature-switch.service';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
 @Controller('features')
 export class FeatureSwitchController {
   constructor(private readonly featureSwitchService: FeatureSwitchService) {}
 
   @Get('switches')
+  @UseGuards(AdminAuthGuard)
   getAll() {
     return this.featureSwitchService.getAllSwitches();
   }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AdminLoginDto, CreateAdminUserDto, DualConfirmDto } from './dto/admin.dto';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
@@ -33,7 +33,7 @@ export class AdminController {
   @Get('users')
   getUsers(@Headers('x-admin-token') token: string) {
     const session = this.adminService.validateSession(token);
-    if (!session) throw new Error('未登录');
+    if (!session) throw new UnauthorizedException('未登录');
     if (!this.adminService.checkPermission(session.roleId, '*')) throw new Error('无权限');
     return this.adminService.getAdminUsers();
   }
@@ -41,7 +41,7 @@ export class AdminController {
   @Post('users')
   createUser(@Headers('x-admin-token') token: string, @Body() dto: CreateAdminUserDto) {
     const session = this.adminService.validateSession(token);
-    if (!session) throw new Error('未登录');
+    if (!session) throw new UnauthorizedException('未登录');
     if (!this.adminService.checkPermission(session.roleId, '*')) throw new Error('无权限');
     const result = this.adminService.createAdminUser(dto);
     this.adminService.logAudit(session.adminUserId, 'admin.user.created', result.id, JSON.stringify(dto));
@@ -75,7 +75,7 @@ export class AdminController {
   @Get('audit/verify')
   verifyAudit(@Headers('x-admin-token') token: string) {
     const session = this.adminService.validateSession(token);
-    if (!session) throw new Error('未登录');
+    if (!session) throw new UnauthorizedException('未登录');
     return this.adminService.verifyAuditChain();
   }
 

@@ -44,6 +44,7 @@ export class AdminService {
       randomUUID(), admin.id, sessionToken, now, expiresAt,
     );
 
+    this.logAudit(admin.id, 'admin.login', admin.id, JSON.stringify({ roleId: admin.role_id }));
     return { sessionToken, adminUserId: admin.id, roleId: admin.role_id, expiresAt };
   }
 

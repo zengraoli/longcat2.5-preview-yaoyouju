@@ -71,8 +71,9 @@ export class FeedbackService {
       WHERE 1=1
     `).all() as any[];
     let result = rows;
-    if (filters?.isErrorReport !== undefined) {
-      result = rows.filter((r) => (r.is_error_report ? 1 : 0) === (filters.isErrorReport ? 1 : 0));
+    if (filters?.isErrorReport) {
+      const want = filters.isErrorReport === true || filters.isErrorReport === 'true' ? 1 : 0;
+      result = rows.filter((r) => (r.is_error_report ? 1 : 0) === want);
     }
     return result;
   }
