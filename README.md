@@ -21,7 +21,7 @@
 ```bash
 cd server
 npm install
-npm run dev
+npm run start:dev
 ```
 
 ### 2. AI Worker（独立进程，可选）
@@ -44,7 +44,7 @@ npm run dev:h5
 ```bash
 cd web
 npm install
-npm run dev
+npm run start:dev
 ```
 
 ### 5. 后台管理系统（端口 5403）
@@ -52,7 +52,7 @@ npm run dev
 ```bash
 cd admin
 npm install
-npm run dev
+npm run start:dev
 ```
 
 ## 默认账号
