@@ -58,7 +58,11 @@ export class QaService {
     }
 
     const analysis = dto.analysisId
-      ? db.prepare('SELECT * FROM analysis WHERE id = ?').get(dto.analysisId)
+      ? db.prepare(`
+          SELECT a.* FROM analysis a
+          JOIN episode e ON a.episode_id = e.id
+          WHERE a.id = ? AND e.user_id = ?
+        `).get(dto.analysisId, userId)
       : db.prepare('SELECT * FROM analysis WHERE episode_id = ? ORDER BY version DESC LIMIT 1').get(dto.episodeId);
     if (!analysis) throw new NotFoundException('分析不存在');
 

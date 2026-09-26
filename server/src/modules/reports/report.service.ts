@@ -23,7 +23,7 @@ export class ReportService {
   extractTerms(rawText: string): ExtractedTerm[] {
     const results: ExtractedTerm[] = [];
     for (const term of this.MEDICAL_TERMS) {
-      if (term.length < 2 && !term.includes('/')) continue; // 过滤单字符碎片（L4、突出 等），保留 L5/S1、椎间盘突出 等
+      if (/^[A-Za-z]\d$/.test(term)) continue; // 过滤单代码碎片（L4、L5、S1），保留 L4/5、L5/S1 与中文术语（膨出、突出）
       let index = rawText.indexOf(term);
       while (index !== -1) {
         const context = rawText.substring(Math.max(0, index - 5), index + term.length + 5);
@@ -34,20 +34,31 @@ export class ReportService {
     return results.sort((a, b) => a.index - b.index);
   }
 
-  createReport(dto: { careEventId: string; reportDate: string; rawText: string; sourceType: string }) {
+  createReport(userId: string, dto: { careEventId: string; reportDate: string; rawText: string; sourceType: string }) {
     const db = getDb();
+    const careEvent = db.prepare(`
+      SELECT ce.* FROM care_event ce
+      JOIN episode e ON ce.episode_id = e.id
+      WHERE ce.id = ? AND e.user_id = ?
+    `).get(dto.careEventId, userId) as any | undefined;
+    if (!careEvent) throw new NotFoundException('记录不存在');
     const id = randomUUID();
     const extractedTerms = this.extractTerms(dto.rawText);
     db.prepare('INSERT INTO report (id, care_event_id, report_date, raw_text, extracted_terms, oss_key) VALUES (?, ?, ?, ?, ?, ?)').run(
       id, dto.careEventId, dto.reportDate, dto.rawText, JSON.stringify(extractedTerms), null,
     );
-    const careEvent = db.prepare('SELECT episode_id FROM care_event WHERE id = ?').get(dto.careEventId) as { episode_id: string } | undefined;
     db.prepare('UPDATE care_event SET raw_text = ?, verify_status = ? WHERE id = ?').run(dto.rawText, '尚未确认', dto.careEventId);
-    return { id, careEventId: dto.careEventId, reportDate: dto.reportDate, extractedTerms, episodeId: careEvent?.episode_id };
+    return { id, careEventId: dto.careEventId, reportDate: dto.reportDate, extractedTerms, episodeId: careEvent.episode_id };
   }
 
-  ocrExtract(dto: { careEventId: string; reportDate: string }) {
+  ocrExtract(userId: string, dto: { careEventId: string; reportDate: string }) {
     const db = getDb();
+    const careEvent = db.prepare(`
+      SELECT ce.* FROM care_event ce
+      JOIN episode e ON ce.episode_id = e.id
+      WHERE ce.id = ? AND e.user_id = ?
+    `).get(dto.careEventId, userId) as any | undefined;
+    if (!careEvent) throw new NotFoundException('记录不存在');
     const id = randomUUID();
     const mockText = '腰椎MRI：L4/5椎间盘中央型突出，硬膜囊及双侧神经根受压，椎管轻度狭窄。';
     const extractedTerms = this.extractTerms(mockText);

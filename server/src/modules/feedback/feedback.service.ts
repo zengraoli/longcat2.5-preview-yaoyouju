@@ -17,7 +17,11 @@ export class FeedbackService {
     const id = randomUUID();
 
     const analysis = dto.analysisId
-      ? db.prepare('SELECT * FROM analysis WHERE id = ?').get(dto.analysisId) as any | undefined
+      ? db.prepare(`
+          SELECT a.* FROM analysis a
+          JOIN episode e ON a.episode_id = e.id
+          WHERE a.id = ? AND e.user_id = ?
+        `).get(dto.analysisId, userId) as any | undefined
       : null;
     const modelRelease = analysis?.model_release_id
       ? db.prepare('SELECT * FROM model_release WHERE id = ?').get(analysis.model_release_id) as any | undefined

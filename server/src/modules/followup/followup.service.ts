@@ -25,9 +25,10 @@ export class FollowupService {
       ORDER BY ce.occurred_at DESC LIMIT 7
     `).all(episodeId) as any[];
 
-    const selfReported = events.filter((e) => e.source_type === '自述');
+    const selfReported = events.filter((e) => e.source_type === '自述' && e.event_type !== '医嘱' && e.event_type !== '变化确认' && e.event_type !== '主要困惑');
     const reportItems = events.filter((e) => e.source_type === '报告原文');
-    const doctorRecords = events.filter((e) => e.source_type === '医生记录');
+    // 医生建议：医生的记录 + 用户录入的医嘱（自述转述）
+    const doctorRecords = events.filter((e) => e.source_type === '医生记录' || e.event_type === '医嘱');
 
     const sections = {
       chiefComplaint: {
@@ -69,11 +70,8 @@ export class FollowupService {
       },
       questionsForDoctor: {
         title: '想问医生的问题',
-        questions: [
-          '我的情况严重吗？需要手术吗？',
-          '保守治疗的效果如何？',
-          '日常生活中需要注意什么？',
-        ],
+        // 仅收录用户实际记录的担心与分析中的未知项；无记录时为空
+        questions: [],
       },
     };
 

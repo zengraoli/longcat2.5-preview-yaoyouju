@@ -90,9 +90,7 @@ export class ContentService {
     );
     db.prepare('UPDATE content_item SET current_status = ? WHERE id = ?').run('已发布', dto.contentId);
 
-    db.prepare('INSERT INTO audit_log (id, actor_id, action, target, diff, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      randomUUID(), dto.reviewerId, 'content.published', dto.contentId, JSON.stringify({ version }), new Date().toISOString(),
-    );
+    this.auditService.log(dto.reviewerId || 'system', 'content.published', dto.contentId, { version });
 
     return { published: true, contentId: dto.contentId, version };
   }

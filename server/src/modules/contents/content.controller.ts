@@ -44,8 +44,8 @@ export class ContentController {
 
   @Post('restore')
   @UseGuards(AdminAuthGuard)
-  restore(@Body() dto: { contentId: string }) {
-    return this.contentService.restore(dto);
+  restore(@Body() dto: { contentId: string }, @Req() req: any) {
+    return this.contentService.restore(dto, req.admin.adminUserId);
   }
 
   @Post('review')
@@ -62,7 +62,7 @@ export class ContentController {
 
   @Post('offline')
   @UseGuards(AdminAuthGuard)
-  offline(@Body() dto: OfflineDto & { operatorId: string }) {
-    return this.contentService.offline(dto);
+  offline(@Body() dto: OfflineDto, @Req() req: any) {
+    return this.contentService.offline({ ...dto, operatorId: req.admin.adminUserId });
   }
 }

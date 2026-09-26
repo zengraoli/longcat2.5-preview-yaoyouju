@@ -12,8 +12,7 @@ describe('ReportService', () => {
     const text = '腰椎MRI显示L5/S1椎间盘突出，硬膜囊受压';
     const terms = service.extractTerms(text);
     const termNames = terms.map((t) => t.term);
-    expect(termNames).toContain('L5');
-    expect(termNames).toContain('S1');
+    expect(termNames).toContain('L5/S1');
     expect(termNames).toContain('椎间盘突出');
     expect(termNames).toContain('硬膜囊受压');
   });
@@ -21,9 +20,9 @@ describe('ReportService', () => {
   it('should extract terms with position context', () => {
     const text = 'L4/5椎间盘中央型突出';
     const terms = service.extractTerms(text);
-    const l4Term = terms.find((t) => t.term === 'L4');
-    expect(l4Term).toBeDefined();
-    expect(l4Term.position).toContain('L4');
+    const comboTerm = terms.find((t) => t.term === 'L4/5');
+    expect(comboTerm).toBeDefined();
+    expect(comboTerm.position).toContain('L4/5');
   });
 
   it('should return empty array for non-medical text', () => {
@@ -32,10 +31,15 @@ describe('ReportService', () => {
     expect(terms).toEqual([]);
   });
 
-  it('should extract multiple occurrences', () => {
+  it('should filter single-letter fragments but keep combos', () => {
     const text = 'L4/5椎间盘突出，L5/S1椎间盘退变';
     const terms = service.extractTerms(text);
-    const l5Terms = terms.filter((t) => t.term === 'L5');
-    expect(l5Terms.length).toBeGreaterThanOrEqual(1);
+    const termNames = terms.map((t) => t.term);
+    expect(termNames).toContain('L4/5');
+    expect(termNames).toContain('L5/S1');
+    expect(termNames).not.toContain('L4');
+    expect(termNames).not.toContain('L5');
+    expect(termNames).not.toContain('S1');
+    expect(termNames).toContain('突出');
   });
 });

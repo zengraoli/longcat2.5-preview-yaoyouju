@@ -9,13 +9,13 @@ export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
   @Post()
-  createReport(@Body() dto: CreateReportDto) {
-    return this.reportService.createReport(dto);
+  createReport(@Req() req: any, @Body() dto: CreateReportDto) {
+    return this.reportService.createReport(req.user.userId, dto);
   }
 
   @Post('ocr')
-  ocrExtract(@Body() dto: OcrExtractDto) {
-    return this.reportService.ocrExtract(dto);
+  ocrExtract(@Req() req: any, @Body() dto: OcrExtractDto) {
+    return this.reportService.ocrExtract(req.user.userId, dto);
   }
 
   @Get()
