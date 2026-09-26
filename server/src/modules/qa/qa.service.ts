@@ -20,6 +20,8 @@ export class QaService {
 
   askQuestion(userId: string, dto: { episodeId: string; analysisId?: string; question: string }) {
     const db = getDb();
+    const episode = db.prepare('SELECT id FROM episode WHERE id = ? AND user_id = ?').get(dto.episodeId, userId);
+    if (!episode) throw new NotFoundException('病程不存在');
     const sessionId = randomUUID();
     const now = new Date().toISOString();
 

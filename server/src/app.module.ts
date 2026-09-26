@@ -19,12 +19,14 @@ import { EvidenceModule } from './modules/evidence/evidence.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { ModelReleaseModule } from './modules/models/model-release.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
     ConfigModule,
     DatabaseModule,
     IdentityDatabaseModule,
+    AuditModule,
     AuthModule,
     SafetyModule,
     FeatureSwitchModule,

@@ -117,6 +117,7 @@ const rawText = ref('');
 const reportDate = ref('');
 const hospital = ref('');
 const doctorAdvice = ref('');
+const adviceChips = ['保守治疗', '复查时间', '用药', '康复建议', '手术评估'];
 const adviceChipSelected = ref('');
 const examTypes = ['MRI', 'CT', 'X光', '超声', '其他'];
 const examTypeIndex = ref(0);

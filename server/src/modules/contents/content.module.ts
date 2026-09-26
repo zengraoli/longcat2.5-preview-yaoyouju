@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../audit/audit.module';
 import { ContentController } from './content.controller';
 import { ContentService } from './content.service';
 

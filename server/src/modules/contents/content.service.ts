@@ -1,20 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import { getDb } from '../../database/database.module';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ContentService {
-  private logContentAudit(action: string, target: string, diff: Record<string, any>) {
-    const db = getDb();
-    const lastEntry = db.prepare('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 1').get() as any | undefined;
-    const prevHash = lastEntry?.hash || 'genesis';
-    const now = new Date().toISOString();
-    const data = `${prevHash}|system|${action}|${target}|${JSON.stringify(diff)}|${now}`;
-    const hash = createHash('sha256').update(data).digest('hex');
-    db.prepare('INSERT INTO audit_log (id, actor_id, action, target, diff, created_at, hash, prev_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
-      randomUUID(), 'system', action, target, JSON.stringify(diff), now, hash, prevHash,
-    );
-  }
+  constructor(private readonly auditService: AuditService) {}
 
   private readonly VALID_TRANSITIONS: Record<string, string[]> = {
     '草稿': ['待医学审核'],
@@ -25,17 +16,17 @@ export class ContentService {
     '已撤回或已下线': ['更正中'],
   };
 
-  createContent(dto: { type: string; title: string; applicableScope?: string; notApplicable?: string; script?: string; subtitleText?: string; evidenceIds?: string[] }) {
+  createContent(operatorId: string, dto: { type: string; title: string; applicableScope?: string; notApplicable?: string; script?: string; subtitleText?: string; evidenceIds?: string[] }) {
     const db = getDb();
     const id = randomUUID();
     db.prepare('INSERT INTO content_item (id, type, title, applicable_scope, not_applicable, current_status, offline_switch) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       id, dto.type, dto.title, dto.applicableScope || null, dto.notApplicable || null, '草稿', 0,
     );
-    this.logContentAudit('content.created', id, { title: dto.title });
+    this.auditService.log('system', 'content.created', id, { title: dto.title });
     return { id, ...dto, currentStatus: '草稿' };
   }
 
-  submitForReview(dto: { contentId: string; evidenceIds: string[] }) {
+  submitForReview(dto: { contentId: string; evidenceIds: string[] }, operatorId?: string) {
     const db = getDb();
     const content = db.prepare('SELECT * FROM content_item WHERE id = ?').get(dto.contentId) as any | undefined;
     if (!content) throw new NotFoundException('内容不存在');
@@ -43,18 +34,18 @@ export class ContentService {
       throw new BadRequestException('只有草稿或更正中状态可提交审核');
     }
     db.prepare('UPDATE content_item SET current_status = ? WHERE id = ?').run('待医学审核', dto.contentId);
-    this.logContentAudit('content.submitted', dto.contentId, { status: '待医学审核' });
+    this.auditService.log(operatorId || 'system', 'content.submitted', dto.contentId, { status: '待医学审核' });
     return { submitted: true, contentId: dto.contentId, status: '待医学审核' };
   }
 
   /** 已下线内容申请恢复：已撤回或已下线 → 更正中 */
-  restore(dto: { contentId: string }) {
+  restore(dto: { contentId: string }, operatorId?: string) {
     const db = getDb();
     const content = db.prepare('SELECT * FROM content_item WHERE id = ?').get(dto.contentId) as any | undefined;
     if (!content) throw new NotFoundException('内容不存在');
     if (content.current_status !== '已撤回或已下线') throw new BadRequestException('只有已下线状态可申请恢复');
     db.prepare('UPDATE content_item SET current_status = ?, offline_switch = 0 WHERE id = ?').run('更正中', dto.contentId);
-    this.logContentAudit('content.restore', dto.contentId, { status: '更正中' });
+    this.auditService.log(operatorId || 'system', 'content.restore', dto.contentId, { status: '更正中' });
     return { restored: true, contentId: dto.contentId, status: '更正中' };
   }
 
@@ -82,12 +73,12 @@ export class ContentService {
       randomUUID(), dto.contentId, 'content_item', dto.reviewerId, dto.decision, '医学准确性', dto.comment || null, new Date().toISOString(),
     );
 
-    this.logContentAudit(dto.decision === '通过' ? 'content.review.approved' : 'content.review.returned', dto.contentId, { decision: dto.decision });
+    this.auditService.log(dto.reviewerId || 'system', dto.decision === '通过' ? 'content.review.approved' : 'content.review.returned', dto.contentId, { decision: dto.decision });
 
     return { reviewed: true, contentId: dto.contentId, newStatus: nextStatus };
   }
 
-  publish(dto: { contentId: string; reviewerId: string }) {
+  publish(dto: { contentId: string; reviewerId?: string }) {
     const db = getDb();
     const content = db.prepare('SELECT * FROM content_item WHERE id = ?').get(dto.contentId) as any | undefined;
     if (!content) throw new NotFoundException('内容不存在');
@@ -106,15 +97,13 @@ export class ContentService {
     return { published: true, contentId: dto.contentId, version };
   }
 
-  offline(dto: { contentId: string; reason?: string; operatorId: string }) {
+  offline(dto: { contentId: string; reason?: string; operatorId?: string }) {
     const db = getDb();
     const content = db.prepare('SELECT * FROM content_item WHERE id = ?').get(dto.contentId) as any | undefined;
     if (!content) throw new NotFoundException('内容不存在');
 
     db.prepare('UPDATE content_item SET current_status = ?, offline_switch = 1 WHERE id = ?').run('已撤回或已下线', dto.contentId);
-    db.prepare('INSERT INTO audit_log (id, actor_id, action, target, diff, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      randomUUID(), dto.operatorId, 'content.offline', dto.contentId, JSON.stringify({ reason: dto.reason }), new Date().toISOString(),
-    );
+    this.auditService.log(dto.operatorId || 'system', 'content.offline', dto.contentId, { reason: dto.reason });
 
     const citations = db.prepare(`
       SELECT DISTINCT a.episode_id FROM analysis a

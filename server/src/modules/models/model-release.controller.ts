@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { ModelReleaseService } from './model-release.service';
 import { CreateModelReleaseDto, SubmitEvalRunDto, EvalResultDto, PublishModelDto, RollbackModelDto } from './dto/model.dto';
@@ -29,13 +29,13 @@ export class ModelReleaseController {
   }
 
   @Post('publish')
-  publish(@Body() dto: PublishModelDto) {
-    return this.modelReleaseService.publish(dto);
+  publish(@Body() dto: PublishModelDto, @Req() req: any) {
+    return this.modelReleaseService.publish({ releaseId: dto.releaseId, reviewerId: req.admin.adminUserId });
   }
 
   @Post('rollback')
-  rollback(@Body() dto: RollbackModelDto) {
-    return this.modelReleaseService.rollback(dto);
+  rollback(@Body() dto: RollbackModelDto, @Req() req: any) {
+    return this.modelReleaseService.rollback({ releaseId: dto.releaseId, operatorId: req.admin.adminUserId });
   }
 
   @Get(':id/eval-runs')

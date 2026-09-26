@@ -29,8 +29,8 @@ export class EpisodeController {
   }
 
   @Post('events')
-  createCareEvent(@Body() dto: CreateCareEventDto) {
-    return this.episodeService.createCareEvent(dto);
+  createCareEvent(@Req() req: any, @Body() dto: CreateCareEventDto) {
+    return this.episodeService.createCareEvent(req.user.userId, dto);
   }
 
   @Put('events/:eventId')
@@ -44,8 +44,8 @@ export class EpisodeController {
   }
 
   @Post('symptom-logs')
-  createSymptomLog(@Body() dto: CreateSymptomLogDto) {
-    return this.episodeService.createSymptomLog(dto);
+  createSymptomLog(@Req() req: any, @Body() dto: CreateSymptomLogDto) {
+    return this.episodeService.createSymptomLog(req.user.userId, dto);
   }
 
   @Get(':id/timeline')

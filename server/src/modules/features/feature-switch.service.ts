@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database/database.module';
+import { AuditService } from '../audit/audit.service';
 
 export interface FeatureSwitchState {
   key: string;
@@ -10,6 +11,8 @@ export interface FeatureSwitchState {
 
 @Injectable()
 export class FeatureSwitchService {
+  constructor(private readonly auditService: AuditService) {}
+
   getSwitch(key: string): FeatureSwitchState | null {
     const db = getDb();
     const row = db.prepare('SELECT * FROM feature_switch WHERE key = ?').get(key) as { key: string; enabled: number; reason: string | null } | undefined;
@@ -22,7 +25,7 @@ export class FeatureSwitchService {
     return state?.enabled ?? false;
   }
 
-  setSwitch(key: string, enabled: boolean, reason?: string): void {
+  setSwitch(key: string, enabled: boolean, reason: string | undefined, operatorId: string): void {
     const db = getDb();
     const existing = db.prepare('SELECT * FROM feature_switch WHERE key = ?').get(key) as { id: string } | undefined;
     if (existing) {
@@ -30,9 +33,7 @@ export class FeatureSwitchService {
     } else {
       db.prepare('INSERT INTO feature_switch (id, key, enabled, reason) VALUES (?, ?, ?, ?)').run(randomUUID(), key, enabled ? 1 : 0, reason || null);
     }
-    db.prepare('INSERT INTO audit_log (id, actor_id, action, target, diff, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      randomUUID(), 'system', 'feature_switch.changed', key, JSON.stringify({ enabled, reason }), new Date().toISOString(),
-    );
+    this.auditService.log(operatorId, 'feature_switch.changed', key, { enabled, reason });
   }
 
   getAllSwitches(): FeatureSwitchState[] {

@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database/database.module';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ModelReleaseService {
+  constructor(private readonly auditService: AuditService) {}
   createRelease(dto: { modelName: string; promptVersion: string; retrievalStrategy: string; contentLibVersion: string }) {
     const db = getDb();
     const id = randomUUID();
@@ -40,7 +42,7 @@ export class ModelReleaseService {
     return { submitted: true, runId: run.id, result: dto.result };
   }
 
-  publish(dto: { releaseId: string }) {
+  publish(dto: { releaseId: string; reviewerId?: string }) {
     const db = getDb();
     const release = db.prepare('SELECT * FROM model_release WHERE id = ?').get(dto.releaseId) as any | undefined;
     if (!release) throw new NotFoundException('发布组合不存在');
@@ -52,20 +54,16 @@ export class ModelReleaseService {
     if (release.status !== '灰度') throw new BadRequestException('只有灰度状态可发布为生效');
 
     db.prepare("UPDATE model_release SET status = '生效' WHERE id = ?").run(dto.releaseId);
-    db.prepare('INSERT INTO audit_log (id, actor_id, action, target, diff, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      randomUUID(), 'system', 'model.published', dto.releaseId, JSON.stringify({ previousStatus: '灰度' }), new Date().toISOString(),
-    );
+    this.auditService.log(dto.reviewerId || 'system', 'model.published', dto.releaseId, { previousStatus: '灰度' });
     return { published: true, releaseId: dto.releaseId, status: '生效' };
   }
 
-  rollback(dto: { releaseId: string }) {
+  rollback(dto: { releaseId: string; operatorId?: string }) {
     const db = getDb();
     const release = db.prepare('SELECT * FROM model_release WHERE id = ?').get(dto.releaseId) as any | undefined;
     if (!release) throw new NotFoundException('发布组合不存在');
     db.prepare("UPDATE model_release SET status = '已回滚' WHERE id = ?").run(dto.releaseId);
-    db.prepare('INSERT INTO audit_log (id, actor_id, action, target, diff, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
-      randomUUID(), 'system', 'model.rollback', dto.releaseId, JSON.stringify({ previousStatus: release.status }), new Date().toISOString(),
-    );
+    this.auditService.log(dto.operatorId || 'system', 'model.rollback', dto.releaseId, { previousStatus: release.status });
     return { rolledBack: true, releaseId: dto.releaseId };
   }
 

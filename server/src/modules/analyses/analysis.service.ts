@@ -18,6 +18,16 @@ export class AnalysisService {
     const episode = db.prepare('SELECT * FROM episode WHERE id = ? AND user_id = ?').get(dto.episodeId, userId);
     if (!episode) throw new NotFoundException('病程不存在');
 
+    if (dto.reportId) {
+      const report = db.prepare(`
+        SELECT r.id FROM report r
+        JOIN care_event ce ON r.care_event_id = ce.id
+        JOIN episode e ON ce.episode_id = e.id
+        WHERE r.id = ? AND e.user_id = ?
+      `).get(dto.reportId, userId);
+      if (!report) throw new NotFoundException('报告不存在');
+    }
+
     let safetyResult: SafetyCheckResult = { passed: true, action: 'none' };
     if (dto.question) {
       safetyResult = this.safetyService.fullCheck(dto.question);
@@ -70,22 +80,44 @@ export class AnalysisService {
       const extractedTerms = report?.extracted_terms ? JSON.parse(report.extracted_terms) : [];
       const keyTerms = extractedTerms.slice(0, 3).map((t: any) => t.term);
 
+      const modelRelease = db.prepare("SELECT * FROM model_release WHERE status = '生效' LIMIT 1").get() as any | undefined;
+      const analysisId = randomUUID();
+      const getExistingVersion = db.prepare('SELECT MAX(version) as maxVer FROM analysis WHERE episode_id = ?').get(task.episode_id) as any;
+      const nextVersion = (getExistingVersion?.maxVer || 0) + 1;
+
+      if (!rawText || keyTerms.length === 0) {
+        // 没有可用报告/术语时不生成任何基于检查的解释，缺失即未知
+        const sections = {
+          known: ['尚未确认'],
+          explanation: [],
+          unknown: ['尚未录入检查报告', '报告中的关键术语尚未提取'],
+          nextSteps: ['录入检查报告后重新生成分析'],
+          video: null,
+        };
+        db.prepare('INSERT INTO analysis (id, episode_id, version, model_release_id, sections, retrieval_snapshot, safety_flag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+          analysisId,
+          task.episode_id,
+          nextVersion,
+          modelRelease?.id || null,
+          JSON.stringify(sections),
+          JSON.stringify({ docIds: [], chunkIds: [], rawTextLength: (rawText || '').length }),
+          task.safety_flag || 'pass',
+          new Date().toISOString(),
+        );
+        db.prepare("UPDATE analysis_task SET status = 'completed', analysis_id = ? WHERE id = ?").run(analysisId, task.id);
+        return;
+      }
+
       const sections = {
         known: keyTerms.length > 0 ? keyTerms : ['尚未确认'],
         explanation: [
           { text: `根据检查结果，${keyTerms.join('、')}等表现与椎间盘退行性改变相关。`, source: 'evidence-doc-1', evidenceId: 'evidence-doc-1' },
           { text: '大多数轻中度患者通过保守治疗可改善症状。', source: 'evidence-doc-2', evidenceId: 'evidence-doc-2' },
         ],
-        unknown: rawText ? ['具体突出程度需结合临床评估', '保守治疗效果因人而异'] : ['尚未确认'],
+        unknown: ['具体突出程度需结合临床评估', '保守治疗效果因人而异'],
         nextSteps: ['避免久坐，每30分钟起身活动', '可咨询医生是否需要物理治疗'],
         video: null,
       };
-
-      const modelRelease = db.prepare("SELECT * FROM model_release WHERE status = '生效' LIMIT 1").get() as any | undefined;
-      const analysisId = randomUUID();
-
-      const getExistingVersion = db.prepare('SELECT MAX(version) as maxVer FROM analysis WHERE episode_id = ?').get(task.episode_id) as any;
-      const nextVersion = (getExistingVersion?.maxVer || 0) + 1;
 
       db.prepare('INSERT INTO analysis (id, episode_id, version, model_release_id, sections, retrieval_snapshot, safety_flag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
         analysisId,

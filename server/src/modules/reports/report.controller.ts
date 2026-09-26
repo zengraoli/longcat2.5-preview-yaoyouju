@@ -24,8 +24,8 @@ export class ReportController {
   }
 
   @Get(':id')
-  getReport(@Param('id') id: string) {
-    return this.reportService.getReport(id);
+  getReport(@Param('id') id: string, @Req() req: any) {
+    return this.reportService.getReport(id, req.user.userId);
   }
 
   @Get(':id/structured')
@@ -34,7 +34,7 @@ export class ReportController {
   }
 
   @Post(':id/verify')
-  verifyReport(@Param('id') id: string, @Body() dto: VerifyReportDto) {
-    return this.reportService.verifyReport(id, dto);
+  verifyReport(@Param('id') id: string, @Req() req: any, @Body() dto: VerifyReportDto) {
+    return this.reportService.verifyReport(id, req.user.userId, dto);
   }
 }

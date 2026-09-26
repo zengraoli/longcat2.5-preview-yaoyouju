@@ -99,4 +99,32 @@ page {
   color: var(--primary);
   margin-top: 32rpx;
 }
+
+/* 需要纵向排布的卡片 */
+.card.col {
+  display: block;
+}
+
+/* 卡片内纵向排布的known行 */
+.card .kv-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.card .kv-tag {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  font-weight: 500;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.card .kv-text {
+  font-size: 26rpx;
+  color: var(--text-1);
+  line-height: 1.5;
+  flex: 1;
+}
 </style>

@@ -25,8 +25,10 @@ export class EpisodeService {
     return episode;
   }
 
-  createCareEvent(dto: { episodeId: string; eventType: string; occurredAt: string; sourceType: string; rawText?: string; verifyStatus?: string }) {
+  createCareEvent(userId: string, dto: { episodeId: string; eventType: string; occurredAt: string; sourceType: string; rawText?: string; verifyStatus?: string }) {
     const db = getDb();
+    const episode = db.prepare('SELECT id FROM episode WHERE id = ? AND user_id = ?').get(dto.episodeId, userId);
+    if (!episode) throw new NotFoundException('病程不存在');
     const id = randomUUID();
     db.prepare('INSERT INTO care_event (id, episode_id, event_type, occurred_at, reported_at, source_type, raw_text, verify_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
       id, dto.episodeId, dto.eventType, dto.occurredAt, new Date().toISOString(), dto.sourceType, dto.rawText || null, dto.verifyStatus || '尚未确认',
@@ -56,8 +58,10 @@ export class EpisodeService {
     return { deleted: true };
   }
 
-  createSymptomLog(dto: { careEventId: string; sitMinutes?: number; plannedActivityDone?: string; sleepImpact?: number; topWorry?: string; legChange?: string }) {
+  createSymptomLog(userId: string, dto: { careEventId: string; sitMinutes?: number; plannedActivityDone?: string; sleepImpact?: number; topWorry?: string; legChange?: string }) {
     const db = getDb();
+    const log = db.prepare('SELECT ce.id FROM care_event ce JOIN episode e ON ce.episode_id = e.id WHERE ce.id = ? AND e.user_id = ?').get(dto.careEventId, userId);
+    if (!log) throw new NotFoundException('记录不存在');
     const id = randomUUID();
     db.prepare('INSERT INTO symptom_log (id, care_event_id, sit_minutes, planned_activity_done, sleep_impact, top_worry, leg_change) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       id, dto.careEventId, dto.sitMinutes ?? null, dto.plannedActivityDone || null, dto.sleepImpact ?? null, dto.topWorry || null, dto.legChange || '尚未确认',

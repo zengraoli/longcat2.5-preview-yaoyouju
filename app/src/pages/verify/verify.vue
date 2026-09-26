@@ -22,7 +22,7 @@
           <image src="/static/icons/ic_edit.png" class="edit-icon" @click="goReport" />
         </view>
       </view>
-      <view class="term-row" v-for="(t, i) in (report.extractedTerms || []).slice(0, 5)" :key="i">
+      <view class="term-row" v-for="(t, i) in cleanTerms(report.extractedTerms || []).slice(0, 8)" :key="i">
         <text class="term-label">{{ termLabel(t.term) }}</text>
         <text class="term-value">{{ t.term }}</text>
         <text class="line-tag">原文{{ t.position || '第' + (i + 1) + '行' }}</text>
@@ -103,6 +103,7 @@
 import { ref, computed, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
 import { api } from '../../api/request';
+import { parseChangeText } from '../../utils/chief';
 
 const report = ref<any>({});
 const episode = ref<any>({});
@@ -116,6 +117,14 @@ const conflictText = computed(() => '报告为“右侧”，你的描述为“�
 
 function formatDate(iso?: string) {
   return iso ? iso.slice(0, 10) : '';
+}
+
+function cleanTerms(terms: any[]) {
+  const seen = new Set<string>();
+  return (terms || [])
+    .map((t: any) => t.term)
+    .filter((t: string) => t && (t.length >= 2 || t.includes('/')))
+    .filter((t: string) => !seen.has(t) && seen.add(t));
 }
 
 function termLabel(term: string) {
@@ -137,6 +146,8 @@ const symptomRows = computed(() => {
   return rows;
 });
 
+const confusionTitle = ref('');
+
 async function loadData() {
   try {
     const episodes = await api.getEpisodes();
@@ -150,18 +161,19 @@ async function loadData() {
     }
 
     const events = await api.getCareEvents(episodeId);
+    const confusionEvent = (events || []).find((e: any) => e.event_type === '主要困惑');
+    if (confusionEvent) {
+      const m = confusionEvent.raw_text.match(/主要困惑：([^；]*)/);
+      confusionTitle.value = m?.[1]?.trim() || '';
+    }
     const changeEvent = (events || []).find((e: any) => e.event_type === '变化确认');
     if (changeEvent) {
-      try {
-        const parsed = JSON.parse(changeEvent.raw_text);
-        changeAnswers.value = {
-          '变化': parsed['变化'],
-          '开始日期': parsed['开始日期'],
-          '困惑': parsed['主要困惑'],
-        };
-      } catch {
-        changeAnswers.value = null;
-      }
+      const parsed = parseChangeText(changeEvent.raw_text);
+      changeAnswers.value = {
+        '变化': parsed.change,
+        '开始日期': parsed.onset,
+        '困惑': confusionTitle.value,
+      };
     }
     const adviceEvent = (events || []).find((e: any) => e.event_type === '医嘱');
     doctorAdvice.value = adviceEvent?.raw_text || '';

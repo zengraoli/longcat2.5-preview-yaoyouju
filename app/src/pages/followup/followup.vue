@@ -156,6 +156,7 @@ const generatedAt = ref('');
 const unknown = ref<string[]>([]);
 const episode = ref<any>({});
 
+const symptomCount = computed(() => sections.value.symptomsAndChanges?.recentLogs?.length ?? 0);
 const changeRaw = ref<string | null>(null);
 const lastLog = ref<any>(null);
 

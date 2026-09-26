@@ -23,6 +23,7 @@ export class ReportService {
   extractTerms(rawText: string): ExtractedTerm[] {
     const results: ExtractedTerm[] = [];
     for (const term of this.MEDICAL_TERMS) {
+      if (term.length < 2 && !term.includes('/')) continue; // 过滤单字符碎片（L4、突出 等），保留 L5/S1、椎间盘突出 等
       let index = rawText.indexOf(term);
       while (index !== -1) {
         const context = rawText.substring(Math.max(0, index - 5), index + term.length + 5);
@@ -56,9 +57,14 @@ export class ReportService {
     return { id, careEventId: dto.careEventId, reportDate: dto.reportDate, rawText: mockText, extractedTerms };
   }
 
-  verifyReport(reportId: string, dto: { verifyStatus: string; extractedTerms: { term: string; position: string }[] }) {
+  verifyReport(reportId: string, userId: string, dto: { verifyStatus: string; extractedTerms: { term: string; position: string }[] }) {
     const db = getDb();
-    const report = db.prepare('SELECT * FROM report WHERE id = ?').get(reportId) as { id: string; care_event_id: string } | undefined;
+    const report = db.prepare(`
+      SELECT r.* FROM report r
+      JOIN care_event ce ON r.care_event_id = ce.id
+      JOIN episode e ON ce.episode_id = e.id
+      WHERE r.id = ? AND e.user_id = ?
+    `).get(reportId, userId) as { id: string; care_event_id: string } | undefined;
     if (!report) throw new NotFoundException('报告不存在');
     db.prepare('UPDATE report SET extracted_terms = ? WHERE id = ?').run(JSON.stringify(dto.extractedTerms), reportId);
     db.prepare('UPDATE care_event SET verify_status = ? WHERE id = ?').run(dto.verifyStatus, report.care_event_id);
@@ -77,9 +83,14 @@ export class ReportService {
     `).all((episode as { id: string }).id);
   }
 
-  getReport(reportId: string) {
+  getReport(reportId: string, userId: string) {
     const db = getDb();
-    const report = db.prepare('SELECT * FROM report WHERE id = ?').get(reportId);
+    const report = db.prepare(`
+      SELECT r.* FROM report r
+      JOIN care_event ce ON r.care_event_id = ce.id
+      JOIN episode e ON ce.episode_id = e.id
+      WHERE r.id = ? AND e.user_id = ?
+    `).get(reportId, userId);
     if (!report) throw new NotFoundException('报告不存在');
     return report;
   }

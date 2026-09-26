@@ -21,8 +21,8 @@ export class ContentController {
 
   @Get('recommendations')
   @UseGuards(AuthGuard)
-  getRecommendations(@Body() dto: { userId: string }) {
-    return this.contentService.getRecommendations(dto.userId);
+  getRecommendations(@Req() req: any) {
+    return this.contentService.getRecommendations(req.user.userId);
   }
 
   @Get(':id')
@@ -31,15 +31,15 @@ export class ContentController {
   }
 
   @Post()
-  @UseGuards(AuthGuard)
-  create(@Body() dto: CreateContentDto) {
-    return this.contentService.createContent(dto);
+  @UseGuards(AdminAuthGuard)
+  create(@Body() dto: CreateContentDto, @Req() req: any) {
+    return this.contentService.createContent(req.admin.adminUserId, dto);
   }
 
   @Post('submit')
   @UseGuards(AdminAuthGuard)
-  submit(@Body() dto: SubmitReviewDto) {
-    return this.contentService.submitForReview(dto);
+  submit(@Body() dto: SubmitReviewDto, @Req() req: any) {
+    return this.contentService.submitForReview(dto, req.admin.adminUserId);
   }
 
   @Post('restore')
@@ -56,8 +56,8 @@ export class ContentController {
 
   @Post('publish')
   @UseGuards(AdminAuthGuard)
-  publish(@Body() dto: PublishDto) {
-    return this.contentService.publish(dto);
+  publish(@Body() dto: PublishDto, @Req() req: any) {
+    return this.contentService.publish({ ...dto, reviewerId: req.admin.adminUserId });
   }
 
   @Post('offline')

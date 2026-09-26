@@ -60,7 +60,7 @@
 
     <view class="card" v-if="currentStep === 4">
       <text class="question-title">4. 这次症状大约从什么时候开始？</text>
-      <input class="date-native" type="date" placeholder="选择日期，或点“记不清”" :value="answers.onsetDate" @change="onDateChange" />
+      <input class="date-native" type="date" placeholder="选择日期，或点“记不清”" v-model="answers.onsetDate" @change="onDateChange" />
       <view class="chip-group">
         <view
           v-for="opt in ['记不清', '约1周内', '约1个月内', '超过3个月']"
@@ -113,8 +113,7 @@ function toggleRedFlag(item: string) {
   }
 }
 
-function onDateChange(e: any) {
-  answers.onsetDate = e.detail.value || '';
+function onDateChange() {
   if (answers.onsetDate) answers.onsetRange = '';
 }
 

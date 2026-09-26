@@ -27,10 +27,10 @@
         <text class="section-title">最新一页分析</text>
         <text class="version-tag" v-if="analysis">v{{ analysis.version }} · {{ formatDate(analysis.createdAt) }}</text>
       </view>
-      <view class="card" v-if="analysis">
-        <view class="known-row" v-for="(k, i) in analysis.sections.known.slice(0, 2)" :key="i">
-          <text class="row-tag tag-known">已知</text>
-          <text class="row-text">{{ k }}</text>
+      <view class="card col" v-if="analysis">
+        <view class="kv-row" v-for="(k, i) in analysis.sections.known.slice(0, 2)" :key="i">
+          <text class="kv-tag" style="background: var(--primary); color: #fff;">已知</text>
+          <text class="kv-text">{{ k }}</text>
         </view>
         <button class="sub-btn block" @click="goToAnalysis">查看完整分析</button>
       </view>
@@ -74,7 +74,7 @@
     </view>
 
     <view class="section" v-if="planDate">
-      <view class="card plan-card" @click="goToPage('/pages/followup/followup')">
+      <view class="card col plan-card" @click="goToPage('/pages/followup/followup')">
         <view class="plan-left">
           <text class="plan-label">计划复诊</text>
           <text class="plan-date">{{ planDate }}（约 {{ planDays }} 天后）</text>
@@ -344,33 +344,6 @@ onMounted(async () => {
   padding: 4rpx 12rpx;
 }
 
-.known-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
-}
-
-.row-tag {
-  flex-shrink: 0;
-  font-size: 20rpx;
-  font-weight: 500;
-  border-radius: 8rpx;
-  padding: 4rpx 12rpx;
-}
-
-.tag-known {
-  background: var(--primary);
-  color: #fff;
-}
-
-.row-text {
-  font-size: 26rpx;
-  color: var(--text-1);
-  line-height: 1.5;
-  flex: 1;
-}
-
 .pending-card {
   background: #FDF6E3;
   margin-bottom: 32rpx;
@@ -402,13 +375,6 @@ onMounted(async () => {
   margin-bottom: 16rpx;
 }
 
-.pending-q-text {
-  font-size: 26rpx;
-  color: var(--text-1);
-  display: block;
-  margin-bottom: 12rpx;
-}
-
 .pending-actions {
   display: flex;
   gap: 20rpx;
@@ -418,6 +384,13 @@ onMounted(async () => {
 .pending-actions .primary-btn {
   flex: 1;
   margin: 0;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 26rpx;
+}
+
+.pending-actions .sub-btn {
+  flex: 1;
 }
 
 .plan-card {

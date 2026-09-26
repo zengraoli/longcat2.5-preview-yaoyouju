@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { FeatureSwitchService } from './feature-switch.service';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
@@ -18,8 +18,8 @@ export class FeatureSwitchController {
   }
 
   @Post('switch')
-  set(@Body() dto: { key: string; enabled: boolean; reason?: string }) {
-    this.featureSwitchService.setSwitch(dto.key, dto.enabled, dto.reason);
+  set(@Body() dto: { key: string; enabled: boolean; reason?: string }, @Req() req: any) {
+    this.featureSwitchService.setSwitch(dto.key, dto.enabled, dto.reason, req.admin.adminUserId);
     return { updated: true };
   }
 }
