@@ -22,7 +22,7 @@ import com.yaoyouju.app.ui.theme.OkTint
 import com.yaoyouju.app.ui.theme.Warn
 import com.yaoyouju.app.ui.theme.WarnTagTint
 
-enum class TagType { OK, WARN, ERROR, INFO, MUTED }
+enum class TagType { OK, WARN, ERROR, INFO, MUTED, PRIMARY }
 
 /** 状态标签（三端语义一致） */
 @Composable
@@ -33,6 +33,7 @@ fun StatusTag(label: String, type: TagType, modifier: Modifier = Modifier) {
         TagType.ERROR -> Error
         TagType.INFO -> Info
         TagType.MUTED -> Text3
+        TagType.PRIMARY -> com.yaoyouju.app.ui.theme.Primary
     }
     val bg = when (type) {
         TagType.OK -> OkTint
@@ -40,6 +41,7 @@ fun StatusTag(label: String, type: TagType, modifier: Modifier = Modifier) {
         TagType.ERROR -> ErrorTagTint
         TagType.INFO -> InfoTagTint
         TagType.MUTED -> Bg
+        TagType.PRIMARY -> com.yaoyouju.app.ui.theme.PrimaryLight
     }
     Text(
         text = label,

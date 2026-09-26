@@ -2,6 +2,7 @@ package com.yaoyouju.app.data.api
 
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -48,6 +49,15 @@ interface YyjApi {
 
     @POST("/followup/preview")
     suspend fun previewFollowup(@Body body: Map<String, String>): ApiResponse<FollowupPreview>
+
+    @POST("/qa/ask")
+    suspend fun askQuestion(@Body body: Map<String, String>): ApiResponse<QaResult>
+
+    @POST("/episodes/symptom-logs")
+    suspend fun createSymptomLog(@Body body: Map<String, Any?>): ApiResponse<Map<String, String>>
+
+    @DELETE("/episodes/events/{eventId}")
+    suspend fun deleteCareEvent(@Path("eventId") eventId: String): ApiResponse<Map<String, Boolean>>
 
     @GET("/contents")
     suspend fun getPublishedContents(): ApiResponse<List<ContentItem>>

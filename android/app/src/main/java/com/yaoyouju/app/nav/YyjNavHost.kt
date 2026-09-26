@@ -12,6 +12,9 @@ import com.yaoyouju.app.ui.screens.HomeScreen
 import com.yaoyouju.app.ui.screens.LoginScreen
 import com.yaoyouju.app.ui.screens.RedflagScreen
 import com.yaoyouju.app.ui.screens.PlaceholderScreen
+import com.yaoyouju.app.ui.screens.QaScreen
+import com.yaoyouju.app.ui.screens.TimelineScreen
+import com.yaoyouju.app.ui.screens.TodayScreen
 
 /**
  * 导航骨架：全部路由先接占位页，T44–T50 逐页替换为真实实现。
@@ -59,9 +62,14 @@ fun YyjNavHost(
         composable(Routes.COMPARISON) {
             ComparisonScreen(onBack = { navController.popBackStack() })
         }
-        composable(Routes.QA) { PlaceholderScreen("A09 问与解释") }
-        composable(Routes.TIMELINE) { PlaceholderScreen("A10 病程") }
-        composable(Routes.TODAY) { PlaceholderScreen("A11 记录今天") }
+        composable(Routes.QA) { QaScreen(onNavigate = { navController.navigate(it) }) }
+        composable(Routes.TIMELINE) { TimelineScreen(onNavigate = { navController.navigate(it) }) }
+        composable(Routes.TODAY) {
+            TodayScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { navController.navigate(it) },
+            )
+        }
         composable(Routes.FOLLOWUP) { PlaceholderScreen("A12 复诊准备") }
         composable(Routes.CONTENT) { PlaceholderScreen("A13 审核内容库") }
         composable(Routes.VIDEO) { PlaceholderScreen("A15 视频详情") }
