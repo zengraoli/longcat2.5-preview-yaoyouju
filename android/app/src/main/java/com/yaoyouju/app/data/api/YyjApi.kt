@@ -1,14 +1,25 @@
 package com.yaoyouju.app.data.api
 
+import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
 
+@Serializable
+data class ConsentRequest(val scopes: List<String>)
+
 interface YyjApi {
+
+    @POST("/auth/send-code")
+    suspend fun sendCode(@Body body: Map<String, String>): ApiResponse<Map<String, Boolean>>
+
 
     @POST("/auth/login")
     suspend fun login(@Body body: Map<String, String>): ApiResponse<LoginData>
+
+    @POST("/auth/consent")
+    suspend fun grantConsent(@Body body: ConsentRequest): ApiResponse<Map<String, Boolean>>
 
     @GET("/episodes")
     suspend fun getEpisodes(): ApiResponse<List<Episode>>
