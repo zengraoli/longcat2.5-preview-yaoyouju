@@ -103,7 +103,7 @@
 import { ref, computed, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
 import { api } from '../../api/request';
-import { parseChangeText } from '../../utils/chief';
+import { parseChangeText, bowelStatus } from '../../utils/chief';
 
 const report = ref<any>({});
 const episode = ref<any>({});
@@ -122,9 +122,9 @@ function formatDate(iso?: string) {
 function cleanTerms(terms: any[]) {
   const seen = new Set<string>();
   return (terms || [])
-    .map((t: any) => t.term)
-    .filter((t: string) => t && (t.length >= 2 || t.includes('/')))
-    .filter((t: string) => !seen.has(t) && seen.add(t));
+    .map((t: any) => ({ term: t.term as string, position: t.position as string }))
+    .filter((t: any) => t.term && (t.term.length >= 2 || t.term.includes('/')))
+    .filter((t: any) => !seen.has(t.term) && seen.add(t.term));
 }
 
 function termLabel(term: string) {
@@ -141,7 +141,8 @@ const symptomRows = computed(() => {
   rows.push({ label: '最近变化', value: changeAnswers.value?.['变化'] || '尚未确认' });
   const unknown: string[] = analysis.value?.sections?.unknown || [];
   rows.push({ label: '腿部无力', value: unknown.some((u: string) => u.includes('腿部无力')) ? '尚未回答' : '尚未确认' });
-  rows.push({ label: '大小便/鞍区', value: '尚未确认' });
+  const change = changeAnswers.value || parseChangeText(null);
+  rows.push({ label: '大小便/鞍区', value: bowelStatus(change) });
   rows.push({ label: '主要困惑', value: changeAnswers.value?.['困惑'] || '尚未确认' });
   return rows;
 });

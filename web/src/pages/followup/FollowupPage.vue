@@ -56,7 +56,6 @@
               </div>
               <div class="tag-row">
                 <span class="tag tag-info">报告原文</span>
-                <span class="tag tag-error">与自述侧别不一致</span>
               </div>
             </div>
 

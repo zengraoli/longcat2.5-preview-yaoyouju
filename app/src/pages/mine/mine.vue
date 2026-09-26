@@ -149,7 +149,15 @@ import { ref, onMounted } from 'vue';
 import MainTabBar from '../../components/MainTabBar.vue';
 import { api, clearToken } from '../../api/request';
 
-const maskedPhone = ref('138****1234');
+const maskedPhone = ref('');
+
+function maskPhone(phone: string) {
+  return phone.length === 11 ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '尚未确认';
+}
+
+onMounted(() => {
+  maskedPhone.value = maskPhone(uni.getStorageSync('auth_phone') || '');
+});
 const consentTime = ref('');
 
 function goConsent() {

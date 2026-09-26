@@ -187,8 +187,14 @@ const questions = computed(() => {
   return qs;
 });
 
+const latestReportDate = ref('');
+
 const bringItems = computed(() => {
-  const items = ['已录入的检查报告原文（2026-08-30 腰椎MRI）', '症状开始时间与最近变化记录'];
+  const items: string[] = [];
+  if (latestReportDate.value) {
+    items.push(`已录入的检查报告原文（${latestReportDate.value}）`);
+  }
+  items.push('症状开始时间与最近变化记录');
   if ((sections.value.diagnosisAndAssessment?.doctorRecords || []).length > 0) {
     items.push('正在使用的药物与既有医嘱');
   }
@@ -236,6 +242,8 @@ onMounted(async () => {
     const data = await api.previewFollowup(episodeId);
     sections.value = data.sections || {};
     generatedAt.value = data.generatedAt || '';
+    const reports = await api.getReportsByEpisode(episodeId);
+    latestReportDate.value = reports?.[0]?.report_date || '';
     const latest = await api.getLatestAnalysis(episodeId);
     if (latest.status === 'ok') unknown.value = latest.sections.unknown || [];
     const events = await api.getTimeline(episodeId);

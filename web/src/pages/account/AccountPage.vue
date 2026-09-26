@@ -102,7 +102,15 @@ import { useAuthStore } from '../../stores/auth';
 
 const router = useRouter();
 const consentList = ref<any[]>([]);
-const maskedPhone = ref('138****1234');
+const maskedPhone = ref('');
+
+function maskPhone(phone: string) {
+  return phone.length === 11 ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '尚未确认';
+}
+
+onMounted(() => {
+  maskedPhone.value = maskPhone(localStorage.getItem('auth_phone') || '');
+});
 
 function formatTime(iso: string) {
   return iso ? iso.slice(0, 10) : '-';

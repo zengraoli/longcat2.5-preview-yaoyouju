@@ -100,7 +100,6 @@ import { api } from '../../api/request';
 const episode = ref<any>({});
 const timeline = ref<any[]>([]);
 const analysisVersion = ref<number | null>(null);
-const questionCount = ref(0);
 const openMenu = ref('');
 
 const onsetText = computed(() => {
@@ -112,6 +111,12 @@ const onsetText = computed(() => {
 
 const symptomCount = computed(() => timeline.value.filter((t) => t.event_type === '症状').length);
 const reportCount = computed(() => timeline.value.filter((t) => t.event_type === '报告').length);
+const questionCount = computed(() => {
+  const unknown: string[] = analysis.value?.sections?.unknown || [];
+  const logs = timeline.value.filter((t) => t.event_type === '症状');
+  const worries = logs.filter((t) => t.top_worry && t.top_worry !== '尚未确认').length;
+  return unknown.length + worries;
+});
 
 function typeLabel(t: string) {
   return { 症状: '症状记录', 报告: '检查报告', 分析: '一页分析', 医嘱: '医生建议', 症状开始: '症状开始' }[t] || t;

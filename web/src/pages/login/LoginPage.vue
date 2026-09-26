@@ -121,6 +121,7 @@ async function handleLogin() {
   try {
     const res = await api.login(phone.value, code.value);
     setToken(res.token);
+    localStorage.setItem('auth_phone', phone.value);
     auth.setSession(res.token, { adminUserId: res.userId, roleId: '', name: '' });
     // 协议勾选不作为授权范围；仅“单独同意”记录健康信息处理授权
     await api.grantConsent(['健康信息处理']);

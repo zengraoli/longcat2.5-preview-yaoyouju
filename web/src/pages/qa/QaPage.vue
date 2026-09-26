@@ -61,7 +61,7 @@
       <aside class="context-panel">
         <section class="card">
           <h3 class="panel-title">本轮依据</h3>
-          <p class="panel-text">2026-09-21 当前情况 + 2026-08-30 报告原文</p>
+          <p class="panel-text">{{ contextBasis }}</p>
         </section>
         <section class="card">
           <h3 class="panel-title">已加入的复诊问题</h3>
@@ -116,8 +116,14 @@ const quickQuestions = ['复诊时该怎么描述？', '哪些变化要提前就
 
 const showStability = computed(() => explainedCount.value >= 2);
 
+const latestRecordDate = ref('');
+const latestReportDate = ref('');
+
 const contextBasis = computed(() => {
-  return '当前情况 + 最近一次检查报告';
+  const parts: string[] = [];
+  if (latestRecordDate.value) parts.push(`${latestRecordDate.value} 当前情况`);
+  if (latestReportDate.value) parts.push(`${latestReportDate.value} 报告原文`);
+  return parts.length > 0 ? parts.join(' + ') : '当前情况';
 });
 
 function formatTime(iso: string) {
@@ -169,6 +175,10 @@ onMounted(async () => {
     if (episodes && episodes.length > 0) {
       episodeId.value = episodes[0].id;
       history.value = await api.getSessionHistory(episodes[0].id);
+      const timeline = await api.getTimeline(episodes[0].id);
+      latestRecordDate.value = timeline?.[0]?.occurred_at?.slice(0, 10) || episodes[0]?.onset_date?.slice(0, 10) || '';
+      const reports = await api.getReportsByEpisode(episodes[0].id);
+      latestReportDate.value = reports?.[0]?.report_date || '';
     }
   } catch (e) {
     console.error('Failed to load qa context:', e);

@@ -27,7 +27,7 @@
         <text class="section-title">最新一页分析</text>
         <text class="version-tag" v-if="analysis">v{{ analysis.version }} · {{ formatDate(analysis.createdAt) }}</text>
       </view>
-      <view class="card col" v-if="analysis">
+      <view class="card" v-if="analysis">
         <view class="kv-row" v-for="(k, i) in analysis.sections.known.slice(0, 2)" :key="i">
           <text class="kv-tag" style="background: var(--primary); color: #fff;">已知</text>
           <text class="kv-text">{{ k }}</text>
@@ -74,7 +74,7 @@
     </view>
 
     <view class="section" v-if="planDate">
-      <view class="card col plan-card" @click="goToPage('/pages/followup/followup')">
+      <view class="card card-row plan-card" @click="goToPage('/pages/followup/followup')">
         <view class="plan-left">
           <text class="plan-label">计划复诊</text>
           <text class="plan-date">{{ planDate }}（约 {{ planDays }} 天后）</text>
@@ -231,6 +231,10 @@ onMounted(async () => {
   border-radius: 24rpx;
   padding: 28rpx;
   margin-bottom: 16rpx;
+  display: block;
+}
+
+.card-row {
   display: flex;
   align-items: center;
   justify-content: space-between;

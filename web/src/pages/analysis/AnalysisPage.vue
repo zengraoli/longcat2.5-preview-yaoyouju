@@ -22,7 +22,7 @@
             <li v-for="(exp, idx) in analysis.sections.explanation" :key="'e' + idx">
               <span class="bullet"></span>
               <span>{{ exp.text }}</span>
-              <span class="source-tag self-tag">自述 · 已确认</span>
+              <span class="source-tag">系统生成 · 来源：{{ exp.source || '尚未确认' }}</span>
             </li>
           </ul>
         </section>
