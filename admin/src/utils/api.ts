@@ -33,6 +33,7 @@ export async function request<T = any>(url: string, options: RequestInit = {}): 
 export const api = {
   adminLogin: (data: { username: string; password: string; totp: string }) =>
     request('/admin/login', { method: 'POST', body: JSON.stringify(data) }),
+  getAdminDashboard: () => request('/admin/dashboard'),
   getAdminUsers: () => request('/admin/users'),
   createAdminUser: (data: any) => request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
   verifyAudit: () => request('/admin/audit/verify'),
@@ -51,6 +52,8 @@ export const api = {
   getFeatureSwitches: () => request('/features/switches'),
   setFeatureSwitch: (data: any) => request('/features/switch', { method: 'POST', body: JSON.stringify(data) }),
   getModels: () => request('/models'),
+  getEvalSets: () => request('/admin/eval-sets'),
+  getEvalRuns: () => request('/admin/eval-runs'),
   createModelRelease: (data: any) => request('/models', { method: 'POST', body: JSON.stringify(data) }),
   submitEvalRun: (data: any) => request('/models/eval/submit', { method: 'POST', body: JSON.stringify(data) }),
   publishModel: (data: any) => request('/models/publish', { method: 'POST', body: JSON.stringify(data) }),

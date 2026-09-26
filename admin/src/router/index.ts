@@ -22,6 +22,7 @@ const router = createRouter({
         { path: 'feedback', name: 'feedback', component: () => import('../pages/feedback/FeedbackPage.vue'), meta: { permission: '*' } },
         { path: 'safety', name: 'safety', component: () => import('../pages/safety/SafetyPage.vue'), meta: { permission: 'safety:view' } },
         { path: 'models', name: 'models', component: () => import('../pages/models/ModelsPage.vue'), meta: { permission: '*' } },
+        { path: 'eval', name: 'eval', component: () => import('../pages/eval/EvalSetsPage.vue'), meta: { permission: '*' } },
         { path: 'users', name: 'users', component: () => import('../pages/users/UsersPage.vue'), meta: { permission: '*' } },
         { path: 'audit', name: 'audit', component: () => import('../pages/audit/AuditPage.vue'), meta: { permission: 'audit:view' } },
         { path: 'cases', name: 'cases', component: () => import('../pages/cases/CasesPage.vue'), meta: { permission: '*' } },

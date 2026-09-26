@@ -9,6 +9,7 @@
         <router-link to="/feedback" class="nav-item">举报反馈</router-link>
         <router-link to="/safety" class="nav-item">安全事件</router-link>
         <router-link to="/models" class="nav-item">模型发布</router-link>
+        <router-link to="/eval" class="nav-item">评测集</router-link>
         <router-link to="/users" class="nav-item">用户权限</router-link>
         <router-link to="/audit" class="nav-item">审计日志</router-link>
         <router-link to="/cases" class="nav-item">案例投稿</router-link>

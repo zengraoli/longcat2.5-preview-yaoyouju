@@ -18,6 +18,18 @@ export class AdminController {
     return this.adminService.getDashboard();
   }
 
+  @Get('eval-sets')
+  @UseGuards(AdminAuthGuard)
+  evalSets() {
+    return this.adminService.getEvalSets();
+  }
+
+  @Get('eval-runs')
+  @UseGuards(AdminAuthGuard)
+  evalRuns() {
+    return this.adminService.getEvalRuns();
+  }
+
   @Get('users')
   getUsers(@Headers('x-admin-token') token: string) {
     const session = this.adminService.validateSession(token);

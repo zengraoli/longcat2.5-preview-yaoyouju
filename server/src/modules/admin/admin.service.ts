@@ -108,6 +108,22 @@ export class AdminService {
     return db.prepare('SELECT * FROM admin_user').all();
   }
 
+  getEvalSets() {
+    const db = getDb();
+    return db.prepare('SELECT id, name, case_count, deidentified FROM eval_set ORDER BY rowid ASC').all();
+  }
+
+  getEvalRuns() {
+    const db = getDb();
+    return db.prepare(`
+      SELECT er.*, mr.model_name, es.name AS eval_set_name
+      FROM eval_run er
+      JOIN model_release mr ON er.model_release_id = mr.id
+      JOIN eval_set es ON er.eval_set_id = es.id
+      ORDER BY er.rowid DESC LIMIT 20
+    `).all();
+  }
+
   /**
    * 仪表盘：核心指标、近 7 天分析趋势、最近安全事件、待办事项。
    */
