@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.yaoyouju.app.ui.components.AlertBar
 import com.yaoyouju.app.ui.components.AlertType
 import com.yaoyouju.app.ui.components.PrimaryButton
@@ -178,7 +180,25 @@ fun ConfusionScreen(
 
             Spacer(Modifier.weight(1f))
 
-            PrimaryButton(text = "下一步", onClick = { onNavigate("A05") })
+            PrimaryButton(text = "下一步", onClick = {
+                scope.launch {
+                    runCatching {
+                        val episodes = ApiClient.api.getEpisodes().unwrap()
+                        val episodeId = episodes.firstOrNull()?.id ?: run {
+                            ApiClient.api.createEpisode(mapOf("title" to "本次发作")).unwrap().id
+                        }
+                        ApiClient.api.createCareEvent(mapOf(
+                            "episodeId" to episodeId,
+                            "eventType" to "主要困惑",
+                            "occurredAt" to java.util.Date().toInstant().toString(),
+                            "sourceType" to "自述",
+                            "rawText" to "主要困惑：${selected}；解释方式：${styles.joinToString("、").ifEmpty { "未选择" }}",
+                            "verifyStatus" to "尚未确认",
+                        ))
+                    }
+                }
+                onNavigate("A05")
+            })
             Spacer(Modifier.height(24.dp))
         }
     }
