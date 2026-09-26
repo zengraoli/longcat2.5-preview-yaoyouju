@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3400/api';
+const BASE_URL = '/api';
 
 let authToken = '';
 

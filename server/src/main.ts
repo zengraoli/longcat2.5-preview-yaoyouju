@@ -6,6 +6,18 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // H5/Web 前端跨域：允许本项目各端开发源与生产同源访问
+  app.enableCors({
+    origin: [
+      'http://localhost:5401',
+      'http://localhost:5402',
+      'http://localhost:5403',
+      'http://127.0.0.1:5401',
+      'http://127.0.0.1:5402',
+      'http://127.0.0.1:5403',
+    ],
+    credentials: true,
+  });
   app.setGlobalPrefix('api');
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
