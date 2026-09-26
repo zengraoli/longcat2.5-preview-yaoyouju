@@ -1,7 +1,7 @@
 # T45 关键变化确认与就医提示
 
 阶段：S5 android
-状态：待完成
+状态：已完成（v0.95，2026-09-26）
 设计稿：`docs/design/app/A02.png`、`docs/design/app/A03.png`
 
 ## 要做什么
