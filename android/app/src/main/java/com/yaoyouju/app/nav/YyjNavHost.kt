@@ -38,7 +38,10 @@ fun YyjNavHost(
         }
         composable(Routes.CHANGE) { ChangeScreen(onNavigate = { navController.navigate(it) }) }
         composable(Routes.REDFLAG) {
-            RedflagScreen(onNavigate = { navController.navigate(it) })
+            RedflagScreen(
+                onBack = { navController.popBackStack() },
+                onGoContent = { navController.navigate(Routes.CONTENT) },
+            )
         }
         composable(Routes.HOME) { HomeScreen(onNavigate = { navController.navigate(it) }) }
 
