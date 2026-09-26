@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.yaoyouju.app.ResponseParsingTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-26T07:21:35" hostname="WIN-20260611BWS" time="0.036">
+  <properties/>
+  <testcase name="non-zero code throws ApiException" classname="com.yaoyouju.app.ResponseParsingTest" time="0.007"/>
+  <testcase name="deep link parses page route" classname="com.yaoyouju.app.ResponseParsingTest" time="0.005"/>
+  <testcase name="login response unwraps data" classname="com.yaoyouju.app.ResponseParsingTest" time="0.022"/>
+  <testcase name="deep link rejects invalid routes" classname="com.yaoyouju.app.ResponseParsingTest" time="0.0"/>
+  <testcase name="episode dto parses with null onset date" classname="com.yaoyouju.app.ResponseParsingTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "com.yaoyouju.app-release-52:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.yaoyouju.app-main-53:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.yaoyouju.app-release-52:/xml_network_security_config.xml.flat",
+        "source": "com.yaoyouju.app-main-53:/xml/network_security_config.xml"
+    },
+    {
+        "merged": "com.yaoyouju.app-release-52:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.yaoyouju.app-main-53:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.yaoyouju.app-release-52:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.yaoyouju.app-main-53:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.yaoyouju.app-release-52:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.yaoyouju.app-main-53:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.yaoyouju.app-release-52:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.yaoyouju.app-main-53:/mipmap-hdpi/ic_launcher.png"
+    }
+]
