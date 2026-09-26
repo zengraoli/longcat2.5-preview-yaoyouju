@@ -39,12 +39,26 @@ export class ContentService {
     const db = getDb();
     const content = db.prepare('SELECT * FROM content_item WHERE id = ?').get(dto.contentId) as any | undefined;
     if (!content) throw new NotFoundException('内容不存在');
-    if (content.current_status !== '草稿') throw new BadRequestException('只有草稿状态可提交审核');
+    if (content.current_status !== '草稿' && content.current_status !== '更正中') {
+      throw new BadRequestException('只有草稿或更正中状态可提交审核');
+    }
     db.prepare('UPDATE content_item SET current_status = ? WHERE id = ?').run('待医学审核', dto.contentId);
+    this.logContentAudit('content.submitted', dto.contentId, { status: '待医学审核' });
     return { submitted: true, contentId: dto.contentId, status: '待医学审核' };
   }
 
-  reviewDecision(dto: { contentId: string; decision: string; comment?: string; reviewerId: string }) {
+  /** 已下线内容申请恢复：已撤回或已下线 → 更正中 */
+  restore(dto: { contentId: string }) {
+    const db = getDb();
+    const content = db.prepare('SELECT * FROM content_item WHERE id = ?').get(dto.contentId) as any | undefined;
+    if (!content) throw new NotFoundException('内容不存在');
+    if (content.current_status !== '已撤回或已下线') throw new BadRequestException('只有已下线状态可申请恢复');
+    db.prepare('UPDATE content_item SET current_status = ?, offline_switch = 0 WHERE id = ?').run('更正中', dto.contentId);
+    this.logContentAudit('content.restore', dto.contentId, { status: '更正中' });
+    return { restored: true, contentId: dto.contentId, status: '更正中' };
+  }
+
+  reviewDecision(dto: { contentId: string; decision: string; comment?: string; reviewerId?: string }) {
     const db = getDb();
     const content = db.prepare('SELECT * FROM content_item WHERE id = ?').get(dto.contentId) as any | undefined;
     if (!content) throw new NotFoundException('内容不存在');

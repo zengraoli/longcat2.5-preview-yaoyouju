@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { ContentService } from './content.service';
@@ -42,10 +42,16 @@ export class ContentController {
     return this.contentService.submitForReview(dto);
   }
 
+  @Post('restore')
+  @UseGuards(AdminAuthGuard)
+  restore(@Body() dto: { contentId: string }) {
+    return this.contentService.restore(dto);
+  }
+
   @Post('review')
   @UseGuards(AdminAuthGuard)
-  review(@Body() dto: ReviewDecisionDto & { reviewerId: string }) {
-    return this.contentService.reviewDecision(dto);
+  review(@Body() dto: ReviewDecisionDto, @Req() req: any) {
+    return this.contentService.reviewDecision({ ...dto, reviewerId: req.admin.adminUserId });
   }
 
   @Post('publish')

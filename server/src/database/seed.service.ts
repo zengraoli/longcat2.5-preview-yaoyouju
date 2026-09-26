@@ -421,11 +421,11 @@ export class SeedService implements OnModuleInit {
         { id: 'content-1', type: '视频', title: '认识腰椎间盘突出', scope: '适用于腰椎间盘突出初步了解', notApplicable: '不适用于急性期疼痛严重者', status: '已发布' },
         { id: 'content-2', type: '图文组件', title: '日常腰部保护姿势', scope: '适用于日常姿势纠正', notApplicable: '不适用于术后康复期', status: '已发布' },
         { id: 'content-3', type: '视频', title: '办公室腰部锻炼操', scope: '适用于久坐办公人群', notApplicable: '不适用于急性疼痛期', status: '已审定' },
-        { id: 'content-4', type: '视频', title: '慢性腰痛运动康复', scope: '适用于慢性腰痛患者', notApplicable: '不适用于未确诊的腰痛', status: '待审' },
+        { id: 'content-4', type: '视频', title: '慢性腰痛运动康复', scope: '适用于慢性腰痛患者', notApplicable: '不适用于未确诊的腰痛', status: '待医学审核' },
         { id: 'content-5', type: '图文组件', title: '腰痛患者睡眠姿势', scope: '适用于腰痛患者日常睡眠', notApplicable: '无特殊禁忌', status: '草稿' },
         { id: 'content-6', type: '视频', title: '腰椎MRI报告解读', scope: '适用于已做MRI检查的患者', notApplicable: '不适用于未做影像检查者', status: '已发布' },
         { id: 'content-7', type: '图文组件', title: '复诊准备清单', scope: '适用于即将复诊的患者', notApplicable: '无', status: '已发布' },
-        { id: 'content-8', type: '视频', title: '非特异性腰痛自我管理', scope: '适用于非特异性腰痛', notApplicable: '不适用于有明确器质性病变者', status: '已撤回' },
+        { id: 'content-8', type: '视频', title: '非特异性腰痛自我管理', scope: '适用于非特异性腰痛', notApplicable: '不适用于有明确器质性病变者', status: '已撤回或已下线' },
         { id: 'content-9', type: '图文组件', title: '腰痛与体重管理', scope: '适用于超重腰痛患者', notApplicable: '不适用于体重正常者', status: '已发布' },
         { id: 'content-10', type: '视频', title: '物理治疗介绍', scope: '适用于考虑物理治疗的患者', notApplicable: '不适用于急性炎症期', status: '更正中' },
       ];
