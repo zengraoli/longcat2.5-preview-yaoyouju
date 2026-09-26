@@ -13,3 +13,6 @@ server/data/
 *.log
 .DS_Store
 *.tsbuildinfo
+android/.gradle/
+android/app/build/
+android/build/
