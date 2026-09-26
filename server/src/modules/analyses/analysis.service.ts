@@ -171,7 +171,7 @@ export class AnalysisService {
   getLatestAnalysis(episodeId: string, userId: string) {
     const db = getDb();
     const episode = db.prepare('SELECT id FROM episode WHERE id = ? AND user_id = ?').get(episodeId, userId) as any | undefined;
-    if (!episode) return { status: 'forbidden', episodeId, message: '病程不存在' };
+    if (!episode) throw new NotFoundException('病程不存在');
     const analysis = db.prepare('SELECT * FROM analysis WHERE episode_id = ? ORDER BY version DESC LIMIT 1').get(episode.id) as any | undefined;
     if (!analysis) return { status: 'none', episodeId, message: '尚未生成分析' };
     return { status: 'ok', ...this.enrichAnalysis(analysis) };

@@ -16,13 +16,15 @@ export class FeedbackService {
     const db = getDb();
     const id = randomUUID();
 
-    const analysis = dto.analysisId
-      ? db.prepare(`
-          SELECT a.* FROM analysis a
-          JOIN episode e ON a.episode_id = e.id
-          WHERE a.id = ? AND e.user_id = ?
-        `).get(dto.analysisId, userId) as any | undefined
-      : null;
+    let analysis: any = null;
+    if (dto.analysisId) {
+      analysis = db.prepare(`
+        SELECT a.* FROM analysis a
+        JOIN episode e ON a.episode_id = e.id
+        WHERE a.id = ? AND e.user_id = ?
+      `).get(dto.analysisId, userId) as any | undefined;
+      if (!analysis) throw new NotFoundException('分析不存在');
+    }
     const modelRelease = analysis?.model_release_id
       ? db.prepare('SELECT * FROM model_release WHERE id = ?').get(analysis.model_release_id) as any | undefined
       : null;

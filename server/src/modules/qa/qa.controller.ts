@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, BadRequestException, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { QaService } from './qa.service';
 import { AskQuestionDto, AddFollowupQuestionDto } from './dto/qa.dto';
@@ -10,6 +10,9 @@ export class QaController {
 
   @Post('ask')
   askQuestion(@Req() req: any, @Body() dto: AskQuestionDto) {
+    if (!dto.question || !dto.question.trim()) {
+      throw new BadRequestException('问题不能为空');
+    }
     return this.qaService.askQuestion(req.user.userId, dto);
   }
 
