@@ -14,6 +14,7 @@ export class ContentController {
   }
 
   @Get()
+  @UseGuards(AuthGuard)
   getPublished() {
     return this.contentService.getPublishedContent();
   }
@@ -28,6 +29,13 @@ export class ContentController {
   @UseGuards(AuthGuard)
   getRecommendations(@Req() req: any) {
     return this.contentService.getRecommendations(req.user.userId);
+  }
+
+  @Get('admin/:id')
+  @UseGuards(AdminAuthGuard)
+  getAdminById(@Param('id') id: string) {
+    // 后台详情：含草稿/待审/下线内容与审核记录
+    return this.contentService.getContentById(id);
   }
 
   @Get(':id')

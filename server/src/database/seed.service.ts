@@ -431,11 +431,11 @@ export class SeedService implements OnModuleInit {
       ];
 
       const reviewerId = randomUUID();
-      // 权限矩阵见 docs/design/admin/B10.png（最小必要）
-      insertRole.run('role-1', '运营编辑', JSON.stringify(['content:create', 'content:edit', 'content:submit', 'evidence:create', 'evidence:read', 'feedback:triage', 'users:read']));
-      insertRole.run('role-2', '临床审核', JSON.stringify(['content:review', 'content:approve', 'content:offline', 'evidence:create', 'evidence:verify', 'evidence:offline', 'evidence:read', 'feedback:review', 'feedback:grant-plaintext', 'feedback:triage', 'eval:read', 'eval:run', 'feature:toggle:limited', 'users:read']));
-      insertRole.run('role-3', '技术负责人', JSON.stringify(['system:config', 'feature:toggle', 'models:read', 'models:publish', 'models:rollback', 'eval:read', 'eval:run', 'evidence:create', 'evidence:verify', 'evidence:offline', 'evidence:read', 'feedback:triage', 'users:read']));
-      insertRole.run('role-4', '合规支持', JSON.stringify(['audit:view', 'audit:export', 'safety:view', 'feedback:triage', 'users:read', 'users:create']));
+      // 权限矩阵见 docs/design/admin/B10.png（最小必要）：✓允许 ◐发起申请 —无
+      insertRole.run('role-1', '运营编辑', JSON.stringify(['content:create', 'content:edit', 'content:submit', 'evidence:create', 'evidence:read', 'feedback:triage']));
+      insertRole.run('role-2', '临床审核', JSON.stringify(['content:review', 'content:approve', 'content:offline', 'evidence:create', 'evidence:verify', 'evidence:offline', 'evidence:read', 'feedback:review', 'feedback:grant-plaintext', 'feedback:triage', 'eval:read', 'eval:run', 'feature:toggle:limited']));
+      insertRole.run('role-3', '技术负责人', JSON.stringify(['system:config', 'feature:toggle', 'models:read', 'models:publish', 'models:rollback', 'eval:read', 'eval:run']));
+      insertRole.run('role-4', '合规支持', JSON.stringify(['audit:view', 'audit:export', 'safety:view', 'users:read', 'users:create']));
       insertRole.run('role-5', '超级管理员', JSON.stringify(['content:create', 'content:edit', 'content:submit', 'content:approve', 'content:offline', 'evidence:create', 'evidence:verify', 'evidence:offline', 'evidence:read', 'feedback:triage', 'feedback:review', 'feedback:grant-plaintext', 'feature:toggle', 'models:read', 'models:publish', 'models:rollback', 'eval:read', 'eval:run', 'users:read', 'users:create', 'audit:view', 'audit:export', 'safety:view']));
 
       insertAdminUser.run(reviewerId, '运营编辑员', 'role-1', 1);

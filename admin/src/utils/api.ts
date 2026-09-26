@@ -46,6 +46,7 @@ export const api = {
   getContents: () => request('/contents'),
   getAllContents: () => request('/contents/all'),
   getContent: (id: string) => request(`/contents/${id}`),
+  getAdminContent: (id: string) => request(`/contents/admin/${id}`),
   createContent: (data: any) => request('/contents', { method: 'POST', body: JSON.stringify(data) }),
   submitContent: (data: any) => request('/contents/submit', { method: 'POST', body: JSON.stringify(data) }),
   reviewContent: (data: any) => request('/contents/review', { method: 'POST', body: JSON.stringify(data) }),

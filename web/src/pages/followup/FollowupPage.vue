@@ -223,7 +223,7 @@ const a4Blocks = computed(() => {
   return [
     {
       title: '本次发作起点',
-      lines: [`发病日期：${chiefOnset}`],
+      lines: [`发病日期：${chiefOnset.value}`],
     },
     {
       title: '主要症状与变化',

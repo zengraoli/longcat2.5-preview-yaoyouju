@@ -152,7 +152,7 @@ async function offline() {
 async function loadDetail() {
   try {
     const id = route.params.id as string;
-    const data = await api.getContent(id);
+    const data = await api.getAdminContent(id);
     item.value = data;
     reviews.value = data.reviews || [];
     versions.value = data.versions || [];

@@ -223,7 +223,7 @@ function buildText(): string {
     '复诊交接摘要',
     `生成于 ${formatDate(generatedAt.value)} · 由用户自述与报告原文整理 · 未经医生核实`,
     '',
-    `【本次发作起点】${chiefOnset}`,
+    `【本次发作起点】${chiefOnset.value}`,
     `【主要症状与变化】${chiefText.value}`,
     `【相关检查原文】${(sections.value.examinationFindings?.reports || []).map((r: any) => `[${r.date}] ${r.text}`).join('\n')}`,
     `【想问医生的问题】${questions.value.join('；')}`,
@@ -396,6 +396,11 @@ onMounted(async () => {
 .tag-source {
   background: var(--bg);
   color: var(--text-2);
+}
+
+.tag-ok {
+  background: #E5F6EE;
+  color: var(--ok);
 }
 
 .tag-warn {
