@@ -93,7 +93,7 @@ const code = ref('');
 const countdown = ref(0);
 const consents = ref({ health: false, share: false });
 
-const canSubmit = computed(() => phone.value.length === 11 && code.value.length === 6 && consents.value.health);
+const canSubmit = computed(() => phone.value.length === 11 && code.value.length === 6 && consents.value.health && consents.value.share);
 
 function startCountdown() {
   countdown.value = 60;
@@ -117,6 +117,7 @@ async function handleLogin() {
   try {
     const res = await api.login(phone.value, code.value);
     setToken(res.token);
+    // 协议勾选不作为授权范围；仅“单独同意”记录健康信息处理授权
     await api.grantConsent(['健康信息处理']);
     router.push('/dashboard');
   } catch (e: any) {

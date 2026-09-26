@@ -41,9 +41,9 @@
       </view>
 
       <view class="consent-section">
-        <view class="consent-item" @click="toggleConsent('分享')">
-          <view class="checkbox" :class="{ checked: consents['分享'] }">
-            <text v-if="consents['分享']" class="check-icon">✓</text>
+        <view class="consent-item" @click="agreement = !agreement">
+          <view class="checkbox" :class="{ checked: agreement }">
+            <text v-if="agreement" class="check-icon">✓</text>
           </view>
           <text class="consent-text">我已阅读并同意《用户协议》《隐私政策》</text>
         </view>
@@ -79,6 +79,7 @@ import { api, setToken } from '../../api/request';
 const phone = ref('');
 const code = ref('');
 const countdown = ref(0);
+const agreement = ref(false);
 const consents = ref<Record<string, boolean>>({
   '健康信息处理': false,
   '分享': false,
@@ -87,7 +88,7 @@ const consents = ref<Record<string, boolean>>({
 
 const canSubmit = computed(() => {
   return phone.value.length === 11 && code.value.length === 6
-    && consents.value['分享'] && consents.value['健康信息处理'];
+    && agreement.value && consents.value['健康信息处理'];
 });
 
 function toggleConsent(key: string) {
@@ -129,8 +130,10 @@ async function handleLogin() {
   try {
     const res = await api.login(phone.value, code.value);
     setToken(res.token);
-    const scopes = ['健康信息处理', '分享', '产品改进'].filter(k => consents.value[k]);
-    await api.grantConsent(scopes);
+    // 协议勾选不作为授权范围；仅“单独同意”记录健康信息处理授权
+    if (consents.value['健康信息处理']) {
+      await api.grantConsent(['健康信息处理']);
+    }
     uni.reLaunch({ url: '/pages/index/index' });
   } catch (e: any) {
     uni.showToast({ title: e.message, icon: 'none' });

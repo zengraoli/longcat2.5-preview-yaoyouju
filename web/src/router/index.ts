@@ -21,8 +21,19 @@ const router = createRouter({
         { path: 'content', name: 'content', component: () => import('../pages/content/ContentPage.vue') },
         { path: 'account', name: 'account', component: () => import('../pages/account/AccountPage.vue') },
       ],
+      meta: { requiresAuth: true },
     },
   ],
+});
+
+router.beforeEach((to, _from, next) => {
+  if (to.matched.some((r) => r.meta.requiresAuth)) {
+    const auth = useAuthStore();
+    if (!auth.isAuthenticated) {
+      return next('/login');
+    }
+  }
+  next();
 });
 
 export { router };
