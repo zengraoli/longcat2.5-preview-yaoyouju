@@ -109,6 +109,13 @@ async function submit() {
       isErrorReport: mode.value === 'report',
       errorDescription: description.value,
     };
+    // 自动附带当前分析 ID（设计：关于哪条内容自动附带版本）
+    const episodes = await api.getEpisodes();
+    const episodeId = episodes[0]?.id;
+    if (episodeId) {
+      const latest = await api.getLatestAnalysis(episodeId);
+      if (latest.status === 'ok') data.analysisId = latest.analysisId;
+    }
     if (mode.value === 'report') {
       data.errorCategory = selectedCategories.value.join('、');
       data.severity = 'medium';

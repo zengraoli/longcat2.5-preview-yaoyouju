@@ -27,7 +27,7 @@ export class FeedbackService {
     const ruleSetVersion = 'RF-v1.0';
 
     db.prepare('INSERT INTO feedback (id, analysis_id, help_type, unsolved_question, is_error_report) VALUES (?, ?, ?, ?, ?)').run(
-      id, dto.analysisId || null, dto.helpType || null, dto.unsolvedQuestion || null, dto.isErrorReport ? 1 : 0,
+      id, dto.analysisId || null, dto.helpType || (dto.isErrorReport ? '错误举报' : '其他'), dto.unsolvedQuestion || null, dto.isErrorReport ? 1 : 0,
     );
 
     const reportRecord = db.prepare(`
