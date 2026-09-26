@@ -205,7 +205,7 @@ const form = ref({
   sitSkipped: false,
   activityDone: '',
   activitySkipped: false,
-  sleepImpact: null,
+  sleepImpact: null as number | null,
   compareToYesterday: '',
   compareSkipped: false,
   legChange: '',
