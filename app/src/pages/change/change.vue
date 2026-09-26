@@ -1,107 +1,192 @@
 <template>
   <view class="page">
     <view class="header">
-      <text class="page-title">当前关键变化确认</text>
+      <view class="back-row">
+        <image src="/static/icons/ic_chevron_left.png" class="back-icon" @click="goBack" />
+        <text class="page-title">当前关键变化确认</text>
+      </view>
+      <text class="step-chip">第 {{ currentStep }} / 4 步</text>
     </view>
 
-    <view class="card">
-      <text class="card-title">请确认您目前的情况</text>
-      <text class="card-desc">以下信息将帮助为您提供更准确的分析</text>
+    <view class="info-alert">
+      <image src="/static/icons/ic_info.png" class="alert-icon" />
+      <text class="alert-text">先确认最近的变化。没有回答的问题会记录为“尚未确认”，不会被当作“没有”。</text>
+    </view>
 
-      <view class="form-item">
-        <text class="form-label">疼痛程度（0-10）</text>
-        <slider :value="painLevel" :min="0" :max="10" @change="onPainChange" show-value />
+    <view class="card" v-if="currentStep === 1">
+      <text class="question-title">1. 与上次记录相比，最近腰痛或腿部症状有变化吗？</text>
+      <view class="chip-group">
+        <view
+          v-for="opt in ['加重', '差不多', '减轻', '尚未确认']"
+          :key="opt"
+          class="chip"
+          :class="{ selected: answers.change === opt }"
+          @click="answers.change = opt"
+        >{{ opt }}</view>
       </view>
+    </view>
 
-      <view class="form-item">
-        <text class="form-label">疼痛部位</text>
-        <view class="chip-group">
-          <view
-            v-for="part in painParts"
-            :key="part"
-            class="chip"
-            :class="{ selected: selectedParts.includes(part) }"
-            @click="togglePart(part)"
-          >
-            {{ part }}
+    <view class="card" v-if="currentStep === 2">
+      <text class="question-title">2. 最近是否出现以下任一情况？（可多选）</text>
+      <text class="question-note">这些变化需要医生及时评估，出现时会优先提示就医。</text>
+      <view class="check-list">
+        <view
+          v-for="item in redFlagItems"
+          :key="item"
+          class="check-card"
+          :class="{ selected: answers.redFlags.includes(item), none: item === '以上都没有' && answers.redFlags.includes(item) }"
+          @click="toggleRedFlag(item)"
+        >
+          <view class="checkbox">
+            <text v-if="answers.redFlags.includes(item)" class="check-icon">✓</text>
           </view>
+          <text class="check-label">{{ item }}</text>
         </view>
       </view>
+    </view>
 
-      <view class="form-item">
-        <text class="form-label">症状持续时间</text>
-        <picker :range="durationOptions" :value="durationIndex" @change="onDurationChange">
-          <view class="picker-value">{{ durationOptions[durationIndex] }}</view>
-        </picker>
+    <view class="card" v-if="currentStep === 3">
+      <text class="question-title">3. 疼痛或麻木主要涉及哪一侧？</text>
+      <view class="chip-group">
+        <view
+          v-for="opt in ['左侧', '右侧', '双侧', '尚未确认']"
+          :key="opt"
+          class="chip"
+          :class="{ selected: answers.side === opt }"
+          @click="answers.side = opt"
+        >{{ opt }}</view>
       </view>
+    </view>
 
-      <view class="form-item">
-        <text class="form-label">是否有以下症状</text>
-        <view class="checkbox-group">
-          <view class="checkbox-item" v-for="s in redFlagSymptoms" :key="s.key" @click="toggleSymptom(s.key)">
-            <view class="checkbox" :class="{ checked: symptoms[s.key] }">
-              <text v-if="symptoms[s.key]" class="check-icon">✓</text>
-            </view>
-            <text class="checkbox-label">{{ s.label }}</text>
-          </view>
-        </view>
+    <view class="card" v-if="currentStep === 4">
+      <text class="question-title">4. 这次症状大约从什么时候开始？</text>
+      <view class="date-row">
+        <input
+          class="date-input"
+          type="text"
+          placeholder="选择日期，或点“记不清”"
+          :value="answers.onsetDate || '选择日期'"
+          readonly
+          @click="openDatePicker"
+        />
+        <image src="/static/icons/ic_calendar.png" class="date-icon" @click="openDatePicker" />
       </view>
+      <view class="chip-group">
+        <view
+          v-for="opt in ['记不清', '约1周内', '约1个月内', '超过3个月']"
+          :key="opt"
+          class="chip"
+          :class="{ selected: answers.onsetRange === opt }"
+          @click="answers.onsetRange = opt"
+        >{{ opt }}</view>
+      </view>
+    </view>
 
-      <button class="primary-btn" @click="submit">确认并继续</button>
-      <button class="skip-btn" @click="skip">跳过</button>
+    <view class="footer">
+      <button class="primary-btn" @click="onNext">{{ currentStep < 4 ? '下一步' : '完成并继续' }}</button>
+      <text class="link-text" @click="goContent">先看已审核科普，稍后再填</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
+import { api } from '../../api/request';
 
-const painLevel = ref(0);
-const painParts = ['腰部', '臀部', '大腿', '小腿', '脚部'];
-const selectedParts = ref<string[]>([]);
-const durationOptions = ['少于1周', '1-4周', '1-3个月', '3个月以上'];
-const durationIndex = ref(0);
-const redFlagSymptoms = [
-  { key: 'bowel', label: '大小便失禁或排便困难' },
-  { key: 'numbness', label: '会阴部麻木' },
-  { key: 'weakness', label: '下肢无力或行走困难' },
-  { key: 'fever', label: '发热或寒战' },
-  { key: 'trauma', label: '近期有外伤史' },
-];
-const symptoms = ref<Record<string, boolean>>({});
+const currentStep = ref(1);
 
-function onPainChange(e: any) {
-  painLevel.value = e.detail.value;
-}
+const redFlagItems = ['大小便控制异常', '会阴区或鞍区麻木', '双腿进行性无力', '发热、夜间痛持续不缓解或体重明显下降', '以上都没有', '不确定 / 记不清'];
 
-function togglePart(part: string) {
-  const idx = selectedParts.value.indexOf(part);
+const answers = reactive<{
+  change: string;
+  redFlags: string[];
+  side: string;
+  onsetDate: string;
+  onsetRange: string;
+}>({
+  change: '',
+  redFlags: [],
+  side: '',
+  onsetDate: '',
+  onsetRange: '',
+});
+
+function toggleRedFlag(item: string) {
+  const idx = answers.redFlags.indexOf(item);
   if (idx >= 0) {
-    selectedParts.value.splice(idx, 1);
+    answers.redFlags.splice(idx, 1);
   } else {
-    selectedParts.value.push(part);
+    // “以上都没有”与其他选项互斥
+    if (item === '以上都没有') answers.redFlags = ['以上都没有'];
+    else answers.redFlags = answers.redFlags.filter((i) => i !== '以上都没有');
+    if (!answers.redFlags.includes(item)) answers.redFlags.push(item);
   }
 }
 
-function onDurationChange(e: any) {
-  durationIndex.value = e.detail.value;
+function openDatePicker() {
+  // uni-app H5 环境下使用 input[type=date]
+  const input = document.createElement('input');
+  input.type = 'date';
+  input.value = answers.onsetDate || '';
+  input.onchange = () => {
+    answers.onsetDate = input.value || '';
+    if (input.value) answers.onsetRange = '';
+  };
+  input.click();
 }
 
-function toggleSymptom(key: string) {
-  symptoms.value[key] = !symptoms.value[key];
-}
-
-function submit() {
-  const hasRedFlag = Object.values(symptoms.value).some(v => v);
-  if (hasRedFlag) {
-    uni.navigateTo({ url: '/pages/redflag/redflag' });
+function goBack() {
+  if (currentStep.value > 1) {
+    currentStep.value--;
   } else {
-    uni.navigateTo({ url: '/pages/index/index' });
+    uni.navigateBack();
   }
 }
 
-function skip() {
-  uni.navigateTo({ url: '/pages/index/index' });
+function goContent() {
+  uni.navigateTo({ url: '/pages/content/content' });
+}
+
+async function saveAnswers() {
+  try {
+    const episodes = await api.getEpisodes();
+    const episodeId = episodes[0]?.id;
+    if (!episodeId) return;
+    await api.createCareEvent({
+      episodeId,
+      eventType: '变化确认',
+      occurredAt: new Date().toISOString(),
+      sourceType: '自述',
+      rawText: JSON.stringify({
+        变化: answers.change || '尚未确认',
+        红旗项: answers.redFlags,
+        侧别: answers.side || '尚未确认',
+        开始日期: answers.onsetDate || answers.onsetRange || '尚未确认',
+      }, null, 2),
+      verifyStatus: '尚未确认',
+    });
+  } catch (e) {
+    console.error('Failed to save change answers:', e);
+  }
+}
+
+function hasRealRedFlag() {
+  const excluded = ['以上都没有', '不确定 / 记不清'];
+  return answers.redFlags.some((i) => !excluded.includes(i));
+}
+
+async function onNext() {
+  if (currentStep.value < 4) {
+    currentStep.value++;
+    return;
+  }
+  await saveAnswers();
+  if (hasRealRedFlag()) {
+    const items = answers.redFlags.filter((i) => !['以上都没有', '不确定 / 记不清'].includes(i)).join(',');
+    uni.navigateTo({ url: `/pages/redflag/redflag?items=${encodeURIComponent(items)}` });
+  } else {
+    uni.navigateTo({ url: '/pages/confusion/confusion' });
+  }
 }
 </script>
 
@@ -109,107 +194,150 @@ function skip() {
 .page {
   min-height: 100vh;
   background: var(--bg);
-  padding: 32rpx;
+  padding: 0 32rpx;
 }
 
 .header {
-  margin-bottom: 32rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx 0 24rpx;
+}
+
+.back-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.back-icon {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .page-title {
-  font-size: 36rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--text-1);
+}
+
+.step-chip {
+  font-size: 22rpx;
+  color: var(--text-3);
+  background: var(--bg);
+  border-radius: 16rpx;
+  padding: 8rpx 20rpx;
+}
+
+.info-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  background: rgba(47, 111, 216, 0.08);
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+}
+
+.alert-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-top: 4rpx;
+  flex-shrink: 0;
+}
+
+.alert-text {
+  font-size: 26rpx;
+  color: var(--text-1);
+  line-height: 1.6;
+  flex: 1;
 }
 
 .card {
   background: var(--surface);
   border-radius: 24rpx;
   padding: 32rpx;
+  margin-bottom: 24rpx;
 }
 
-.card-title {
+.question-title {
   font-size: 30rpx;
   font-weight: 500;
   color: var(--text-1);
   display: block;
+  margin-bottom: 24rpx;
 }
 
-.card-desc {
+.question-note {
   font-size: 24rpx;
-  color: var(--text-2);
-  margin-top: 8rpx;
+  color: var(--text-3);
   display: block;
-  margin-bottom: 32rpx;
-}
-
-.form-item {
-  margin-bottom: 32rpx;
-}
-
-.form-label {
-  font-size: 26rpx;
-  color: var(--text-2);
-  margin-bottom: 16rpx;
-  display: block;
+  margin: -12rpx 0 20rpx;
 }
 
 .chip-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
+  gap: 20rpx;
 }
 
 .chip {
-  padding: 12rpx 24rpx;
+  padding: 16rpx 40rpx;
   background: var(--bg);
-  border-radius: 20rpx;
-  font-size: 24rpx;
+  border-radius: 24rpx;
+  font-size: 26rpx;
   color: var(--text-2);
   border: 2rpx solid transparent;
-
-  &.selected {
-    background: var(--primary-light);
-    color: var(--primary);
-    border-color: var(--primary);
-  }
 }
 
-.picker-value {
-  height: 80rpx;
-  line-height: 80rpx;
-  background: var(--bg);
-  border-radius: 12rpx;
-  padding: 0 24rpx;
-  font-size: 26rpx;
-  color: var(--text-1);
+.chip.selected {
+  background: var(--primary);
+  color: #fff;
 }
 
-.checkbox-group {
+.check-list {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
 }
 
-.checkbox-item {
+.check-card {
   display: flex;
   align-items: center;
+  gap: 20rpx;
+  border: 2rpx solid var(--border);
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+}
+
+.check-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.check-card.none.selected {
+  background: var(--primary);
+}
+
+.check-card.none.selected .check-label {
+  color: #fff;
 }
 
 .checkbox {
-  width: 40rpx;
-  height: 40rpx;
+  width: 36rpx;
+  height: 36rpx;
   border: 2rpx solid var(--border);
   border-radius: 8rpx;
-  margin-right: 16rpx;
+  margin-right: 0;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+}
 
-  &.checked {
-    background: var(--primary);
-    border-color: var(--primary);
-  }
+.check-card.selected .checkbox {
+  background: var(--primary);
+  border-color: var(--primary);
 }
 
 .check-icon {
@@ -217,32 +345,45 @@ function skip() {
   font-size: 24rpx;
 }
 
-.checkbox-label {
+.check-label {
   font-size: 26rpx;
   color: var(--text-1);
 }
 
-.primary-btn {
-  width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--primary);
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 500;
-  border-radius: 20rpx;
-  border: none;
-  margin-top: 40rpx;
+.date-row {
+  position: relative;
+  margin-bottom: 24rpx;
 }
 
-.skip-btn {
+.date-input {
   width: 100%;
-  height: 72rpx;
-  line-height: 72rpx;
-  background: transparent;
-  color: var(--text-2);
+  height: 88rpx;
+  background: var(--bg);
+  border-radius: 16rpx;
+  padding: 0 80rpx 0 24rpx;
   font-size: 26rpx;
-  border: none;
-  margin-top: 16rpx;
+  color: var(--text-3);
+  box-sizing: border-box;
+}
+
+.date-icon {
+  position: absolute;
+  right: 24rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.footer {
+  padding: 24rpx 0 48rpx;
+}
+
+.link-text {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--primary);
+  margin-top: 32rpx;
 }
 </style>

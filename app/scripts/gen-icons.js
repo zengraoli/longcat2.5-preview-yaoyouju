@@ -299,6 +299,15 @@ const ICONS = {
     { t: 'line', x1: 7, y1: 4, x2: 7, y2: 20, w: 2 },
     { t: 'poly', pts: [[7, 4.5], [18, 4.5], [15.5, 9], [18, 13.5], [7, 13.5]], w: 2 },
   ],
+  pin: [
+    { t: 'poly', pts: [[12, 3], [18, 9], [12, 21], [6, 9]], close: true, w: 2 },
+    { t: 'circle', cx: 12, cy: 9.5, r: 2.6, w: 1.8 },
+  ],
+  person: [
+    { t: 'circle', cx: 12, cy: 8, r: 3.6, w: 2 },
+    { t: 'arc', cx: 12, cy: 21.5, r: 6.5, a1: Math.PI, a2: 0, w: 2 },
+    { t: 'line', x1: 5.5, y1: 21.5, x2: 18.5, y2: 21.5, w: 2 },
+  ],
 };
 
 const outDir = path.join(__dirname, '..', 'src', 'static', 'icons');
@@ -324,6 +333,7 @@ for (const key of ['home', 'chat', 'pulse', 'doc', 'person']) {
 const fixed = {
   pen: 'primary', upload: 'primary', play: 'primary', info: 'info', warn: 'warn',
   heart: 'error', send: 'primary', flag: 'error', doc: 'primary', pulse: 'primary', chat: 'primary',
+  pin: 'primary', person: 'primary',
   error: 'error', check: 'ok', calendar: 'primary', search: 'primary', share: 'primary',
   gear: 'normal', shield: 'primary', download: 'normal', trash: 'error', bell: 'normal',
   clock: 'normal', close: 'normal', chevron_left: 'normal', plus: 'normal', image: 'primary',

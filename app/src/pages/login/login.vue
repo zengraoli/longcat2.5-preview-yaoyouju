@@ -41,23 +41,17 @@
       </view>
 
       <view class="consent-section">
-        <view class="consent-item" @click="toggleConsent('健康信息处理')">
-          <view class="checkbox" :class="{ checked: consents['健康信息处理'] }">
-            <text v-if="consents['健康信息处理']" class="check-icon">✓</text>
-          </view>
-          <text class="consent-text">我同意腰有据处理我的敏感健康信息，用于提供分析和推荐服务</text>
-        </view>
         <view class="consent-item" @click="toggleConsent('分享')">
           <view class="checkbox" :class="{ checked: consents['分享'] }">
             <text v-if="consents['分享']" class="check-icon">✓</text>
           </view>
-          <text class="consent-text">我同意将去标识化的健康信息用于产品改进</text>
+          <text class="consent-text">我已阅读并同意《用户协议》《隐私政策》</text>
         </view>
-        <view class="consent-item" @click="toggleConsent('产品改进')">
-          <view class="checkbox" :class="{ checked: consents['产品改进'] }">
-            <text v-if="consents['产品改进']" class="check-icon">✓</text>
+        <view class="consent-card">
+          <view class="checkbox" :class="{ checked: consents['健康信息处理'] }" @click="toggleConsent('健康信息处理')">
+            <text v-if="consents['健康信息处理']" class="check-icon">✓</text>
           </view>
-          <text class="consent-text">我同意参与产品改进调研</text>
+          <text class="consent-card-text">单独同意：处理我的健康信息（含检查报告、症状记录，属敏感个人信息）。可随时在“我的-数据与授权”撤回。</text>
         </view>
       </view>
 
@@ -65,7 +59,10 @@
         登录 / 注册
       </button>
 
-      <text class="disclaimer">本产品不作诊断，不提供用药或手术建议</text>
+      <view class="info-alert">
+        <image src="/static/icons/ic_info.png" class="info-icon" />
+        <text class="info-text">本产品帮助你理解资料与准备复诊，不代替医生诊断，不提供处方或手术判断。</text>
+      </view>
     </view>
 
     <view class="emergency-bar" @click="goEmergency">
@@ -89,7 +86,8 @@ const consents = ref<Record<string, boolean>>({
 });
 
 const canSubmit = computed(() => {
-  return phone.value.length === 11 && code.value.length === 6 && consents.value['健康信息处理'];
+  return phone.value.length === 11 && code.value.length === 6
+    && consents.value['分享'] && consents.value['健康信息处理'];
 });
 
 function toggleConsent(key: string) {
@@ -131,7 +129,7 @@ async function handleLogin() {
   try {
     const res = await api.login(phone.value, code.value);
     setToken(res.token);
-    const scopes = Object.keys(consents.value).filter(k => consents.value[k]);
+    const scopes = ['健康信息处理', '分享', '产品改进'].filter(k => consents.value[k]);
     await api.grantConsent(scopes);
     uni.switchTab({ url: '/pages/index/index' });
   } catch (e: any) {
@@ -274,13 +272,13 @@ async function handleLogin() {
 }
 
 .consent-section {
-  margin: 40rpx 0;
+  margin: 40rpx 0 24rpx;
 }
 
 .consent-item {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
 }
 
 .checkbox {
@@ -311,6 +309,45 @@ async function handleLogin() {
   color: var(--text-2);
   flex: 1;
   line-height: 1.5;
+}
+
+.consent-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  border: 2rpx solid var(--border);
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.consent-card-text {
+  font-size: 22rpx;
+  color: var(--text-2);
+  flex: 1;
+  line-height: 1.6;
+}
+
+.info-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  background: rgba(47, 111, 216, 0.08);
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+}
+
+.info-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-top: 4rpx;
+  flex-shrink: 0;
+}
+
+.info-text {
+  font-size: 22rpx;
+  color: var(--text-2);
+  line-height: 1.6;
+  flex: 1;
 }
 
 .primary-btn {

@@ -1,58 +1,87 @@
 <template>
   <view class="redflag-page">
-    <view class="alert-header">
-      <text class="alert-title">⚠️ 检测到需要关注的症状</text>
-      <text class="alert-subtitle">以下症状可能提示需要尽快就医的情况</text>
+    <view class="header">
+      <view class="back-row">
+        <image src="/static/icons/ic_chevron_left.png" class="back-icon" @click="goBack" />
+        <text class="page-title">需要及时寻求专业帮助</text>
+      </view>
     </view>
 
     <view class="alert-card">
-      <text class="alert-text">您填写了以下症状：</text>
-      <view class="symptom-list">
-        <view class="symptom-item" v-for="s in detectedSymptoms" :key="s">
-          <text class="symptom-dot"></text>
-          <text class="symptom-name">{{ s }}</text>
-        </view>
+      <view class="alert-title-row">
+        <image src="/static/icons/ic_error.png" class="alert-icon" />
+        <text class="alert-title">建议尽快就医</text>
       </view>
-      <text class="alert-advice">建议您尽快前往医院急诊或专科就诊，排除严重情况。</text>
+      <text class="alert-body">
+        你刚才选择了：{{ detectedSymptoms.join('、') }}。这类变化需要医生及时评估，本产品无法替你判断严重程度，本轮不会生成个性化分析。
+      </text>
+      <text class="alert-note">本页在网络异常时也可查看。</text>
     </view>
 
-    <view class="action-card">
-      <text class="action-title">紧急联系方式</text>
-      <view class="contact-item" @click="callEmergency">
-        <text class="contact-icon">📞</text>
-        <text class="contact-text">急救电话 120</text>
+    <button class="danger-btn" @click="callEmergency">
+      <text class="danger-icon">☎</text>
+      拨打 120 / 前往急诊
+    </button>
+
+    <view class="contact-card" @click="findHospital">
+      <image src="/static/icons/ic_pin.png" class="contact-icon" />
+      <text class="contact-text">查找附近医院</text>
+    </view>
+
+    <view class="contact-card" @click="contactDoctor">
+      <image src="/static/icons/ic_person.png" class="contact-icon" />
+      <text class="contact-text">联系我的主治医生（已保存）</text>
+    </view>
+
+    <view class="bring-card">
+      <text class="bring-title">就诊时可以带上</text>
+      <view class="bring-item">
+        <text class="bring-check">✓</text>
+        <text class="bring-text">已录入的检查报告原文（2026-08-30 腰椎MRI）</text>
       </view>
-      <view class="contact-item" @click="findHospital">
-        <text class="contact-icon">🏥</text>
-        <text class="contact-text">查找附近医院</text>
+      <view class="bring-item">
+        <text class="bring-check">✓</text>
+        <text class="bring-text">症状开始时间与最近变化记录</text>
+      </view>
+      <view class="bring-item">
+        <text class="bring-check">✓</text>
+        <text class="bring-text">正在使用的药物与既有医嘱</text>
       </view>
     </view>
 
-    <view class="tips-card">
-      <text class="tips-title">在就医前，您可以：</text>
-      <view class="tip-item">
-        <text class="tip-num">1</text>
-        <text class="tip-text">保持冷静，避免剧烈活动</text>
-      </view>
-      <view class="tip-item">
-        <text class="tip-num">2</text>
-        <text class="tip-text">记录症状出现的时间和变化</text>
-      </view>
-      <view class="tip-item">
-        <text class="tip-num">3</text>
-        <text class="tip-text">准备好之前的检查报告</text>
-      </view>
+    <button class="soft-btn" @click="generateSummary">
+      <image src="/static/icons/ic_doc.png" class="soft-icon" />
+      生成一页“就诊交接”摘要（仅整理已有信息）
+    </button>
+
+    <view class="info-alert">
+      <image src="/static/icons/ic_info.png" class="info-icon" />
+      <text class="info-text">此提示由临床审定规则触发，不是诊断结论；请以医生的评估为准。</text>
     </view>
 
-    <button class="primary-btn" @click="goHome">我已知晓，返回首页</button>
-    <button class="emergency-btn" @click="callEmergency">拨打 120</button>
+    <view class="footer">
+      <text class="link-text" @click="goContent">我已知晓，继续查看已审核科普与复诊摘要</text>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { api } from '../../api/request';
 
 const detectedSymptoms = ref<string[]>([]);
+
+// 从上一页携带的参数读取
+const pages = getCurrentPages();
+const cur = pages[pages.length - 1] as any;
+const items = cur?.options?.items || cur?.$page?.options?.items || '';
+if (items) {
+  detectedSymptoms.value = String(items).split(',');
+}
+
+function goBack() {
+  uni.navigateBack();
+}
 
 function callEmergency() {
   uni.makePhoneCall({ phoneNumber: '120' });
@@ -62,8 +91,24 @@ function findHospital() {
   uni.showToast({ title: '请在地图应用中搜索附近医院', icon: 'none' });
 }
 
-function goHome() {
-  uni.switchTab({ url: '/pages/index/index' });
+function contactDoctor() {
+  uni.showToast({ title: '已保存的主治医生联系方式（演示）', icon: 'none' });
+}
+
+async function generateSummary() {
+  try {
+    const episodes = await api.getEpisodes();
+    if (episodes && episodes.length > 0) {
+      await api.previewFollowup(episodes[0].id);
+    }
+    uni.navigateTo({ url: '/pages/followup/followup' });
+  } catch (e) {
+    uni.showToast({ title: '暂无可整理的内容', icon: 'none' });
+  }
+}
+
+function goContent() {
+  uni.navigateTo({ url: '/pages/content/content' });
 }
 </script>
 
@@ -71,170 +116,195 @@ function goHome() {
 .redflag-page {
   min-height: 100vh;
   background: var(--bg);
-  padding: 32rpx;
+  padding: 0 32rpx;
 }
 
-.alert-header {
-  background: var(--surface);
+.header {
+  padding: 32rpx 0 24rpx;
+}
+
+.back-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.back-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.page-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.alert-card {
+  background: rgba(217, 59, 59, 0.06);
   border-radius: 24rpx;
-  padding: 40rpx;
+  padding: 32rpx;
   margin-bottom: 24rpx;
-  border-left: 8rpx solid var(--error);
+}
+
+.alert-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.alert-icon {
+  width: 40rpx;
+  height: 40rpx;
 }
 
 .alert-title {
   font-size: 32rpx;
   font-weight: 600;
   color: var(--error);
-  display: block;
 }
 
-.alert-subtitle {
-  font-size: 24rpx;
-  color: var(--text-2);
-  margin-top: 12rpx;
-  display: block;
-}
-
-.alert-card {
-  background: var(--surface);
-  border-radius: 24rpx;
-  padding: 32rpx;
-  margin-bottom: 24rpx;
-}
-
-.alert-text {
+.alert-body {
   font-size: 26rpx;
   color: var(--text-1);
+  line-height: 1.7;
   display: block;
-  margin-bottom: 20rpx;
-}
-
-.symptom-list {
-  margin-bottom: 24rpx;
-}
-
-.symptom-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12rpx;
-}
-
-.symptom-dot {
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: 50%;
-  background: var(--error);
-  margin-right: 16rpx;
-}
-
-.symptom-name {
-  font-size: 26rpx;
-  color: var(--text-1);
-}
-
-.alert-advice {
-  font-size: 26rpx;
-  color: var(--error);
-  font-weight: 500;
-  line-height: 1.6;
-}
-
-.action-card {
-  background: var(--surface);
-  border-radius: 24rpx;
-  padding: 32rpx;
-  margin-bottom: 24rpx;
-}
-
-.action-title {
-  font-size: 28rpx;
-  font-weight: 500;
-  color: var(--text-1);
-  margin-bottom: 20rpx;
-  display: block;
-}
-
-.contact-item {
-  display: flex;
-  align-items: center;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid var(--border);
-}
-
-.contact-icon {
-  font-size: 32rpx;
-  margin-right: 16rpx;
-}
-
-.contact-text {
-  font-size: 26rpx;
-  color: var(--primary);
-}
-
-.tips-card {
-  background: var(--surface);
-  border-radius: 24rpx;
-  padding: 32rpx;
-  margin-bottom: 32rpx;
-}
-
-.tips-title {
-  font-size: 28rpx;
-  font-weight: 500;
-  color: var(--text-1);
-  margin-bottom: 20rpx;
-  display: block;
-}
-
-.tip-item {
-  display: flex;
-  align-items: flex-start;
   margin-bottom: 16rpx;
 }
 
-.tip-num {
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 50%;
-  background: var(--primary-light);
-  color: var(--primary);
+.alert-note {
   font-size: 22rpx;
+  color: var(--text-3);
+}
+
+.danger-btn {
+  width: 100%;
+  height: 96rpx;
+  background: var(--error);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 500;
+  border-radius: 20rpx;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 16rpx;
-  flex-shrink: 0;
-}
-
-.tip-text {
-  font-size: 24rpx;
-  color: var(--text-2);
-  flex: 1;
-}
-
-.primary-btn {
-  width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--primary);
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 500;
-  border-radius: 20rpx;
-  border: none;
+  gap: 16rpx;
   margin-bottom: 16rpx;
 }
 
-.emergency-btn {
-  width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--error);
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 500;
+.danger-icon {
+  font-size: 32rpx;
+}
+
+.contact-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  background: var(--surface);
   border-radius: 20rpx;
+  padding: 28rpx;
+  margin-bottom: 16rpx;
+}
+
+.contact-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.contact-text {
+  font-size: 28rpx;
+  color: var(--text-1);
+}
+
+.bring-card {
+  background: var(--surface);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+
+.bring-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-1);
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.bring-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.bring-check {
+  color: var(--ok);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.bring-text {
+  font-size: 26rpx;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+
+.soft-btn {
+  width: 100%;
+  background: var(--primary-light);
+  color: var(--primary);
   border: none;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  font-size: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.soft-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.info-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  background: rgba(47, 111, 216, 0.08);
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+}
+
+.info-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-top: 4rpx;
+  flex-shrink: 0;
+}
+
+.info-text {
+  font-size: 24rpx;
+  color: var(--text-1);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.footer {
+  padding: 24rpx 0 48rpx;
+}
+
+.link-text {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--primary);
 }
 </style>
