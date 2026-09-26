@@ -41,7 +41,7 @@
 
     <view class="card reason-card">
       <image src="/static/icons/ic_info.png" class="alert-icon" />
-      <text class="reason-text">为什么推荐给你：你的报告（2026-08-30）提到 L5/S1。示意图不是你的真实病变，不能据此判断本人病因。</text>
+      <text class="reason-text">{{ reasonText }}</text>
     </view>
 
     <view class="card">
@@ -132,12 +132,14 @@ onMounted(async () => {
     console.error('Failed to load report context:', e);
   }
   try {
-    if (queryId) {
-      content.value = await api.getContent(queryId);
-      content.value.title = queryTitle || content.value.title;
+    // 内容详情从已发布列表读取（/contents/:id 仅后台可访问）
+    const list = await api.getPublishedContents();
+    const found = queryId ? list.find((c: any) => c.id === queryId) : list[0];
+    if (found) {
+      content.value = found;
+      content.value.title = queryTitle || found.title;
     } else {
-      const list = await api.getPublishedContents();
-      content.value = list[0] || {};
+      content.value = {};
     }
   } catch (e) {
     console.error('Failed to load content detail:', e);

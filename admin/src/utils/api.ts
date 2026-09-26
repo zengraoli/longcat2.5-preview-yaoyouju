@@ -50,6 +50,7 @@ export const api = {
   submitContent: (data: any) => request('/contents/submit', { method: 'POST', body: JSON.stringify(data) }),
   reviewContent: (data: any) => request('/contents/review', { method: 'POST', body: JSON.stringify(data) }),
   restoreContent: (data: any) => request('/contents/restore', { method: 'POST', body: JSON.stringify(data) }),
+  publishRequest: (data: any) => request('/contents/publish-request', { method: 'POST', body: JSON.stringify(data) }),
   publishContent: (data: any) => request('/contents/publish', { method: 'POST', body: JSON.stringify(data) }),
   offlineContent: (data: any) => request('/contents/offline', { method: 'POST', body: JSON.stringify(data) }),
   getEvidenceDocs: () => request('/evidence'),

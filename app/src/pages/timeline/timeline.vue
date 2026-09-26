@@ -100,6 +100,7 @@ import { api } from '../../api/request';
 const episode = ref<any>({});
 const timeline = ref<any[]>([]);
 const analysisVersion = ref<number | null>(null);
+const latestAnalysis = ref<any>(null);
 const openMenu = ref('');
 
 const symptomCount = computed(() => timeline.value.length);
@@ -195,6 +196,7 @@ async function loadData() {
     const latest = await api.getLatestAnalysis(episodeId);
     if (latest.status === 'ok') {
       analysisVersion.value = latest.version;
+      latestAnalysis.value = latest.status === 'ok' ? latest : null;
       timeline.value.unshift({
         id: 'analysis-' + latest.analysisId,
         event_type: '分析',

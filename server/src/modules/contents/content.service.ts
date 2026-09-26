@@ -144,6 +144,16 @@ export class ContentService {
     });
   }
 
+  /** 用户端内容详情：仅已发布内容 */
+  getPublishedContentById(contentId: string) {
+    const db = getDb();
+    const content = db.prepare("SELECT * FROM content_item WHERE id = ? AND current_status = '已发布' AND offline_switch = 0").get(contentId) as any | undefined;
+    if (!content) throw new NotFoundException('内容不存在');
+    const versions = db.prepare('SELECT * FROM content_version WHERE item_id = ? ORDER BY version DESC').all(contentId);
+    const reviews = db.prepare('SELECT * FROM review_record WHERE target_id = ? ORDER BY reviewed_at DESC').all(contentId);
+    return { ...content, versions, reviews };
+  }
+
   getRecommendations(userId: string) {
     const db = getDb();
     const published = db.prepare("SELECT * FROM content_item WHERE current_status = '已发布' AND offline_switch = 0").all() as any[];

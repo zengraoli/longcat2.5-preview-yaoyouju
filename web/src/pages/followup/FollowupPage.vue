@@ -30,7 +30,7 @@
               <p class="block-text">{{ onsetText }}</p>
               <div class="tag-row">
                 <span class="tag tag-source">自述</span>
-                <span class="tag tag-warn">日期尚未确认</span>
+                <span class="tag" :class="onsetConfirmed ? 'tag-ok' : 'tag-warn'">{{ onsetConfirmed ? '已确认' : '日期尚未确认' }}</span>
               </div>
             </div>
 
@@ -174,6 +174,17 @@ const chiefText = computed(() => buildChiefText({
   analysisUnknown: preview.value?.unknown || [],
 }));
 
+const onsetConfirmed = computed(() => {
+  const answer = changeRaw.value?.match(/开始日期：([^；]*)/)?.[1]?.trim();
+  return !!answer && answer !== '尚未确认' && !answer.includes('约') && !answer.includes('记不清');
+});
+
+const chiefOnset = computed(() => {
+  const answer = changeRaw.value?.match(/开始日期：([^；]*)/)?.[1]?.trim();
+  if (answer && answer !== '尚未确认') return answer;
+  return sections.value.chiefComplaint?.onsetDate || '尚未确认';
+});
+
 const onsetText = computed(() => {
   // 优先取用户在"变化确认"中的回答，避免与"主要症状"段落出现两个日期
   const answer = changeRaw.value?.match(/开始日期：([^；]*)/)?.[1]?.trim();
@@ -212,7 +223,7 @@ const a4Blocks = computed(() => {
   return [
     {
       title: '本次发作起点',
-      lines: [`发病日期：${s.chiefComplaint?.onsetDate || '尚未确认'}`],
+      lines: [`发病日期：${chiefOnset}`],
     },
     {
       title: '主要症状与变化',

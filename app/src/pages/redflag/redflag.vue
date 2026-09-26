@@ -66,10 +66,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { api } from '../../api/request';
 
 const detectedSymptoms = ref<string[]>([]);
+const latestReportDate = ref('');
+
+async function loadLatestReport() {
+  try {
+    const episodes = await api.getEpisodes();
+    if (episodes && episodes.length > 0) {
+      const reports = await api.getReportsByEpisode(episodes[0].id);
+      latestReportDate.value = reports?.[0]?.report_date || '';
+    }
+  } catch (e) {
+    console.error('Failed to load reports:', e);
+  }
+}
 
 // 从上一页携带的参数读取
 const pages = getCurrentPages();

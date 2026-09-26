@@ -20,13 +20,15 @@ export class AdminController {
 
   @Get('eval-sets')
   @UseGuards(AdminAuthGuard)
-  evalSets() {
+  evalSets(@Req() req: any) {
+    this.adminService.requirePermission(req.admin.roleId, 'eval:read');
     return this.adminService.getEvalSets();
   }
 
   @Get('eval-runs')
   @UseGuards(AdminAuthGuard)
-  evalRuns() {
+  evalRuns(@Req() req: any) {
+    this.adminService.requirePermission(req.admin.roleId, 'eval:read');
     return this.adminService.getEvalRuns();
   }
 
@@ -34,7 +36,7 @@ export class AdminController {
   getUsers(@Headers('x-admin-token') token: string) {
     const session = this.adminService.validateSession(token);
     if (!session) throw new UnauthorizedException('未登录');
-    this.adminService.requirePermission(session.roleId, '*');
+    this.adminService.requirePermission(session.roleId, 'users:read');
     return this.adminService.getAdminUsers();
   }
 
@@ -42,7 +44,7 @@ export class AdminController {
   createUser(@Headers('x-admin-token') token: string, @Body() dto: CreateAdminUserDto) {
     const session = this.adminService.validateSession(token);
     if (!session) throw new UnauthorizedException('未登录');
-    if (!this.adminService.checkPermission(session.roleId, '*')) throw new Error('无权限');
+    this.adminService.requirePermission(session.roleId, 'users:create');
     const result = this.adminService.createAdminUser(dto);
     this.adminService.logAudit(session.adminUserId, 'admin.user.created', result.id, JSON.stringify(dto));
     return result;
@@ -63,13 +65,15 @@ export class AdminController {
 
   @Get('safety-events')
   @UseGuards(AdminAuthGuard)
-  safetyEvents() {
+  safetyEvents(@Req() req: any) {
+    this.adminService.requirePermission(req.admin.roleId, 'safety:view');
     return this.adminService.getSafetyEvents();
   }
 
   @Get('case-submissions')
   @UseGuards(AdminAuthGuard)
-  caseSubmissions() {
+  caseSubmissions(@Req() req: any) {
+    this.adminService.requirePermission(req.admin.roleId, 'feedback:triage');
     return this.adminService.getCaseSubmissions();
   }
 

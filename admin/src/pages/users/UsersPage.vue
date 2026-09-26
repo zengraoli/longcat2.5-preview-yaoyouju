@@ -43,15 +43,12 @@
       <h3 class="section-title">权限矩阵</h3>
       <table class="data-table">
         <thead>
-          <tr><th>权限</th><th v-for="role in roles" :key="role.id">{{ role.name }}</th></tr>
+          <tr><th>权限点</th><th v-for="role in roles" :key="role.id">{{ role.name }}</th></tr>
         </thead>
         <tbody>
           <tr v-for="(perm, i) in permissionMatrix" :key="i">
             <td>{{ perm.name }}</td>
-            <td v-for="role in roles" :key="role.id">
-              <span v-if="hasPermission(role, perm)" class="perm-y">Y</span>
-              <span v-else class="perm-n">-</span>
-            </td>
+            <td v-for="(role, ri) in roles" :key="role.id">{{ perm.ops[ri] }}</td>
           </tr>
         </tbody>
       </table>
@@ -112,27 +109,23 @@ const grants = computed(() => {
   ];
 });
 
+// 权限矩阵对齐 docs/design/admin/B10.png：✓ 允许 / ◐ 发起申请 / — 无
 const permissionMatrix = [
-  { name: '内容创建/编辑', keys: ['content:create', 'content:edit'] },
-  { name: '内容提交/审核', keys: ['content:submit', 'content:review', 'content:approve'] },
-  { name: '医学证据库', keys: ['evidence:manage'] },
-  { name: '功能开关', keys: ['system:config', 'feature:toggle'] },
-  { name: '审计日志', keys: ['audit:view'] },
-  { name: '安全事件', keys: ['safety:view'] },
+  { name: '内容：编辑草稿/提交', ops: ['✓', '—', '—', '—', '✓'] },
+  { name: '内容：审定/退回（医学审定）', ops: ['—', '✓', '—', '—', '—'] },
+  { name: '内容：发布（双人）', ops: ['◐', '✓', '—', '—', '✓'] },
+  { name: '内容：撤回/应急下线', ops: ['—', '✓', '—', '—', '✓'] },
+  { name: '证据库：录入/核实/停用', ops: ['✓/—/—', '✓/✓/✓', '✓/✓/✓', '—', '✓'] },
+  { name: '举报：初筛/临床复核/明文授权', ops: ['✓/—/—', '✓/✓/✓', '✓/—/—', '✓/—/—', '✓/✓/✓'] },
+  { name: '用户资料：脱敏查看/明文（单条授权）', ops: ['✓/—', '✓/✓', '✓/—', '✓/—', '✓/✓'] },
+  { name: '功能开关/模型发布', ops: ['—', '◐', '✓', '—', '✓'] },
+  { name: '评测集/评测运行', ops: ['—', '◐', '✓', '—', '✓'] },
+  { name: '成员与角色/审计导出审批', ops: ['—', '—', '—', '◐', '✓'] },
 ];
 
 function roleName(roleId: string) {
   const role = roles.value.find((r) => r.id === roleId);
   return role?.name || roleId;
-}
-
-function hasPermission(role: any, perm: { keys: string[] }) {
-  try {
-    const perms = JSON.parse(role.permissions);
-    return perms.includes('*') || perm.keys.some((k) => perms.includes(k));
-  } catch {
-    return false;
-  }
 }
 
 async function revokeGrant(g: any) {

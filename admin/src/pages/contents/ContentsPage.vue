@@ -64,6 +64,13 @@
               </button>
             </td>
             <td>
+              <button
+                v-if="item.current_status === '已审定'"
+                class="btn-small"
+                @click="initPublishRequest(item)"
+              >
+                发起发布申请
+              </button>
               <button class="btn-small" @click="viewDetail(item.id)">查看</button>
             </td>
           </tr>
@@ -157,6 +164,16 @@ function countByStatus(status: string) {
 
 function toggleSelectAll() {
   selectedIds.value = selectAll.value ? filteredItems.value.map((i) => i.id) : [];
+}
+
+async function initPublishRequest(item: any) {
+  if (!confirm(`确定申请发布"${item.title}"？发布需临床审核/超级管理员确认（双人）。`)) return;
+  try {
+    await api.publishRequest({ contentId: item.id });
+    alert('已发起发布申请，需另一名审批人确认。');
+  } catch (e: any) {
+    alert(e.message);
+  }
 }
 
 async function restoreItem(item: any) {

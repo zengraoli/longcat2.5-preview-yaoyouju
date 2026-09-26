@@ -29,7 +29,7 @@
           <text class="block-text">{{ onsetText }}</text>
           <view class="tag-row">
             <text class="tag tag-source">自述</text>
-            <text class="tag tag-warn">日期尚未确认</text>
+            <text class="tag" :class="onsetConfirmed ? 'tag-ok' : 'tag-warn'">{{ onsetConfirmed ? '已确认' : '日期尚未确认' }}</text>
           </view>
         </view>
 
@@ -168,6 +168,17 @@ const chiefData = computed(() => ({
 
 const chiefText = computed(() => buildChiefText(chiefData.value));
 
+const onsetConfirmed = computed(() => {
+  const answer = chiefData.value?.change?.onset;
+  return !!answer && answer !== '尚未确认' && !answer.includes('约') && !answer.includes('记不清');
+});
+
+const chiefOnset = computed(() => {
+  const answer = chiefData.value?.change?.onset;
+  if (answer && answer !== '尚未确认') return answer;
+  return sections.value.chiefComplaint?.onsetDate || '尚未确认';
+});
+
 const onsetText = computed(() => {
   // 优先取用户在"变化确认"中的回答，避免与"主要症状"段落出现两个日期
   const answer = chiefData.value?.change?.onset;
@@ -212,7 +223,7 @@ function buildText(): string {
     '复诊交接摘要',
     `生成于 ${formatDate(generatedAt.value)} · 由用户自述与报告原文整理 · 未经医生核实`,
     '',
-    `【本次发作起点】${sections.value.chiefComplaint?.onsetDate || '尚未确认'}`,
+    `【本次发作起点】${chiefOnset}`,
     `【主要症状与变化】${chiefText.value}`,
     `【相关检查原文】${(sections.value.examinationFindings?.reports || []).map((r: any) => `[${r.date}] ${r.text}`).join('\n')}`,
     `【想问医生的问题】${questions.value.join('；')}`,
