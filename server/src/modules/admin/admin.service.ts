@@ -167,11 +167,14 @@ export class AdminService {
 
     const safetyEvents = db.prepare('SELECT id, rule_code, severity, action_taken, created_at FROM safety_event ORDER BY created_at DESC LIMIT 10').all();
 
-    const trend7d: { date: string; count: number }[] = [];
+    const totalTasksForRate = totalTasks > 0 ? totalTasks : 1;
+
+    const trend7d: { date: string; count: number; failed: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const day = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const count = (db.prepare("SELECT COUNT(*) as cnt FROM analysis WHERE date(created_at) = ?").get(day) as any).cnt;
-      trend7d.push({ date: day, count });
+      const failed = (db.prepare("SELECT COUNT(*) as cnt FROM analysis_task WHERE date(created_at) = ? AND status = 'failed'").get(day) as any).cnt;
+      trend7d.push({ date: day, count, failed });
     }
 
     const todo: { type: string; title: string; id: string }[] = [];
@@ -189,12 +192,16 @@ export class AdminService {
     return {
       stats: {
         analyses,
-        failureRate,
+        failureRate: Math.round((failedTasks / totalTasksForRate) * 1000) / 10,
         avgDurationMs,
         cost: 0,
         pendingReviews,
         pendingReports,
         safetyEventCount,
+        failedTasks,
+        highReports: (db.prepare("SELECT COUNT(*) as cnt FROM error_report WHERE status = 'open' AND severity = 'high'").get() as any).cnt,
+        mediumReports: (db.prepare("SELECT COUNT(*) as cnt FROM error_report WHERE status = 'open' AND severity = 'medium'").get() as any).cnt,
+        lowReports: (db.prepare("SELECT COUNT(*) as cnt FROM error_report WHERE status = 'open' AND severity = 'low'").get() as any).cnt,
       },
       trend7d,
       safetyEvents,

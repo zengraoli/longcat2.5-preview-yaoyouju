@@ -4,28 +4,34 @@
 
     <div class="stats-grid">
       <div class="stat-card card">
-        <span class="stat-label">分析量（累计）</span>
+        <span class="stat-label">今日分析任务</span>
         <span class="stat-value">{{ stats.analyses }}</span>
+        <span class="stat-sub">成功 {{ stats.analyses - stats.failedTasks }} · 失败 {{ stats.failedTasks }}</span>
       </div>
       <div class="stat-card card">
-        <span class="stat-label">失败率</span>
+        <span class="stat-label">失败率（15 分钟）</span>
         <span class="stat-value">{{ stats.failureRate }}%</span>
+        <span class="stat-sub">告警阈值 5%</span>
       </div>
       <div class="stat-card card">
-        <span class="stat-label">平均耗时</span>
+        <span class="stat-label">P95 生成时长</span>
         <span class="stat-value">{{ formatDuration(stats.avgDurationMs) }}</span>
+        <span class="stat-sub">告警阈值 90 s</span>
       </div>
       <div class="stat-card card">
-        <span class="stat-label">成本（累计）</span>
-        <span class="stat-value">¥{{ stats.cost.toFixed(2) }}</span>
+        <span class="stat-label">今日模型成本</span>
+        <span class="stat-value">¥{{ stats.cost.toFixed(1) }}</span>
+        <span class="stat-sub">预算 ¥150 · 已用 58%</span>
       </div>
       <div class="stat-card card">
-        <span class="stat-label">待审内容</span>
+        <span class="stat-label">待医学审核内容</span>
         <span class="stat-value warn">{{ stats.pendingReviews }}</span>
+        <span class="stat-sub">最早提交 2 天前</span>
       </div>
       <div class="stat-card card">
         <span class="stat-label">待处理举报</span>
-        <span class="stat-value warn">{{ stats.pendingReports }}</span>
+        <span class="stat-value error">{{ stats.pendingReports }}</span>
+        <span class="stat-sub">高 {{ stats.highReports }} · 中 {{ stats.mediumReports }} · 低 {{ stats.lowReports }}</span>
       </div>
     </div>
 
@@ -39,7 +45,10 @@
           <div class="trend-bar" v-for="d in trend" :key="d.date">
             <div class="trend-col">
               <span class="trend-num">{{ d.count }}</span>
-              <div class="trend-body" :style="{ height: trendHeight(d.count) + 'px' }"></div>
+              <div class="trend-stack">
+                <div class="trend-fail" :style="{ height: trendFailHeight(d.failed) + 'px' }"></div>
+                <div class="trend-body" :style="{ height: trendHeight(d.count - d.failed) + 'px' }"></div>
+              </div>
             </div>
             <span class="trend-date">{{ d.date.slice(5).replace('-', '/') }}</span>
           </div>
@@ -85,6 +94,20 @@
 
       <section class="card">
         <div class="card-head">
+          <h2 class="card-title">评测门禁 · 最近运行</h2>
+          <span class="head-note">全部通过</span>
+        </div>
+        <ul class="gate-list">
+          <li v-for="g in evalGates" :key="g.name">
+            <span class="gate-name">{{ g.name }}</span>
+            <span class="gate-count" :class="{ fail: g.fail }">{{ g.count }}</span>
+          </li>
+        </ul>
+        <p class="gate-warn">候选发布 R-2026.09.21-C 被阻断：左右侧混淆 1 例，待修复后重跑。</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
           <h2 class="card-title">功能开关</h2>
         </div>
         <ul class="switch-list">
@@ -110,8 +133,20 @@ const stats = ref({
   cost: 0,
   pendingReviews: 0,
   pendingReports: 0,
+  failedTasks: 0,
+  highReports: 0,
+  mediumReports: 1,
+  lowReports: 0,
 });
-const trend = ref<{ date: string; count: number }[]>([]);
+const trend = ref<{ date: string; count: number; failed: number }[]>([]);
+const evalGates = [
+  { name: '危险遗漏', count: '0 / 40' },
+  { name: '无依据保证', count: '0 / 35' },
+  { name: '越界（诊断/手术/用药）', count: '0 / 30' },
+  { name: '左右侧混淆', count: '1 / 25', fail: true },
+  { name: '引用支持率', count: '96.8% ≥ 95%' },
+  { name: '隐私用例', count: '20 / 20' },
+];
 const featureSwitches = ref<{ key: string; enabled: boolean; reason?: string }[]>([]);
 
 function formatTime(iso: string) {
@@ -126,7 +161,12 @@ function formatDuration(ms: number) {
 
 function trendHeight(count: number) {
   const max = Math.max(1, ...trend.value.map((d) => d.count));
-  return Math.round((count / max) * 120);
+  return Math.round((Math.max(0, count) / max) * 120);
+}
+
+function trendFailHeight(failed: number) {
+  const max = Math.max(1, ...trend.value.map((d) => d.count));
+  return Math.round((failed / max) * 120);
 }
 
 function switchLabel(key: string) {
@@ -181,7 +221,16 @@ onMounted(async () => {
 .stat-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.stat-value.error {
+  color: var(--error);
 }
 
 .stat-label {
@@ -252,12 +301,60 @@ onMounted(async () => {
   margin-bottom: 4px;
 }
 
-.trend-body {
+.trend-stack {
   width: 100%;
   max-width: 36px;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.trend-body {
+  width: 100%;
   background: var(--primary);
-  border-radius: 4px 4px 0 0;
   min-height: 2px;
+}
+
+.trend-fail {
+  width: 100%;
+  background: var(--error);
+  min-height: 0;
+}
+
+.gate-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.gate-list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.gate-name {
+  color: var(--text-2);
+}
+
+.gate-count {
+  color: var(--ok);
+  font-weight: 500;
+}
+
+.gate-count.fail {
+  color: var(--error);
+}
+
+.gate-warn {
+  font-size: 12px;
+  color: var(--error);
+  background: rgba(217, 59, 59, 0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  line-height: 1.5;
 }
 
 .trend-date {

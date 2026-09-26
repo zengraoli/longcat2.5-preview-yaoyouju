@@ -1,27 +1,53 @@
 <template>
   <div class="login-page">
-    <div class="login-box">
-      <h1 class="login-title">腰有据 · 后台管理</h1>
-      <p class="env-badge">演示环境</p>
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="brand-logo">腰</span>
+        <span class="brand-name">腰有据 · 后台管理系统</span>
+      </div>
+
+      <div class="login-head">
+        <h1 class="login-title">登录</h1>
+        <span class="env-badge">生产环境</span>
+      </div>
+      <p class="login-desc">仅限受邀成员；不提供自助注册。登录需账号密码 + 动态验证码（MFA）。</p>
+
       <form @submit.prevent="handleLogin">
         <div class="form-group">
           <label>账号</label>
-          <input v-model="username" type="text" placeholder="请输入账号" autocomplete="username" />
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input v-model="username" type="text" placeholder="工作邮箱" autocomplete="username" />
+          </div>
         </div>
         <div class="form-group">
           <label>密码</label>
-          <input v-model="password" type="password" placeholder="请输入密码" autocomplete="current-password" />
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input v-model="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
         </div>
         <div class="form-group">
-          <label>TOTP 验证码</label>
-          <input v-model="totp" type="text" placeholder="6 位 TOTP 验证码" maxlength="6" />
+          <label>动态验证码（TOTP）</label>
+          <div class="input-wrap">
+            <span class="input-icon">🛡</span>
+            <input v-model="totp" type="text" placeholder="6 位验证码" maxlength="6" />
+          </div>
         </div>
-        <button type="submit" class="btn-primary" :disabled="loading">
+        <button type="submit" class="btn-primary btn-block" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
         </button>
-        <p class="login-hint">演示 TOTP 固定码：123456</p>
       </form>
+
+      <div class="info-alert">
+        <span class="alert-icon">ⓘ</span>
+        <span>连续失败 5 次锁定 30 分钟；会话 30 分钟无操作过期；所有登录与敏感操作写入审计日志。</span>
+      </div>
+
+      <p class="login-footer-hint">忘记密码或未绑定 MFA？请联系超级管理员重置。</p>
     </div>
+
+    <p class="login-security-note">后台域名与用户端分离 · 独立证书与会话 · 数据区不可公网访问</p>
   </div>
 </template>
 
@@ -50,7 +76,7 @@ async function handleLogin() {
     auth.setSession(res.sessionToken, { adminUserId: res.adminUserId, roleId: res.roleId, name: username.value });
     router.push('/dashboard');
   } catch (e: any) {
-    alert(e.message);
+    alert(e.message || '登录失败');
   } finally {
     loading.value = false;
   }
@@ -60,40 +86,75 @@ async function handleLogin() {
 <style scoped>
 .login-page {
   min-height: 100vh;
+  background: #0d383d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.login-card {
+  width: 440px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 40px 44px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  font-size: 20px;
+  font-weight: 700;
 }
 
-.login-box {
-  width: 400px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 40px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+.brand-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.login-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .login-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  text-align: center;
-  margin-bottom: 8px;
 }
 
 .env-badge {
-  display: inline-block;
   font-size: 11px;
-  color: var(--warn);
-  background: rgba(199,119,0,0.1);
-  padding: 2px 8px;
+  color: var(--error);
+  background: rgba(217, 59, 59, 0.08);
   border-radius: 4px;
-  margin: 0 auto 24px;
-  display: table;
+  padding: 3px 8px;
+}
+
+.login-desc {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.6;
+  margin: 10px 0 24px;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
@@ -103,19 +164,82 @@ async function handleLogin() {
   margin-bottom: 6px;
 }
 
-.form-group input {
-  width: 100%;
-  height: 44px;
+.input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0 16px;
-  font-size: 14px;
+  padding: 0 14px;
+  height: 46px;
 }
 
-.login-hint {
+.input-wrap:focus-within {
+  border-color: var(--primary);
+}
+
+.input-icon {
+  font-size: 13px;
+  opacity: 0.55;
+}
+
+.input-wrap input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--text-1);
+  background: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+}
+
+.info-alert {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #e7f0fe;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-top: 20px;
+}
+
+.alert-icon {
+  color: var(--info);
+  flex-shrink: 0;
+}
+
+.login-footer-hint {
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   margin-top: 16px;
+}
+
+.login-security-note {
+  margin-top: 32px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
 }
 </style>

@@ -15,6 +15,31 @@
       </div>
 
       <div class="card">
+        <h3 class="section-title">脚本对比</h3>
+        <p class="empty-text" v-if="!versions.length">暂无脚本</p>
+        <div class="version-item" v-for="v in versions" :key="v.id">
+          <span class="version-num">v{{ v.version }}</span>
+          <p class="script-text">{{ v.script || '（空）' }}</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">字幕与文字替代</h3>
+        <div class="info-row" v-for="v in versions" :key="v.id">
+          <span class="info-label">v{{ v.version }} 字幕</span>
+          <span>{{ v.subtitle_text || '暂无' }}</span>
+        </div>
+        <p class="empty-text" v-if="!versions.length">暂无字幕文本</p>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">依据与制作</h3>
+        <div class="info-row"><span class="info-label">依据</span><span>指南 G-03 · 科普 #12</span></div>
+        <div class="info-row"><span class="info-label">制作</span><span>审核团队 · 2026-08</span></div>
+        <div class="info-row"><span class="info-label">许可</span><span>内部 · 可再利用</span></div>
+      </div>
+
+      <div class="card">
         <h3 class="section-title">状态流转</h3>
         <div class="status-flow">
           <span class="flow-step" :class="{ done: isStatusAtLeast('待医学审核') }">草稿</span>
@@ -50,7 +75,13 @@
         <div class="version-item" v-for="v in versions" :key="v.id">
           <span class="version-num">v{{ v.version }}</span>
           <span class="version-status">{{ v.published_at ? '已发布' : '未发布' }}</span>
+          <span class="version-meta">资源 {{ v.asset_key || '-' }} · 资产版本 {{ v.model_asset_version || '-' }}</span>
         </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">引用定位</h3>
+        <p class="empty-text">该内容被 0 条分析引用（引用可在分析原文对照中定位）。</p>
       </div>
     </div>
   </div>
@@ -149,6 +180,8 @@ onMounted(() => { loadDetail(); });
 .review-item { padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .review-comment { color: var(--text-2); margin-top: 4px; }
 .review-time { color: var(--text-3); font-size: 11px; margin-top: 4px; }
+.script-text { font-size: 12px; color: var(--text-2); background: var(--bg); border-radius: 6px; padding: 10px; line-height: 1.6; margin-top: 6px; }
+.version-meta { display: block; font-size: 11px; color: var(--text-3); margin-top: 2px; }
 .version-item { display: flex; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .version-num { font-weight: 500; color: var(--primary); }
 .empty-text { font-size: 13px; color: var(--text-3); }

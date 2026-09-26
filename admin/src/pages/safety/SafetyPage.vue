@@ -5,10 +5,16 @@
     </div>
 
     <div class="card">
-      <h3 class="section-title">应急开关</h3>
+      <div class="card-head">
+        <h3 class="section-title">应急开关</h3>
+        <span class="head-note">变更需双人确认 · 最近变更：2026-09-20 14:30</span>
+      </div>
       <div class="switch-list">
         <div class="switch-item" v-for="sw in featureSwitches" :key="sw.key">
-          <span class="switch-name">{{ sw.key }}</span>
+          <div class="switch-info">
+            <span class="switch-name">{{ switchLabel(sw.key) }}</span>
+            <span class="switch-key">{{ sw.key }}</span>
+          </div>
           <span class="switch-reason">{{ sw.reason }}</span>
           <button
             class="toggle-btn"
@@ -24,7 +30,7 @@
     <div class="card">
       <div class="card-head">
         <h3 class="section-title">安全事件</h3>
-        <span class="head-note">规则集版本 {{ ruleSetVersion }}</span>
+        <span class="head-note">规则集版本 {{ ruleSetVersion }} · 变更需双人确认</span>
       </div>
       <table class="data-table">
         <thead>
@@ -74,6 +80,14 @@ function formatTime(iso: string) {
   return iso ? iso.slice(0, 10) : '';
 }
 
+function switchLabel(key: string) {
+  return {
+    personalized_analysis: '个性化分析',
+    video_recommendation: '视频推荐',
+    case_card: '案例卡片',
+  }[key] || key;
+}
+
 async function toggleSwitch(sw: { key: string; enabled: boolean; reason: string }) {
   try {
     await api.setFeatureSwitch({ key: sw.key, enabled: !sw.enabled, reason: sw.reason });
@@ -108,7 +122,11 @@ onMounted(() => { loadSwitches(); loadEvents(); });
 .section-title { font-size: 16px; font-weight: 500; margin-bottom: 16px; }
 .switch-list { display: flex; flex-direction: column; gap: 12px; }
 .switch-item { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.switch-info { display: flex; flex-direction: column; gap: 2px; }
+
 .switch-name { font-size: 14px; font-weight: 500; }
+
+.switch-key { font-size: 11px; color: var(--text-3); }
 .switch-reason { flex: 1; font-size: 12px; color: var(--text-3); }
 .toggle-btn { padding: 8px 16px; border: 2rpx solid var(--border); border-radius: 8px; font-size: 12px; cursor: pointer; background: var(--surface); }
 .toggle-btn.enabled { background: var(--ok); color: #fff; border-color: var(--ok); }
