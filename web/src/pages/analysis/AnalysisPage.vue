@@ -159,10 +159,10 @@ onMounted(async () => {
       analysis.value = await api.getAnalysis(task.taskId);
     }
 
-    const events = await api.getCareEvents(episodeId);
-    if (events && events.length > 0) {
-      rawText.value = events[0].raw_text || '';
-      rawDate.value = events[0].occurred_at;
+    const reports = await api.getReportsByEpisode(episodeId);
+    if (reports && reports.length > 0) {
+      rawText.value = reports[0].raw_text || '';
+      rawDate.value = reports[0].report_date;
     }
   } catch (e: any) {
     error.value = e.message || '加载失败';

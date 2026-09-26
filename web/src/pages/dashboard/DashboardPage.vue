@@ -199,7 +199,7 @@ const episodeSubtitle = computed(() => {
   if (!ep) return '暂无病程数据';
   const onset = ep.onset_date;
   const start = onset ? onset.slice(0, 7) : '起点尚未确认';
-  const last = records.value[0]?.date ?? '暂无';
+  const last = records.value[0]?.date ? records.value[0].date.slice(0, 10) : '暂无';
   return `本次发作 · 起点约 ${start}（${ep.onset_certainty}） · 上次记录：${last}`;
 });
 

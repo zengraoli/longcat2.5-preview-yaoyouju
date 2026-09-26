@@ -98,6 +98,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, clearToken } from '../../utils/api';
+import { useAuthStore } from '../../stores/auth';
 
 const router = useRouter();
 const consentList = ref<any[]>([]);
@@ -131,7 +132,10 @@ function goQa() {
   router.push('/qa');
 }
 
+const auth = useAuthStore();
+
 function logout() {
+  auth.logout();
   clearToken();
   router.push('/login');
 }

@@ -57,13 +57,13 @@
         <button type="submit" class="btn-primary btn-block" :disabled="!canSubmit">登录 / 注册</button>
 
         <label class="consent-item">
-          <input type="checkbox" v-model="consents.health" />
+          <input type="checkbox" v-model="agreement" />
           <span>我已阅读并同意《用户协议》《隐私政策》</span>
         </label>
 
         <div class="consent-card">
-          <input type="checkbox" v-model="consents.share" id="consent-share" />
-          <label for="consent-share">
+          <input type="checkbox" v-model="consents.health" id="consent-health" />
+          <label for="consent-health">
             单独同意：处理我的健康信息（含检查报告、症状记录，属敏感个人信息）。可随时在“账户-数据与授权”撤回。
           </label>
         </div>
@@ -86,14 +86,16 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, setToken } from '../../utils/api';
+import { useAuthStore } from '../../stores/auth';
 
 const router = useRouter();
 const phone = ref('');
 const code = ref('');
 const countdown = ref(0);
-const consents = ref({ health: false, share: false });
+const agreement = ref(false);
+const consents = ref({ health: false });
 
-const canSubmit = computed(() => phone.value.length === 11 && code.value.length === 6 && consents.value.health && consents.value.share);
+const canSubmit = computed(() => phone.value.length === 11 && code.value.length === 6 && agreement.value && consents.value.health);
 
 function startCountdown() {
   countdown.value = 60;
@@ -113,10 +115,13 @@ async function sendCode() {
   }
 }
 
+const auth = useAuthStore();
+
 async function handleLogin() {
   try {
     const res = await api.login(phone.value, code.value);
     setToken(res.token);
+    auth.setSession(res.token, { adminUserId: res.userId, roleId: '', name: '' });
     // 协议勾选不作为授权范围；仅“单独同意”记录健康信息处理授权
     await api.grantConsent(['健康信息处理']);
     router.push('/dashboard');
