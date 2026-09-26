@@ -101,6 +101,24 @@ function drawIcon(colorHex, primitives) {
     for (let i = 0; i < pts.length - 1; i++) line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w);
     if (close) line(pts[pts.length - 1][0], pts[pts.length - 1][1], pts[0][0], pts[0][1], w);
   };
+  const fillPoly = (pts) => {
+    const ys = pts.map((p) => p[1]);
+    const yMin = Math.min(...ys), yMax = Math.max(...ys);
+    for (let y = Math.ceil(yMin); y <= yMax; y++) {
+      const xs = [];
+      for (let i = 0; i < pts.length; i++) {
+        const [x1, y1] = pts[i];
+        const [x2, y2] = pts[(i + 1) % pts.length];
+        if ((y1 <= y && y < y2) || (y2 <= y && y < y1)) {
+          xs.push(x1 + ((y - y1) / (y2 - y1)) * (x2 - x1));
+        }
+      }
+      xs.sort((a, b) => a - b);
+      for (let i = 0; i + 1 < xs.length; i += 2) {
+        for (let x = Math.round(xs[i]); x <= Math.round(xs[i + 1]); x++) px(x, y, 1);
+      }
+    }
+  };
   const arc = (cx, cy, rad, a1, a2, w = 2) => {
     const steps = Math.max(8, Math.ceil(Math.abs(a2 - a1) * rad));
     for (let i = 0; i < steps; i++) {
@@ -116,6 +134,7 @@ function drawIcon(colorHex, primitives) {
     else if (p.t === 'circle') circle(p.cx, p.cy, p.r, p.w || 2);
     else if (p.t === 'dot') dot(p.cx, p.cy, p.r);
     else if (p.t === 'arc') arc(p.cx, p.cy, p.r, p.a1, p.a2, p.w || 2);
+    else if (p.t === 'fillPoly') fillPoly(p.pts);
   }
   return img;
 }
@@ -168,11 +187,7 @@ const ICONS = {
     { t: 'line', x1: 19, y1: 16, x2: 19, y2: 20, w: 2 },
   ],
   play: [
-    { t: 'line', x1: 4.5, y1: 6, x2: 4.5, y2: 18, w: 2 },
-    { t: 'line', x1: 4.5, y1: 6, x2: 19.5, y2: 6, w: 2 },
-    { t: 'line', x1: 19.5, y1: 6, x2: 19.5, y2: 18, w: 2 },
-    { t: 'line', x1: 4.5, y1: 18, x2: 19.5, y2: 18, w: 2 },
-    { t: 'poly', pts: [[11, 9.5], [11, 14.5], [16, 12]], w: 2 },
+    { t: 'fillPoly', pts: [[7, 6], [7, 18], [20, 12]] },
   ],
   info: [
     { t: 'circle', cx: 12, cy: 12, r: 8, w: 2 },
@@ -287,9 +302,7 @@ const ICONS = {
     { t: 'line', x1: 11, y1: 13, x2: 15, y2: 17, w: 1.6 },
   ],
   heart: [
-    { t: 'arc', cx: 8.2, cy: 9.5, r: 4.2, a1: Math.PI * 0.9, a2: Math.PI * 1.95, w: 2 },
-    { t: 'arc', cx: 15.8, cy: 9.5, r: 4.2, a1: Math.PI * 1.05, a2: Math.PI * 0.1, w: 2 },
-    { t: 'poly', pts: [[4.4, 11], [12, 18.5], [19.6, 11]], w: 2 },
+    { t: 'fillPoly', pts: [[12, 20], [4.5, 12.5], [5, 7.5], [8, 5], [11, 7.5], [12, 9.5], [13, 7.5], [16, 5], [19, 7.5], [19.5, 12.5]] },
   ],
   send: [
     { t: 'poly', pts: [[4, 12], [20, 4], [13, 20], [10.5, 14.5]], close: true, w: 2 },
@@ -304,9 +317,11 @@ const ICONS = {
     { t: 'circle', cx: 12, cy: 9.5, r: 2.6, w: 1.8 },
   ],
   wifi_off: [
-    { t: 'arc', cx: 12, cy: 14, r: 4, a1: Math.PI * 0.75, a2: Math.PI * 2.25, w: 2 },
-    { t: 'arc', cx: 12, cy: 14, r: 8, a1: Math.PI * 0.75, a2: Math.PI * 2.25, w: 2 },
-    { t: 'line', x1: 5, y1: 19, x2: 19, y2: 5, w: 2.4 },
+    { t: 'arc', cx: 12, cy: 13, r: 3.6, a1: Math.PI * 0.7, a2: Math.PI * 2.3, w: 2 },
+    { t: 'arc', cx: 12, cy: 13, r: 7, a1: Math.PI * 0.7, a2: Math.PI * 2.3, w: 2 },
+    { t: 'arc', cx: 12, cy: 13, r: 11, a1: Math.PI * 0.7, a2: Math.PI * 2.3, w: 2 },
+    { t: 'dot', cx: 12, cy: 20, r: 1.4 },
+    { t: 'line', x1: 5.5, y1: 19.5, x2: 18.5, y2: 5.5, w: 2.4 },
   ],
   person: [
     { t: 'circle', cx: 12, cy: 8, r: 3.6, w: 2 },
