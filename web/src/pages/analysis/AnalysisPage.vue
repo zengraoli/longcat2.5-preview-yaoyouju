@@ -119,7 +119,10 @@ const rawDate = ref('');
 const analysisIntro = computed(() => {
   const a = analysis.value;
   if (!a) return '';
-  return `你上传的报告中提到了 ${a.sections.known.join('、') || '尚未确认'}；你描述目前的情况见下。报告日期已确认，症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。`;
+  const reportPart = a.sections.known.length > 0
+    ? `你上传的报告中提到了 ${a.sections.known.join('、')}；`
+    : '你尚未录入检查报告；';
+  return `${reportPart}你描述目前的情况见下。症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。`;
 });
 
 function formatDate(iso?: string) {

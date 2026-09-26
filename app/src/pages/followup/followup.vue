@@ -26,7 +26,7 @@
             <text class="block-title">本次发作起点</text>
             <text class="link-text-sm">✏️ 纠正</text>
           </view>
-          <text class="block-text">{{ sections.chiefComplaint?.onsetDate || '尚未确认' }} 开始腰痛，具体日期不确定；起初以久坐后酸痛为主。</text>
+          <text class="block-text">{{ onsetText }}</text>
           <view class="tag-row">
             <text class="tag tag-source">自述</text>
             <text class="tag tag-warn">日期尚未确认</text>
@@ -76,7 +76,7 @@
             <text class="block-title">已采取的行动</text>
             <text class="link-text-sm">✏️ 纠正</text>
           </view>
-          <text class="block-text">每日步行约 20 分钟、热敷；避免久坐；未使用药物。</text>
+          <text class="block-text">{{ actionsText }}</text>
           <view class="tag-row">
             <text class="tag tag-source">自述</text>
           </view>
@@ -168,6 +168,18 @@ const chiefData = computed(() => ({
 }));
 
 const chiefText = computed(() => buildChiefText(chiefData.value));
+
+const onsetText = computed(() => {
+  const onset = sections.value.chiefComplaint?.onsetDate;
+  return onset ? `${onset} 开始腰痛（具体日期以记录为准）。` : '症状开始时间尚未确认。可在"当前情况-生成分析"中回答后自动记录。';
+});
+
+const actionsText = computed(() => {
+  const logs = sections.value.symptomsAndChanges?.recentLogs || [];
+  if (logs.length === 0) return '已采取的行动尚未记录。可在"病程-记录今天"中补充。';
+  return `最近记录：坐姿约 ${logs[0].sitMinutes ?? '尚未确认'} 分钟；${logs[0].topWorry ? '担心：' + logs[0].topWorry : '未记录担心的事'}。`;
+});
+
 
 const questions = computed(() => {
   const qs: string[] = [...(sections.value.questionsForDoctor?.questions || [])];
