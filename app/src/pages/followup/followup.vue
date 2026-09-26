@@ -55,7 +55,6 @@
           </view>
           <view class="tag-row">
             <text class="tag tag-info">报告原文</text>
-            <text class="tag tag-error">与自述侧别不一致</text>
           </view>
         </view>
 
@@ -170,6 +169,9 @@ const chiefData = computed(() => ({
 const chiefText = computed(() => buildChiefText(chiefData.value));
 
 const onsetText = computed(() => {
+  // 优先取用户在"变化确认"中的回答，避免与"主要症状"段落出现两个日期
+  const answer = chiefData.value?.change?.onset;
+  if (answer && answer !== '尚未确认') return `${answer} 开始腰痛（自述）。`;
   const onset = sections.value.chiefComplaint?.onsetDate;
   return onset ? `${onset} 开始腰痛（具体日期以记录为准）。` : '症状开始时间尚未确认。可在"当前情况-生成分析"中回答后自动记录。';
 });

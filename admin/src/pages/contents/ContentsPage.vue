@@ -55,6 +55,13 @@
                 @click="toggleOffline(item)"
                 :aria-label="item.title + ' 下线开关'"
               ></button>
+              <button
+                v-if="item.current_status === '已撤回或已下线'"
+                class="btn-small"
+                @click="restoreItem(item)"
+              >
+                恢复
+              </button>
             </td>
             <td>
               <button class="btn-small" @click="viewDetail(item.id)">查看</button>
@@ -150,6 +157,16 @@ function countByStatus(status: string) {
 
 function toggleSelectAll() {
   selectedIds.value = selectAll.value ? filteredItems.value.map((i) => i.id) : [];
+}
+
+async function restoreItem(item: any) {
+  if (!confirm(`确定申请恢复"${item.title}"？恢复后进入"更正中"，需重新提交审核。`)) return;
+  try {
+    await api.restoreContent({ contentId: item.id });
+    await loadItems();
+  } catch (e: any) {
+    alert(e.message);
+  }
 }
 
 async function toggleOffline(item: any) {

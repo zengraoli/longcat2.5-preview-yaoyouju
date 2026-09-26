@@ -14,10 +14,13 @@
         <section class="card">
           <h2 class="section-title"><span class="step-num">1</span>当前确认的信息与来源</h2>
           <ul class="source-list">
-            <li v-for="(item, idx) in analysis.sections.known" :key="idx">
+            <li v-for="(item, idx) in realKnown" :key="idx">
               <span class="bullet"></span>
               <span>{{ item }}</span>
               <span class="source-tag">来源：报告原文 · 可查看</span>
+            </li>
+            <li v-if="realKnown.length === 0" class="empty-note">
+              尚未录入检查报告。可先在"当前情况-录入报告"中补充。
             </li>
             <li v-for="(exp, idx) in analysis.sections.explanation" :key="'e' + idx">
               <span class="bullet"></span>
@@ -116,11 +119,13 @@ const analysis = ref<Analysis | null>(null);
 const rawText = ref('');
 const rawDate = ref('');
 
+const realKnown = computed(() => (analysis.value?.sections?.known || []).filter((k: string) => k && k !== '尚未确认'));
+
 const analysisIntro = computed(() => {
   const a = analysis.value;
   if (!a) return '';
-  const reportPart = a.sections.known.length > 0
-    ? `你上传的报告中提到了 ${a.sections.known.join('、')}；`
+  const reportPart = realKnown.value.length > 0
+    ? `你上传的报告中提到了 ${realKnown.value.join('、')}；`
     : '你尚未录入检查报告；';
   return `${reportPart}你描述目前的情况见下。症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。`;
 });
@@ -482,5 +487,13 @@ onMounted(async () => {
   font-size: 13px;
   color: var(--text-2);
   line-height: 1.6;
+}
+
+.empty-note {
+  font-size: 13px;
+  color: var(--warn);
+  background: #FDF6E3;
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 </style>

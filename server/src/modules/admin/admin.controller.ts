@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AdminLoginDto, CreateAdminUserDto, DualConfirmDto } from './dto/admin.dto';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
@@ -34,7 +34,7 @@ export class AdminController {
   getUsers(@Headers('x-admin-token') token: string) {
     const session = this.adminService.validateSession(token);
     if (!session) throw new UnauthorizedException('未登录');
-    if (!this.adminService.checkPermission(session.roleId, '*')) throw new Error('无权限');
+    this.adminService.requirePermission(session.roleId, '*');
     return this.adminService.getAdminUsers();
   }
 
@@ -56,7 +56,8 @@ export class AdminController {
 
   @Get('audit-logs')
   @UseGuards(AdminAuthGuard)
-  auditLogs() {
+  auditLogs(@Req() req: any) {
+    this.adminService.requirePermission(req.admin.roleId, 'audit:view');
     return this.adminService.getAuditLogs();
   }
 
@@ -76,13 +77,14 @@ export class AdminController {
   verifyAudit(@Headers('x-admin-token') token: string) {
     const session = this.adminService.validateSession(token);
     if (!session) throw new UnauthorizedException('未登录');
+    this.adminService.requirePermission(session.roleId, 'audit:view');
     return this.adminService.verifyAuditChain();
   }
 
   @Post('dual-confirm')
   dualConfirm(@Headers('x-admin-token') token: string, @Body() dto: DualConfirmDto) {
     const session = this.adminService.validateSession(token);
-    if (!session) throw new Error('未登录');
+    if (!session) throw new UnauthorizedException('未登录');
     if (dto.primaryApproverId === dto.secondaryApproverId) {
       throw new Error('双人确认需不同审批人');
     }

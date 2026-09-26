@@ -35,11 +35,11 @@
 
     <view class="bring-card">
       <text class="bring-title">就诊时可以带上</text>
-      <view class="bring-item">
+      <view class="bring-item" v-if="latestReportDate">
         <text class="bring-check">✓</text>
-        <text class="bring-text">已录入的检查报告原文（2026-08-30 腰椎MRI）</text>
+        <text class="bring-text">已录入的检查报告原文（{{ latestReportDate }}）</text>
       </view>
-      <view class="bring-item">
+      <view class="bring-item" v-else>
         <text class="bring-check">✓</text>
         <text class="bring-text">症状开始时间与最近变化记录</text>
       </view>
@@ -94,6 +94,10 @@ function findHospital() {
 function contactDoctor() {
   uni.showToast({ title: '已保存的主治医生联系方式（演示）', icon: 'none' });
 }
+
+onMounted(() => {
+  loadLatestReport();
+});
 
 async function generateSummary() {
   try {

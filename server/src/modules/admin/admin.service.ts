@@ -68,6 +68,13 @@ export class AdminService {
     return permissions.includes('*') || permissions.includes(requiredPermission);
   }
 
+  /** 权限断言：不满足时抛 403 */
+  requirePermission(roleId: string, requiredPermission: string): void {
+    if (!this.checkPermission(roleId, requiredPermission)) {
+      throw new ForbiddenException('无权限');
+    }
+  }
+
   logAudit(actorId: string, action: string, target?: string, diff?: string): void {
     const db = getDb();
     const lastEntry = db.prepare('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 1').get() as any | undefined;

@@ -96,6 +96,7 @@ const queryId = cur?.options?.id || '';
 const queryTitle = cur?.options?.title || '';
 
 const content = ref<any>({});
+const reasonText = ref('为什么推荐给你：你的报告中提到了与该内容相关的术语。示意图不是你的真实病变，不能据此判断本人病因。');
 const playing = ref(false);
 const subtitleOpen = ref(true);
 const retell = ref('');
@@ -119,6 +120,17 @@ function submitRetell() {
 }
 
 onMounted(async () => {
+  try {
+    const episodes = await api.getEpisodes();
+    if (episodes && episodes.length > 0) {
+      const reports = await api.getReportsByEpisode(episodes[0].id);
+      if (reports && reports.length > 0) {
+        reasonText.value = `为什么推荐给你：你的报告（${reports[0].report_date}）提到了与该内容相关的术语。示意图不是你的真实病变，不能据此判断本人病因。`;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load report context:', e);
+  }
   try {
     if (queryId) {
       content.value = await api.getContent(queryId);

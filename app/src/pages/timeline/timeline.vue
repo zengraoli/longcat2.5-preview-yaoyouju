@@ -102,20 +102,30 @@ const timeline = ref<any[]>([]);
 const analysisVersion = ref<number | null>(null);
 const openMenu = ref('');
 
-const onsetText = computed(() => {
-  const ep = episode.value;
-  if (!ep) return '尚未确认';
-  const date = ep.onset_date ? '约 ' + ep.onset_date.slice(0, 7) + ' 中旬' : '尚未确认';
-  return `${date}（自述，具体日期${ep.onset_certainty}）`;
-});
-
-const symptomCount = computed(() => timeline.value.filter((t) => t.event_type === '症状').length);
+const symptomCount = computed(() => timeline.value.length);
 const reportCount = computed(() => timeline.value.filter((t) => t.event_type === '报告').length);
 const questionCount = computed(() => {
-  const unknown: string[] = analysis.value?.sections?.unknown || [];
+  const unknown: string[] = latestAnalysis.value?.sections?.unknown || [];
   const logs = timeline.value.filter((t) => t.event_type === '症状');
   const worries = logs.filter((t) => t.top_worry && t.top_worry !== '尚未确认').length;
   return unknown.length + worries;
+});
+
+// 起病日期优先取用户在"变化确认"中的回答
+const changeRaw = ref<string | null>(null);
+const changeOnset = computed(() => {
+  if (!changeRaw.value) return '';
+  const m = changeRaw.value.match(/开始日期：([^；]*)/);
+  return m?.[1]?.trim() || '';
+});
+
+const onsetText = computed(() => {
+  const ep = episode.value;
+  if (!ep) return '尚未确认';
+  const answer = changeOnset.value;
+  if (answer && answer !== '尚未确认') return `${answer} 开始腰痛（自述）。`;
+  const date = ep.onset_date ? '约 ' + ep.onset_date.slice(0, 7) + ' 中旬' : '尚未确认';
+  return `${date}（自述，具体日期${ep.onset_certainty}）`;
 });
 
 function typeLabel(t: string) {
@@ -179,6 +189,9 @@ async function loadData() {
     const episodeId = episodes[0]?.id;
     if (!episodeId) return;
     timeline.value = await api.getTimeline(episodeId);
+    const events = await api.getCareEvents(episodeId);
+    const changeEvent = (events || []).find((e: any) => e.event_type === '变化确认');
+    changeRaw.value = changeEvent?.raw_text || null;
     const latest = await api.getLatestAnalysis(episodeId);
     if (latest.status === 'ok') {
       analysisVersion.value = latest.version;

@@ -136,18 +136,18 @@ function termLabel(term: string) {
 
 const symptomRows = computed(() => {
   const rows = [];
-  const onset = changeAnswers.value?.['开始日期'] || episode.value.onset_date || '尚未确认';
+  const onset = changeAnswers.value?.['开始日期'] || '尚未确认';
   rows.push({ label: '症状开始', value: onset });
   rows.push({ label: '最近变化', value: changeAnswers.value?.['变化'] || '尚未确认' });
   const unknown: string[] = analysis.value?.sections?.unknown || [];
   rows.push({ label: '腿部无力', value: unknown.some((u: string) => u.includes('腿部无力')) ? '尚未回答' : '尚未确认' });
-  const change = changeAnswers.value || parseChangeText(null);
-  rows.push({ label: '大小便/鞍区', value: bowelStatus(change) });
+  rows.push({ label: '大小便/鞍区', value: bowelStatus(changeParsed.value) });
   rows.push({ label: '主要困惑', value: changeAnswers.value?.['困惑'] || '尚未确认' });
   return rows;
 });
 
 const confusionTitle = ref('');
+const changeParsed = ref<ReturnType<typeof parseChangeText> | null>(null);
 
 async function loadData() {
   try {
@@ -170,11 +170,14 @@ async function loadData() {
     const changeEvent = (events || []).find((e: any) => e.event_type === '变化确认');
     if (changeEvent) {
       const parsed = parseChangeText(changeEvent.raw_text);
+      changeParsed.value = parsed;
       changeAnswers.value = {
         '变化': parsed.change,
         '开始日期': parsed.onset,
         '困惑': confusionTitle.value,
       };
+    } else {
+      changeParsed.value = null;
     }
     const adviceEvent = (events || []).find((e: any) => e.event_type === '医嘱');
     doctorAdvice.value = adviceEvent?.raw_text || '';
