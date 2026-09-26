@@ -24,8 +24,8 @@ export class EpisodeController {
   }
 
   @Get(':id/events')
-  getCareEvents(@Param('id') id: string) {
-    return this.episodeService.getCareEvents(id);
+  getCareEvents(@Param('id') id: string, @Req() req: any) {
+    return this.episodeService.getCareEvents(id, req.user.userId);
   }
 
   @Post('events')
@@ -49,7 +49,7 @@ export class EpisodeController {
   }
 
   @Get(':id/timeline')
-  getTimeline(@Param('id') id: string) {
-    return this.episodeService.getTimeline(id);
+  getTimeline(@Param('id') id: string, @Req() req: any) {
+    return this.episodeService.getTimeline(id, req.user.userId);
   }
 }

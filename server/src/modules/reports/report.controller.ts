@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { ReportService } from './report.service';
 import { CreateReportDto, OcrExtractDto, VerifyReportDto } from './dto/report.dto';
@@ -19,8 +19,8 @@ export class ReportController {
   }
 
   @Get()
-  listReports(@Query('episodeId') episodeId: string) {
-    return this.reportService.getReportsByEpisode(episodeId);
+  listReports(@Query('episodeId') episodeId: string, @Req() req: any) {
+    return this.reportService.getReportsByEpisode(episodeId, req.user.userId);
   }
 
   @Get(':id')
@@ -29,8 +29,8 @@ export class ReportController {
   }
 
   @Get(':id/structured')
-  getStructuredInfo(@Param('id') id: string) {
-    return this.reportService.getStructuredInfo(id);
+  getStructuredInfo(@Param('id') id: string, @Req() req: any) {
+    return this.reportService.getStructuredInfo(id, req.user.userId);
   }
 
   @Post(':id/verify')

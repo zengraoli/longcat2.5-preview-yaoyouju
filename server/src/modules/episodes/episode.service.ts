@@ -34,9 +34,10 @@ export class EpisodeService {
     return { id, ...dto, reportedAt: new Date().toISOString(), verifyStatus: dto.verifyStatus || '尚未确认' };
   }
 
-  getCareEvents(episodeId: string) {
+  getCareEvents(episodeId: string, userId: string) {
     const db = getDb();
-    return db.prepare('SELECT * FROM care_event WHERE episode_id = ? ORDER BY occurred_at DESC').all(episodeId);
+    const episode = this.getEpisode(episodeId, userId) as { id: string };
+    return db.prepare('SELECT * FROM care_event WHERE episode_id = ? ORDER BY occurred_at DESC').all(episode.id);
   }
 
   updateCareEvent(eventId: string, userId: string, dto: { rawText?: string; verifyStatus?: string }) {
@@ -64,15 +65,16 @@ export class EpisodeService {
     return { id, careEventId: dto.careEventId, sitMinutes: dto.sitMinutes ?? null, plannedActivityDone: dto.plannedActivityDone || null, sleepImpact: dto.sleepImpact ?? null, topWorry: dto.topWorry || null, legChange: dto.legChange || '尚未确认' };
   }
 
-  getTimeline(episodeId: string) {
+  getTimeline(episodeId: string, userId: string) {
     const db = getDb();
+    const episode = this.getEpisode(episodeId, userId) as { id: string };
     const events = db.prepare(`
       SELECT ce.*, sl.sit_minutes, sl.planned_activity_done, sl.sleep_impact, sl.top_worry, sl.leg_change
       FROM care_event ce
       LEFT JOIN symptom_log sl ON ce.id = sl.care_event_id
       WHERE ce.episode_id = ?
       ORDER BY ce.occurred_at DESC
-    `).all(episodeId);
+    `).all(episode.id);
     return events;
   }
 

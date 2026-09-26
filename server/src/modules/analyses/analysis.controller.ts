@@ -15,12 +15,12 @@ export class AnalysisController {
   }
 
   @Get('latest')
-  getLatestAnalysis(@Query('episodeId') episodeId: string) {
-    return this.analysisService.getLatestAnalysis(episodeId);
+  getLatestAnalysis(@Query('episodeId') episodeId: string, @Req() req: any) {
+    return this.analysisService.getLatestAnalysis(episodeId, req.user.userId);
   }
 
   @Get(':id')
-  getAnalysis(@Param('id') id: string) {
-    return this.analysisService.getAnalysis(id);
+  getAnalysis(@Param('id') id: string, @Req() req: any) {
+    return this.analysisService.getAnalysis(id, req.user.userId);
   }
 }

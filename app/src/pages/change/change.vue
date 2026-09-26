@@ -157,12 +157,7 @@ async function saveAnswers() {
       eventType: '变化确认',
       occurredAt: new Date().toISOString(),
       sourceType: '自述',
-      rawText: JSON.stringify({
-        变化: answers.change || '尚未确认',
-        红旗项: answers.redFlags,
-        侧别: answers.side || '尚未确认',
-        开始日期: answers.onsetDate || answers.onsetRange || '尚未确认',
-      }, null, 2),
+      rawText: `变化：${answers.change || '尚未确认'}；红旗项：${answers.redFlags.join('、') || '无'}；侧别：${answers.side || '尚未确认'}；开始日期：${answers.onsetDate || answers.onsetRange || '尚未确认'}`,
       verifyStatus: '尚未确认',
     });
   } catch (e) {

@@ -65,14 +65,16 @@ export class ReportService {
     return { verified: true, reportId, verifyStatus: dto.verifyStatus };
   }
 
-  getReportsByEpisode(episodeId: string) {
+  getReportsByEpisode(episodeId: string, userId: string) {
     const db = getDb();
+    const episode = db.prepare('SELECT id FROM episode WHERE id = ? AND user_id = ?').get(episodeId, userId);
+    if (!episode) throw new NotFoundException('病程不存在');
     return db.prepare(`
       SELECT r.* FROM report r
       JOIN care_event ce ON r.care_event_id = ce.id
       WHERE ce.episode_id = ?
       ORDER BY r.report_date DESC
-    `).all(episodeId);
+    `).all((episode as { id: string }).id);
   }
 
   getReport(reportId: string) {
@@ -82,15 +84,17 @@ export class ReportService {
     return report;
   }
 
-  getStructuredInfo(reportId: string) {
+  getStructuredInfo(reportId: string, userId: string) {
     const db = getDb();
     const report = db.prepare(`
-      SELECT r.*, ce.event_type, ce.source_type, ce.verify_status, ce.occurred_at, ce.raw_text as care_event_text
+      SELECT r.*, ce.event_type, ce.source_type, ce.verify_status, ce.occurred_at, ce.raw_text as care_event_text, e.user_id
       FROM report r
       JOIN care_event ce ON r.care_event_id = ce.id
+      JOIN episode e ON ce.episode_id = e.id
       WHERE r.id = ?
     `).get(reportId) as any | undefined;
     if (!report) throw new NotFoundException('报告不存在');
+    if (report.user_id !== userId) throw new NotFoundException('报告不存在');
     const extractedTerms = typeof report.extracted_terms === 'string' ? JSON.parse(report.extracted_terms) : report.extracted_terms;
     const hasConflict = report.verify_status === '有冲突';
     return {

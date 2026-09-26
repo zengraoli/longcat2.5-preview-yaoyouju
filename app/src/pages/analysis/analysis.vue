@@ -19,21 +19,21 @@
       <text class="meta-text">分析版本 v{{ analysis.version }} · 模型 M-2609</text>
     </view>
 
-    <text class="intro">你上传的报告中提到了 {{ analysis.sections.known.join('、') }}；你描述目前腰痛持续约 1 个月且最近加重。报告日期已确认，症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。</text>
+    <text class="intro">{{ analysisIntro }}</text>
 
     <view class="section-card">
       <view class="section-head">
         <view class="num-circle">1</view>
         <text class="section-title">当前确认的信息与来源</text>
       </view>
-      <view class="bullet-item" v-for="(item, i) in analysis.sections.known" :key="'k' + i">
+      <view class="bullet-item" v-if="report.rawText">
         <view class="bullet-dot"></view>
-        <text class="bullet-text">报告（{{ formatDate(reportDate) }}，MRI）提到 {{ item }}；腰痛约 1 个月，最近一周加重，主要在左侧。</text>
+        <text class="bullet-text">{{ reportSummary }}</text>
         <text class="src-tag tag-info">报告原文 · 可查看</text>
       </view>
       <view class="bullet-item">
         <view class="bullet-dot"></view>
-        <text class="bullet-text">你描述：腰痛约 1 个月，最近一周加重，主要在左侧；没有大小便或鞍区异常。</text>
+        <text class="bullet-text">{{ selfDescription }}</text>
         <text class="src-tag tag-warn">自述 · {{ formatDate(analysis.createdAt) }}</text>
       </view>
       <view class="bullet-item" v-if="doctorAdvice">
@@ -133,20 +133,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import MainTabBar from '../../components/MainTabBar.vue';
 import { api } from '../../api/request';
+import { parseChangeText, buildSelfDescription } from '../../utils/chief';
 
 const pages = getCurrentPages();
 const cur = pages[pages.length - 1] as any;
 const taskId = cur?.options?.taskId || '';
 
 const analysis = ref<any>({ sections: { known: [], explanation: [], unknown: [], nextSteps: [] } });
-const reportDate = ref('');
+const report = ref<any>({});
 const doctorAdvice = ref('');
 const feedback = ref('');
 const followupCount = ref(0);
 const showMore = ref(false);
+const changeRaw = ref<string | null>(null);
+const episode = ref<any>({});
+const lastLog = ref<any>(null);
+
+const change = computed(() => parseChangeText(changeRaw.value));
+
+const analysisIntro = computed(() => {
+  const known = analysis.value.sections.known;
+  const reportPart = report.value.rawText
+    ? `你上传的报告中提到了 ${known.join('、') || '尚未确认'}；`
+    : '你尚未录入检查报告；';
+  return `${reportPart}你描述目前的情况见下。${report.value.reportDate ? '报告日期已确认' : '尚未录入报告'}，症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。`;
+});
+
+const reportSummary = computed(() => {
+  const terms = (report.value.extractedTerms || []).slice(0, 3).map((t: any) => t.term);
+  if (!report.value.reportDate) return '尚未录入检查报告。';
+  return `报告（${report.value.reportDate}，${report.value.eventType || '检查'}）${terms.length ? '提到 ' + terms.join('、') : '未见提取术语'}。`;
+});
+
+const selfDescription = computed(() =>
+  buildSelfDescription({ change: change.value, episode: episode.value, analysisUnknown: analysis.value.sections.unknown })
+);
 
 function formatDate(iso?: string) {
   return iso ? iso.slice(0, 10) : '';
@@ -188,11 +212,11 @@ function saveToTimeline() {
 onMounted(async () => {
   try {
     const episodes = await api.getEpisodes();
+    episode.value = episodes[0] || {};
     const episodeId = episodes[0]?.id;
     if (taskId) {
       analysis.value = await api.getAnalysis(taskId);
     } else if (episodeId) {
-      // 优先展示已有最新分析，避免重复创建
       const latest = await api.getLatestAnalysis(episodeId);
       if (latest.status === 'ok') {
         analysis.value = latest;
@@ -203,11 +227,19 @@ onMounted(async () => {
         }
       }
     }
-    const events = episodeId ? await api.getCareEvents(episodeId) : [];
-    const reportEvent = (events || []).find((e: any) => e.event_type === '报告');
-    reportDate.value = reportEvent?.occurred_at || '';
+    if (!episodeId) return;
+
+    const reports = await api.getReportsByEpisode(episodeId);
+    if (reports && reports.length > 0) {
+      report.value = await api.getStructuredInfo(reports[0].id);
+    }
+    const events = await api.getCareEvents(episodeId);
+    const changeEvent = (events || []).find((e: any) => e.event_type === '变化确认');
+    changeRaw.value = changeEvent?.raw_text || null;
     const adviceEvent = (events || []).find((e: any) => e.event_type === '医嘱');
     doctorAdvice.value = adviceEvent?.raw_text || '';
+    const logEvent = (events || []).find((e: any) => e.event_type === '症状');
+    lastLog.value = logEvent || null;
   } catch (e) {
     console.error('Failed to load analysis:', e);
   }

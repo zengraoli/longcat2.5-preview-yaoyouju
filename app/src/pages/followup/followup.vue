@@ -142,6 +142,7 @@
 import { ref, computed, onMounted } from 'vue';
 import MainTabBar from '../../components/MainTabBar.vue';
 import { api } from '../../api/request';
+import { parseChangeText, buildChiefText } from '../../utils/chief';
 
 const tabs = [
   { key: 'summary', label: '一页交接摘要' },
@@ -153,15 +154,19 @@ const activeTab = ref<'summary' | 'questions' | 'bring'>('summary');
 const sections = ref<any>({});
 const generatedAt = ref('');
 const unknown = ref<string[]>([]);
+const episode = ref<any>({});
 
-const symptomCount = computed(() => sections.value.symptomsAndChanges?.recentLogs?.length ?? 0);
+const changeRaw = ref<string | null>(null);
+const lastLog = ref<any>(null);
 
-const chiefText = computed(() => {
-  const logs = sections.value.symptomsAndChanges?.recentLogs || [];
-  const last = logs[0];
-  if (!last) return '尚未确认';
-  return `目前腰痛持续约 1 个月，最近 1 周加重；主要在左侧；能坐约 ${last.sitMinutes ?? '尚未确认'} 分钟；夜间痛醒 1 次/晚。是否有腿部无力：尚未确认。无大小便或鞍区异常。`;
-});
+const chiefData = computed(() => ({
+  episode: episode.value || null,
+  change: parseChangeText(changeRaw.value),
+  lastLog: lastLog.value,
+  analysisUnknown: unknown.value,
+}));
+
+const chiefText = computed(() => buildChiefText(chiefData.value));
 
 const questions = computed(() => {
   const qs: string[] = [...(sections.value.questionsForDoctor?.questions || [])];
@@ -212,6 +217,7 @@ function exportPdf() {
 onMounted(async () => {
   try {
     const episodes = await api.getEpisodes();
+    episode.value = episodes[0] || {};
     const episodeId = episodes[0]?.id;
     if (!episodeId) return;
     const data = await api.previewFollowup(episodeId);
@@ -219,6 +225,11 @@ onMounted(async () => {
     generatedAt.value = data.generatedAt || '';
     const latest = await api.getLatestAnalysis(episodeId);
     if (latest.status === 'ok') unknown.value = latest.sections.unknown || [];
+    const events = await api.getTimeline(episodeId);
+    const changeEvent = (events || []).find((e: any) => e.event_type === '变化确认');
+    changeRaw.value = changeEvent?.raw_text || null;
+    const logEvent = (events || []).filter((e: any) => e.event_type === '症状').sort((a: any, b: any) => (b.occurred_at || '').localeCompare(a.occurred_at || ''))[0];
+    lastLog.value = logEvent ? { sitMinutes: logEvent.sit_minutes ?? null, topWorry: logEvent.top_worry ?? null, legChange: logEvent.leg_change ?? null } : null;
   } catch (e) {
     console.error('Failed to load followup:', e);
   }

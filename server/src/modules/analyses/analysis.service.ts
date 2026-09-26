@@ -113,10 +113,11 @@ export class AnalysisService {
     }
   }
 
-  async getAnalysis(taskOrAnalysisId: string) {
+  async getAnalysis(taskOrAnalysisId: string, userId: string) {
     const db = getDb();
     const task = db.prepare('SELECT * FROM analysis_task WHERE id = ?').get(taskOrAnalysisId) as any | undefined;
     if (!task) throw new NotFoundException('分析任务不存在');
+    if (task.user_id !== userId) throw new NotFoundException('分析任务不存在');
 
     if (task.status === 'queued' || task.status === 'processing') {
       return { taskId: task.id, status: task.status, createdAt: task.created_at };
@@ -135,9 +136,11 @@ export class AnalysisService {
   /**
    * 查询某次病程的最新一页分析（无需任务 ID）。
    */
-  getLatestAnalysis(episodeId: string) {
+  getLatestAnalysis(episodeId: string, userId: string) {
     const db = getDb();
-    const analysis = db.prepare('SELECT * FROM analysis WHERE episode_id = ? ORDER BY version DESC LIMIT 1').get(episodeId) as any | undefined;
+    const episode = db.prepare('SELECT id FROM episode WHERE id = ? AND user_id = ?').get(episodeId, userId) as any | undefined;
+    if (!episode) return { status: 'forbidden', episodeId, message: '病程不存在' };
+    const analysis = db.prepare('SELECT * FROM analysis WHERE episode_id = ? ORDER BY version DESC LIMIT 1').get(episode.id) as any | undefined;
     if (!analysis) return { status: 'none', episodeId, message: '尚未生成分析' };
     return { status: 'ok', ...this.enrichAnalysis(analysis) };
   }
