@@ -1,22 +1,38 @@
 <template>
   <view class="home-page">
     <view class="header">
-      <text class="page-title">当前情况</text>
+      <view>
+        <text class="page-title">当前情况</text>
+        <text class="page-subtitle">{{ episodeSubtitle }}</text>
+      </view>
     </view>
 
-    <view class="section" v-if="pendingItems.length > 0">
-      <text class="section-title">待确认项</text>
-      <view class="card" v-for="item in pendingItems" :key="item.id">
-        <text class="card-text">{{ item.text }}</text>
-        <StatusTag type="warn" label="尚未确认" />
+    <view class="card pending-card" v-if="pendingItems.length > 0">
+      <view class="pending-head">
+        <image src="/static/icons/ic_warn.png" class="pending-icon" />
+        <text class="pending-title">有 {{ pendingItems.length }} 项信息尚未确认</text>
+      </view>
+      <text class="pending-desc">确认后才会生成新的分析；没有回答的问题会记录为“尚未确认”，不会被当作“没有”。</text>
+      <view class="pending-q" v-for="item in pendingItems" :key="item">
+        <text class="pending-q-text">{{ item }}</text>
+      </view>
+      <view class="pending-actions">
+        <button class="primary-btn" @click="goToAnalysis">现在确认（约 30 秒）</button>
+        <button class="sub-btn" @click="dismissPending">稍后</button>
       </view>
     </view>
 
     <view class="section">
-      <text class="section-title">最新分析</text>
-      <view class="card" v-if="latestAnalysis">
-        <text class="analysis-summary">{{ latestAnalysis.summary }}</text>
-        <text class="analysis-version">版本 v{{ latestAnalysis.version }}</text>
+      <view class="section-head">
+        <text class="section-title">最新一页分析</text>
+        <text class="version-tag" v-if="analysis">v{{ analysis.version }} · {{ formatDate(analysis.createdAt) }}</text>
+      </view>
+      <view class="card" v-if="analysis">
+        <view class="known-row" v-for="(k, i) in analysis.sections.known.slice(0, 2)" :key="i">
+          <text class="row-tag tag-known">已知</text>
+          <text class="row-text">{{ k }}</text>
+        </view>
+        <button class="sub-btn block" @click="goToAnalysis">查看完整分析</button>
       </view>
       <view class="card empty" v-else>
         <text class="empty-text">尚未生成分析</text>
@@ -57,10 +73,14 @@
       </view>
     </view>
 
-    <view class="section" v-if="followupCountdown !== null">
-      <text class="section-title">复诊倒计时</text>
-      <view class="card">
-        <text class="countdown-text">距离下次复诊还有 {{ followupCountdown }} 天</text>
+    <view class="section" v-if="planDate">
+      <view class="card plan-card" @click="goToPage('/pages/followup/followup')">
+        <view class="plan-left">
+          <text class="plan-label">计划复诊</text>
+          <text class="plan-date">{{ planDate }}（约 {{ planDays }} 天后）</text>
+          <text class="plan-source">来源：按最近记录推算 · 未经核实</text>
+        </view>
+        <text class="plan-arrow">›</text>
       </view>
     </view>
 
@@ -75,15 +95,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import StatusTag from '../../components/StatusTag.vue';
+import { ref, computed, onMounted } from 'vue';
 import { api } from '../../api/request';
 import MainTabBar from '../../components/MainTabBar.vue';
+import { ensureEpisodeId } from '../../utils/episode';
 
-const pendingItems = ref<{ id: string; text: string }[]>([]);
-const latestAnalysis = ref<{ summary: string; version: number } | null>(null);
-const followupCountdown = ref<number | null>(null);
+const episode = ref<any>({});
+const analysis = ref<any>(null);
+const records = ref<any[]>([]);
 const recommendItems = ref<any[]>([]);
+
+const pendingItems = computed<string[]>(() => (analysis.value?.sections?.unknown || []).slice(0, 4));
+
+const episodeSubtitle = computed(() => {
+  const ep = episode.value;
+  if (!ep || !ep.title) return '暂无病程数据';
+  const statusText = ep.status === 'active' ? '保守治疗中' : (ep.status || '尚未确认');
+  const last = records.value[0] ? records.value[0].occurred_at?.slice(0, 10) : '';
+  return `本次发作 · ${statusText} · 上次记录：${last || '暂无'} · 起点${ep.onset_date ? ep.onset_date.slice(0, 7) : '尚未确认'}`;
+});
+
+const planDate = computed(() => {
+  const latest = records.value[0]?.occurred_at;
+  if (!latest) return '';
+  const d = new Date(latest);
+  d.setDate(d.getDate() + 28);
+  return d.toISOString().slice(0, 10);
+});
+
+const planDays = computed(() => {
+  const latest = records.value[0]?.occurred_at;
+  if (!latest) return 0;
+  return Math.max(0, Math.round((new Date(planDate.value).getTime() - new Date(latest).getTime()) / 86400000));
+});
+
+function formatDate(iso?: string) {
+  return iso ? iso.slice(0, 10) : '';
+}
+
+function dismissPending() {
+  // 稍后：不跳转，仅本次隐藏提示（分析生成时会再次询问）
+}
 
 function goToContent() {
   goToPage('/pages/content/content');
@@ -107,17 +159,20 @@ function goToAnalysis() {
 }
 
 onMounted(async () => {
+  const episodeId = await ensureEpisodeId();
+  if (!episodeId) return;
   try {
     const episodes = await api.getEpisodes();
-    if (episodes && episodes.length > 0) {
-      const latest = episodes[0];
-      pendingItems.value = [
-        { id: '1', text: `发病日期: ${latest.onset_date || '尚未确认'}` },
-        { id: '2', text: `病程状态: ${latest.status}` },
-      ];
-    }
+    episode.value = episodes[0] || {};
+    records.value = await api.getTimeline(episodeId);
   } catch (e) {
     console.error('Failed to load episodes:', e);
+  }
+  try {
+    const latest = await api.getLatestAnalysis(episodeId);
+    if (latest.status === 'ok') analysis.value = latest;
+  } catch (e) {
+    console.error('Failed to load analysis:', e);
   }
   try {
     recommendItems.value = await api.getPublishedContents();
@@ -265,6 +320,139 @@ onMounted(async () => {
   color: var(--error);
   font-weight: 500;
   flex: 1;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.page-subtitle {
+  font-size: 22rpx;
+  color: var(--text-3);
+  display: block;
+  margin-top: 6rpx;
+}
+
+.version-tag {
+  font-size: 20rpx;
+  color: var(--text-2);
+  background: var(--bg);
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.known-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.row-tag {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  font-weight: 500;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.tag-known {
+  background: var(--primary);
+  color: #fff;
+}
+
+.row-text {
+  font-size: 26rpx;
+  color: var(--text-1);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.pending-card {
+  background: #FDF6E3;
+  margin-bottom: 32rpx;
+}
+
+.pending-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.pending-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.pending-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--warn);
+}
+
+.pending-desc {
+  font-size: 24rpx;
+  color: var(--text-2);
+  line-height: 1.6;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.pending-q-text {
+  font-size: 26rpx;
+  color: var(--text-1);
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.pending-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 20rpx;
+}
+
+.pending-actions .primary-btn {
+  flex: 1;
+  margin: 0;
+}
+
+.plan-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.plan-left {
+  flex: 1;
+}
+
+.plan-label {
+  font-size: 24rpx;
+  color: var(--text-2);
+  display: block;
+}
+
+.plan-date {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--primary);
+  display: block;
+  margin: 4rpx 0;
+}
+
+.plan-source {
+  font-size: 20rpx;
+  color: var(--text-3);
+  display: block;
+}
+
+.plan-arrow {
+  font-size: 40rpx;
+  color: var(--text-3);
 }
 
 .quick-label {

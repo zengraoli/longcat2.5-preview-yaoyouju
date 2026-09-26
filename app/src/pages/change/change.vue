@@ -60,17 +60,7 @@
 
     <view class="card" v-if="currentStep === 4">
       <text class="question-title">4. 这次症状大约从什么时候开始？</text>
-      <view class="date-row">
-        <input
-          class="date-input"
-          type="text"
-          placeholder="选择日期，或点“记不清”"
-          :value="answers.onsetDate || '选择日期'"
-          readonly
-          @click="openDatePicker"
-        />
-        <image src="/static/icons/ic_calendar.png" class="date-icon" @click="openDatePicker" />
-      </view>
+      <input class="date-native" type="date" placeholder="选择日期，或点“记不清”" :value="answers.onsetDate" @change="onDateChange" />
       <view class="chip-group">
         <view
           v-for="opt in ['记不清', '约1周内', '约1个月内', '超过3个月']"
@@ -123,16 +113,9 @@ function toggleRedFlag(item: string) {
   }
 }
 
-function openDatePicker() {
-  // uni-app H5 环境下使用 input[type=date]
-  const input = document.createElement('input');
-  input.type = 'date';
-  input.value = answers.onsetDate || '';
-  input.onchange = () => {
-    answers.onsetDate = input.value || '';
-    if (input.value) answers.onsetRange = '';
-  };
-  input.click();
+function onDateChange(e: any) {
+  answers.onsetDate = e.detail.value || '';
+  if (answers.onsetDate) answers.onsetRange = '';
 }
 
 function goBack() {
@@ -345,29 +328,16 @@ async function onNext() {
   color: var(--text-1);
 }
 
-.date-row {
-  position: relative;
-  margin-bottom: 24rpx;
-}
-
-.date-input {
+.date-native {
   width: 100%;
   height: 88rpx;
   background: var(--bg);
   border-radius: 16rpx;
-  padding: 0 80rpx 0 24rpx;
+  padding: 0 24rpx;
   font-size: 26rpx;
-  color: var(--text-3);
+  color: var(--text-1);
   box-sizing: border-box;
-}
-
-.date-icon {
-  position: absolute;
-  right: 24rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40rpx;
-  height: 40rpx;
+  margin-bottom: 24rpx;
 }
 
 .footer {

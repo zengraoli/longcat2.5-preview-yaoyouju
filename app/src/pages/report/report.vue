@@ -35,10 +35,7 @@
         <view class="form-row">
           <view class="form-col">
             <text class="form-label">报告日期</text>
-            <view class="date-row">
-              <input class="input" type="text" placeholder="选择日期" :value="reportDate || '选择日期'" readonly @click="openDatePicker" />
-              <image src="/static/icons/ic_calendar.png" class="input-icon" @click="openDatePicker" />
-            </view>
+            <input class="date-native" type="date" v-model="reportDate" />
           </view>
           <view class="form-col">
             <text class="form-label">检查类型</text>
@@ -107,6 +104,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { api } from '../../api/request';
+import { ensureEpisodeId } from '../../utils/episode';
 
 const tabs = [
   { key: 'paste', label: '粘贴文字（推荐）' },
@@ -129,16 +127,6 @@ function onTabClick(key: 'paste' | 'ocr' | 'skip') {
   mode.value = key;
 }
 
-function openDatePicker() {
-  const input = document.createElement('input');
-  input.type = 'date';
-  input.value = reportDate.value || '';
-  input.onchange = () => {
-    reportDate.value = input.value || '';
-  };
-  input.click();
-}
-
 function onExamTypeChange(e: any) {
   examTypeIndex.value = e.detail.value;
 }
@@ -155,8 +143,7 @@ function goBack() {
 
 async function submitReport() {
   try {
-    const episodes = await api.getEpisodes();
-    const episodeId = episodes[0]?.id;
+    const episodeId = await ensureEpisodeId();
     if (!episodeId) {
       uni.showToast({ title: '请先创建病程', icon: 'none' });
       return;

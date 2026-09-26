@@ -6,23 +6,27 @@
     </view>
 
     <scroll-view scroll-y class="messages" :scroll-top="scrollTop">
-      <view class="msg-row user" v-for="(m, i) in userMessages" :key="'u' + i">
-        <view class="bubble user-bubble">{{ m }}</view>
-      </view>
-
-      <view class="msg-row assistant" v-for="(m, i) in assistantMessages" :key="'a' + i">
-        <view class="avatar">腰</view>
-        <view class="bubble assistant-bubble">
-          <text class="msg-text">{{ m.content }}</text>
-          <view class="source-chips" v-if="m.source">
-            <text class="src-chip src-ok">来源：{{ m.source }}</text>
-            <text class="src-chip src-info">报告原文</text>
+      <view
+        v-for="(m, i) in messages"
+        :key="i"
+        class="msg-row"
+        :class="m.role"
+      >
+        <view class="bubble user-bubble" v-if="m.role === 'user'">{{ m.content }}</view>
+        <template v-else>
+          <view class="avatar">腰</view>
+          <view class="bubble assistant-bubble">
+            <text class="msg-text">{{ m.content }}</text>
+            <view class="source-chips" v-if="m.source">
+              <text class="src-chip src-ok">来源：{{ m.source }}</text>
+              <text class="src-chip src-info">报告原文</text>
+            </view>
+            <view class="add-followup" v-if="m.outOfScope" @click="addFollowup(m)">
+              ＋ 把“{{ m.shortQuestion }}”加入复诊问题
+            </view>
+            <text class="added-text" v-else-if="m.added">＋ 已加入复诊问题：{{ m.shortQuestion }}</text>
           </view>
-          <view class="add-followup" v-if="m.outOfScope" @click="addFollowup(m)">
-            ＋ 把“{{ m.shortQuestion }}”加入复诊问题
-          </view>
-          <text class="added-text" v-else-if="m.added">＋ 已加入复诊问题：{{ m.shortQuestion }}</text>
-        </view>
+        </template>
       </view>
 
       <view class="stability-bar" v-if="explainedCount >= 2">
@@ -64,7 +68,8 @@ import { ref, nextTick, onMounted } from 'vue';
 import MainTabBar from '../../components/MainTabBar.vue';
 import { api } from '../../api/request';
 
-interface AssistantMsg {
+interface ChatMsg {
+  role: 'user' | 'assistant';
   content: string;
   source?: string;
   outOfScope?: boolean;
@@ -72,8 +77,7 @@ interface AssistantMsg {
   added?: boolean;
 }
 
-const assistantMessages = ref<AssistantMsg[]>([]);
-const userMessages = ref<string[]>([]);
+const messages = ref<ChatMsg[]>([]);
 const question = ref('');
 const scrollTop = ref(0);
 const episodeId = ref('');
@@ -85,7 +89,7 @@ const contextBasis = ref('当前情况 + 最近一次检查报告');
 
 function scrollToBottom() {
   nextTick(() => {
-    scrollTop.value = assistantMessages.value.length * 1000 + userMessages.value.length * 1000;
+    scrollTop.value = messages.value.length * 1000 + 100000;
   });
 }
 
@@ -100,23 +104,24 @@ async function askQuestion(q: string) {
   const text = q.trim();
   if (!text) return;
   question.value = '';
-  userMessages.value.push(text);
+  messages.value.push({ role: 'user', content: text });
   scrollToBottom();
   try {
     const res = await api.askQuestion({ question: text, episodeId: episodeId.value || undefined });
     if (res.outOfScope) {
-      assistantMessages.value.push({
+      messages.value.push({
+        role: 'assistant',
         content: res.message || '该问题涉及诊断、手术或用药建议，超出服务范围。建议您将此问题加入复诊清单，咨询医生。',
         outOfScope: true,
         shortQuestion: text.length > 12 ? text.slice(0, 12) + '…' : text,
       });
     } else {
-      assistantMessages.value.push({ content: res.answer, source: res.source });
+      messages.value.push({ role: 'assistant', content: res.answer, source: res.source });
       explainedCount.value++;
       if (res.isReassurance) explainedCount.value = Math.max(explainedCount.value, 2);
     }
   } catch (e: any) {
-    assistantMessages.value.push({ content: e.message || '回答失败，请稍后重试。' });
+    messages.value.push({ role: 'assistant', content: e.message || '回答失败，请稍后重试。' });
   }
   scrollToBottom();
 }
@@ -143,11 +148,13 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .qa-page {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg);
   padding: 0 32rpx 160rpx;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .context-bar {
@@ -175,7 +182,8 @@ onMounted(async () => {
 
 .messages {
   flex: 1;
-  min-height: 400rpx;
+  min-height: 0;
+  height: 0;
 }
 
 .msg-row {

@@ -97,7 +97,7 @@ function retry() {
 }
 
 function goHome() {
-  uni.switchTab({ url: '/pages/index/index' });
+  uni.reLaunch({ url: '/pages/index/index' });
 }
 </script>
 

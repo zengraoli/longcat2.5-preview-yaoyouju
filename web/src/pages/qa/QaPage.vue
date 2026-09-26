@@ -8,24 +8,25 @@
         </div>
 
         <div class="messages">
-          <div class="message user" v-for="(msg, idx) in userMessages" :key="'u' + idx">
-            <div class="bubble user-bubble">{{ msg }}</div>
-          </div>
-
-          <div class="message assistant" v-for="(msg, idx) in messages" :key="'a' + idx">
-            <div class="avatar">腰</div>
-            <div class="bubble assistant-bubble">
-              <p class="msg-text">{{ msg.content }}</p>
-              <div class="source-chips" v-if="msg.source">
-                <span class="src-chip">{{ msg.source }}</span>
-                <span class="src-chip src-chip-info">报告原文</span>
-              </div>
-              <button class="followup-add" v-if="msg.outOfScope" @click="addFollowup(msg)">
-                ＋ 把“{{ msg.shortQuestion }}”加入复诊问题
-              </button>
-              <span v-else-if="msg.added" class="followup-added">＋ 已加入复诊问题：{{ msg.shortQuestion }}</span>
+          <template v-for="(msg, idx) in chatMessages" :key="idx">
+            <div class="message user" v-if="msg.role === 'user'">
+              <div class="bubble user-bubble">{{ msg.content }}</div>
             </div>
-          </div>
+            <div class="message assistant" v-else>
+              <div class="avatar">腰</div>
+              <div class="bubble assistant-bubble">
+                <p class="msg-text">{{ msg.content }}</p>
+                <div class="source-chips" v-if="msg.source">
+                  <span class="src-chip">{{ msg.source }}</span>
+                  <span class="src-chip src-chip-info">报告原文</span>
+                </div>
+                <button class="followup-add" v-if="msg.outOfScope" @click="addFollowup(msg)">
+                  ＋ 把“{{ msg.shortQuestion }}”加入复诊问题
+                </button>
+                <span v-else-if="msg.added" class="followup-added">＋ 已加入复诊问题：{{ msg.shortQuestion }}</span>
+              </div>
+            </div>
+          </template>
 
           <div class="stability-bar" v-if="showStability">
             <img src="@/assets/icons/ic_info.png" alt="" />
@@ -95,7 +96,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { api } from '../../utils/api';
 
-interface AssistantMsg {
+interface ChatMsg {
+  role: 'user' | 'assistant';
   content: string;
   source?: string;
   outOfScope?: boolean;
@@ -103,8 +105,7 @@ interface AssistantMsg {
   added?: boolean;
 }
 
-const messages = ref<AssistantMsg[]>([]);
-const userMessages = ref<string[]>([]);
+const chatMessages = ref<ChatMsg[]>([]);
 const question = ref('');
 const history = ref<any[]>([]);
 const followupQuestions = ref<string[]>([]);
@@ -123,7 +124,7 @@ function formatTime(iso: string) {
   return iso ? iso.slice(0, 10) : '';
 }
 
-function addFollowup(msg: AssistantMsg) {
+function addFollowup(msg: ChatMsg) {
   if (msg.shortQuestion && !followupQuestions.value.includes(msg.shortQuestion)) {
     followupQuestions.value.push(msg.shortQuestion);
   }
@@ -134,17 +135,19 @@ async function askQuestion(q: string) {
   const text = q.trim();
   if (!text) return;
   question.value = '';
-  userMessages.value.push(text);
+  chatMessages.value.push({ role: 'user', content: text });
   try {
     const res = await api.askQuestion({ question: text, episodeId: episodeId.value || undefined });
     if (res.outOfScope) {
-      messages.value.push({
+      chatMessages.value.push({
+        role: 'assistant',
         content: res.message || '该问题涉及诊断、手术或用药建议，超出服务范围。建议您将此问题加入复诊清单，咨询医生。',
         outOfScope: true,
         shortQuestion: text.length > 12 ? text.slice(0, 12) + '…' : text,
       });
     } else {
-      messages.value.push({
+      chatMessages.value.push({
+        role: 'assistant',
         content: res.answer,
         source: res.source,
       });
@@ -152,7 +155,7 @@ async function askQuestion(q: string) {
       if (res.isReassurance) explainedCount.value = Math.max(explainedCount.value, 2);
     }
   } catch (e: any) {
-    messages.value.push({ content: e.message || '回答失败，请稍后重试。' });
+    chatMessages.value.push({ role: 'assistant', content: e.message || '回答失败，请稍后重试。' });
   }
 }
 

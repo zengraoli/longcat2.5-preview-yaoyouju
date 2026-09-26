@@ -131,7 +131,7 @@ async function handleLogin() {
     setToken(res.token);
     const scopes = ['健康信息处理', '分享', '产品改进'].filter(k => consents.value[k]);
     await api.grantConsent(scopes);
-    uni.switchTab({ url: '/pages/index/index' });
+    uni.reLaunch({ url: '/pages/index/index' });
   } catch (e: any) {
     uni.showToast({ title: e.message, icon: 'none' });
   }

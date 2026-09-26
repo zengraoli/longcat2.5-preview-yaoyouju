@@ -22,7 +22,7 @@
           <image src="/static/icons/ic_edit.png" class="edit-icon" @click="goReport" />
         </view>
       </view>
-      <view class="term-row" v-for="(t, i) in report.extractedTerms.slice(0, 5)" :key="i">
+      <view class="term-row" v-for="(t, i) in (report.extractedTerms || []).slice(0, 5)" :key="i">
         <text class="term-label">{{ termLabel(t.term) }}</text>
         <text class="term-value">{{ t.term }}</text>
         <text class="line-tag">原文{{ t.position || '第' + (i + 1) + '行' }}</text>
