@@ -41,7 +41,7 @@
                 class="bar"
                 :class="{ latest: i >= chartBars.length - 3 }"
                 :style="{ height: bar.height + 'px' }"
-                :title="bar.date + '：' + bar.minutes + ' 分钟'"
+                :title="bar.label + '：' + bar.minutes + ' 分钟'"
               ></div>
               <span class="bar-date" v-if="i % 2 === 0">{{ bar.label }}</span>
             </div>
@@ -205,7 +205,7 @@ const form = ref({
   sitSkipped: false,
   activityDone: '',
   activitySkipped: false,
-  sleepImpact: 1,
+  sleepImpact: null,
   compareToYesterday: '',
   compareSkipped: false,
   legChange: '',

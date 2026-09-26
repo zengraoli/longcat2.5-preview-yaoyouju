@@ -44,7 +44,7 @@ npm run dev:h5
 ```bash
 cd web
 npm install
-npm run start:dev
+npm run dev
 ```
 
 ### 5. 后台管理系统（端口 5403）
@@ -52,7 +52,7 @@ npm run start:dev
 ```bash
 cd admin
 npm install
-npm run start:dev
+npm run dev
 ```
 
 ## 默认账号

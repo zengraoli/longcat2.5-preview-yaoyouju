@@ -132,7 +132,7 @@ const form = reactive({
   sitSkipped: false,
   activityDone: '',
   activitySkipped: false,
-  sleepImpact: 1,
+  sleepImpact: null,
   compareToYesterday: '',
   compareSkipped: false,
   legChange: '',
