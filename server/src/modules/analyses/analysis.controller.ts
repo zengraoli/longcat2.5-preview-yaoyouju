@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { AnalysisService } from './analysis.service';
 import { CreateAnalysisDto } from './dto/analysis.dto';
+
 
 @Controller('analyses')
 @UseGuards(AuthGuard)
@@ -11,6 +12,11 @@ export class AnalysisController {
   @Post()
   createAnalysis(@Req() req: any, @Body() dto: CreateAnalysisDto) {
     return this.analysisService.createAnalysis(req.user.userId, dto);
+  }
+
+  @Get('latest')
+  getLatestAnalysis(@Query('episodeId') episodeId: string) {
+    return this.analysisService.getLatestAnalysis(episodeId);
   }
 
   @Get(':id')

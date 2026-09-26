@@ -65,6 +65,16 @@ export class ReportService {
     return { verified: true, reportId, verifyStatus: dto.verifyStatus };
   }
 
+  getReportsByEpisode(episodeId: string) {
+    const db = getDb();
+    return db.prepare(`
+      SELECT r.* FROM report r
+      JOIN care_event ce ON r.care_event_id = ce.id
+      WHERE ce.episode_id = ?
+      ORDER BY r.report_date DESC
+    `).all(episodeId);
+  }
+
   getReport(reportId: string) {
     const db = getDb();
     const report = db.prepare('SELECT * FROM report WHERE id = ?').get(reportId);

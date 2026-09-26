@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../../database/database.module';
 import { getIdentityDb } from '../../database/identity-database.module';
 import { EncryptionService } from '../../database/encryption.service';
@@ -27,16 +27,18 @@ export class AuthService {
     const db = getDb();
     const identityDb = getIdentityDb();
 
-    const identity = identityDb.prepare('SELECT * FROM identity_profile WHERE phone_enc = ?').get(
-      this.encryptionService.encrypt(phone),
+    const phoneHash = createHash('sha256').update(phone).digest('hex');
+    const identity = identityDb.prepare('SELECT * FROM identity_profile WHERE phone_hash = ?').get(
+      phoneHash,
     ) as { user_id: string } | undefined;
 
     if (!identity) {
       const userId = randomUUID();
       const now = new Date().toISOString();
       db.prepare('INSERT INTO "user" (id, status, created_at) VALUES (?, ?, ?)').run(userId, 'active', now);
-      identityDb.prepare('INSERT INTO identity_profile (user_id, phone_enc, real_name_enc) VALUES (?, ?, ?)').run(
+      identityDb.prepare('INSERT INTO identity_profile (user_id, phone_hash, phone_enc, real_name_enc) VALUES (?, ?, ?, ?)').run(
         userId,
+        phoneHash,
         this.encryptionService.encrypt(phone),
         this.encryptionService.encrypt(''),
       );

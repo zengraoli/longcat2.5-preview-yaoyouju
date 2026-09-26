@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '../auth/auth.guard';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { ModelReleaseService } from './model-release.service';
 import { CreateModelReleaseDto, SubmitEvalRunDto, EvalResultDto, PublishModelDto, RollbackModelDto } from './dto/model.dto';
 
 @Controller('models')
-@UseGuards(AuthGuard)
+@UseGuards(AdminAuthGuard)
 export class ModelReleaseController {
   constructor(private readonly modelReleaseService: ModelReleaseService) {}
 

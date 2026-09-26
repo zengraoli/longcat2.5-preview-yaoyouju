@@ -129,6 +129,21 @@ export class AnalysisService {
     const analysis = db.prepare('SELECT * FROM analysis WHERE episode_id = ? ORDER BY version DESC LIMIT 1').get(task.episode_id) as any | undefined;
     if (!analysis) throw new NotFoundException('分析结果不存在');
 
+    return this.enrichAnalysis(analysis);
+  }
+
+  /**
+   * 查询某次病程的最新一页分析（无需任务 ID）。
+   */
+  getLatestAnalysis(episodeId: string) {
+    const db = getDb();
+    const analysis = db.prepare('SELECT * FROM analysis WHERE episode_id = ? ORDER BY version DESC LIMIT 1').get(episodeId) as any | undefined;
+    if (!analysis) return { status: 'none', episodeId, message: '尚未生成分析' };
+    return { status: 'ok', ...this.enrichAnalysis(analysis) };
+  }
+
+  private enrichAnalysis(analysis: any) {
+    const db = getDb();
     const citations = db.prepare('SELECT * FROM analysis_citation WHERE analysis_id = ?').all(analysis.id) as any[];
     const sections = typeof analysis.sections === 'string' ? JSON.parse(analysis.sections) : analysis.sections;
 

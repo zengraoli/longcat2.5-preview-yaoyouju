@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Post, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AdminLoginDto, CreateAdminUserDto, DualConfirmDto } from './dto/admin.dto';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
 @Controller('admin')
 export class AdminController {
@@ -9,6 +10,12 @@ export class AdminController {
   @Post('login')
   login(@Body() dto: AdminLoginDto) {
     return this.adminService.login(dto);
+  }
+
+  @Get('dashboard')
+  @UseGuards(AdminAuthGuard)
+  dashboard() {
+    return this.adminService.getDashboard();
   }
 
   @Get('users')

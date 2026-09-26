@@ -70,7 +70,7 @@ export class FeedbackService {
       sql += ' AND is_error_report = ?';
       params.push(filters.isErrorReport ? 1 : 0);
     }
-    return db.prepare(sql + ' ORDER BY created_at DESC').all(...params);
+    return db.prepare(sql + ' ORDER BY rowid DESC').all(...params);
   }
 
   getFeedbackById(feedbackId: string) {

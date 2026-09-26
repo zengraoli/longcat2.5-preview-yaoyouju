@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { ReportService } from './report.service';
 import { CreateReportDto, OcrExtractDto, VerifyReportDto } from './dto/report.dto';
@@ -16,6 +16,11 @@ export class ReportController {
   @Post('ocr')
   ocrExtract(@Body() dto: OcrExtractDto) {
     return this.reportService.ocrExtract(dto);
+  }
+
+  @Get()
+  listReports(@Query('episodeId') episodeId: string) {
+    return this.reportService.getReportsByEpisode(episodeId);
   }
 
   @Get(':id')

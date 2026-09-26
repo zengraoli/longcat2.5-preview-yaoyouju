@@ -8,7 +8,7 @@ NestJS + TypeScript + SQLite 实现的 API 服务与 AI Worker。
 
 ```bash
 npm install
-npm run dev
+npm run start:dev
 ```
 
 ### AI Worker（独立进程，轮询消费分析任务）

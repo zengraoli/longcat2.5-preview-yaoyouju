@@ -71,11 +71,11 @@ export class ModelReleaseService {
 
   getReleases() {
     const db = getDb();
-    return db.prepare('SELECT * FROM model_release ORDER BY created_at DESC').all();
+    return db.prepare('SELECT * FROM model_release ORDER BY rowid DESC').all();
   }
 
   getEvalRuns(releaseId: string) {
     const db = getDb();
-    return db.prepare('SELECT * FROM eval_run WHERE model_release_id = ? ORDER BY created_at DESC').all(releaseId);
+    return db.prepare('SELECT * FROM eval_run WHERE model_release_id = ? ORDER BY rowid DESC').all(releaseId);
   }
 }

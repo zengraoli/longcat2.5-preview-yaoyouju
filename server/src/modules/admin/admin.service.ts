@@ -49,7 +49,12 @@ export class AdminService {
 
   validateSession(token: string): { adminUserId: string; roleId: string } | null {
     const db = getDb();
-    const session = db.prepare('SELECT * FROM admin_session WHERE token = ? AND expires_at > ?').get(token, new Date().toISOString()) as any | undefined;
+    const session = db.prepare(`
+      SELECT s.admin_user_id, u.role_id
+      FROM admin_session s
+      JOIN admin_user u ON s.admin_user_id = u.id
+      WHERE s.token = ? AND s.expires_at > ?
+    `).get(token, new Date().toISOString()) as any | undefined;
     if (!session) return null;
     return { adminUserId: session.admin_user_id, roleId: session.role_id };
   }
@@ -101,5 +106,62 @@ export class AdminService {
   getAdminUsers() {
     const db = getDb();
     return db.prepare('SELECT * FROM admin_user').all();
+  }
+
+  /**
+   * 仪表盘：核心指标、近 7 天分析趋势、最近安全事件、待办事项。
+   */
+  getDashboard() {
+    const db = getDb();
+
+    const analyses = (db.prepare('SELECT COUNT(*) as cnt FROM analysis').get() as any).cnt;
+    const totalTasks = (db.prepare('SELECT COUNT(*) as cnt FROM analysis_task').get() as any).cnt;
+    const failedTasks = (db.prepare("SELECT COUNT(*) as cnt FROM analysis_task WHERE status = 'failed'").get() as any).cnt;
+    const failureRate = totalTasks > 0 ? Math.round((failedTasks / totalTasks) * 100) : 0;
+
+    const completedTasks = db.prepare("SELECT created_at, updated_at FROM analysis_task WHERE status = 'completed' AND updated_at IS NOT NULL").all() as any[];
+    const avgDurationMs = completedTasks.length > 0
+      ? Math.round(completedTasks.reduce((sum, t) => sum + (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime()), 0) / completedTasks.length)
+      : 0;
+
+    const pendingReviews = (db.prepare("SELECT COUNT(*) as cnt FROM content_item WHERE current_status = '待医学审核'").get() as any).cnt;
+    const pendingReports = (db.prepare("SELECT COUNT(*) as cnt FROM error_report WHERE status = 'open'").get() as any).cnt;
+    const safetyEventCount = (db.prepare('SELECT COUNT(*) as cnt FROM safety_event').get() as any).cnt;
+
+    const safetyEvents = db.prepare('SELECT id, rule_code, severity, action_taken, created_at FROM safety_event ORDER BY created_at DESC LIMIT 10').all();
+
+    const trend7d: { date: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const count = (db.prepare("SELECT COUNT(*) as cnt FROM analysis WHERE date(created_at) = ?").get(day) as any).cnt;
+      trend7d.push({ date: day, count });
+    }
+
+    const todo: { type: string; title: string; id: string }[] = [];
+    const reviewItems = db.prepare("SELECT id, title FROM content_item WHERE current_status = '待医学审核' LIMIT 5").all() as any[];
+    reviewItems.forEach((item) => todo.push({ type: '内容待审', title: item.title, id: item.id }));
+    const reportItems = db.prepare(`
+      SELECT er.id, f.help_type FROM error_report er
+      JOIN feedback f ON er.feedback_id = f.id
+      WHERE er.status = 'open' LIMIT 5
+    `).all() as any[];
+    reportItems.forEach((item) => todo.push({ type: '待处理举报', title: item.help_type || '错误举报', id: item.id }));
+    const evalItems = db.prepare("SELECT id, model_name AS name FROM model_release WHERE status = '灰度' LIMIT 5").all() as any[];
+    evalItems.forEach((item) => todo.push({ type: '发布待确认', title: item.name, id: item.id }));
+
+    return {
+      stats: {
+        analyses,
+        failureRate,
+        avgDurationMs,
+        cost: 0,
+        pendingReviews,
+        pendingReports,
+        safetyEventCount,
+      },
+      trend7d,
+      safetyEvents,
+      todo,
+    };
   }
 }

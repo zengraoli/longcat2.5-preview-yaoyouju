@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { getDb } from './database.module';
 import { getIdentityDb } from './identity-database.module';
 import { EncryptionService } from './encryption.service';
@@ -19,6 +19,7 @@ export class SeedService implements OnModuleInit {
     identityDb.exec(`
       CREATE TABLE IF NOT EXISTS identity_profile (
         user_id TEXT PRIMARY KEY,
+        phone_hash TEXT,
         phone_enc TEXT NOT NULL,
         real_name_enc TEXT NOT NULL
       )
@@ -37,7 +38,8 @@ export class SeedService implements OnModuleInit {
         title TEXT NOT NULL,
         onset_date TEXT,
         onset_certainty TEXT,
-        status TEXT DEFAULT 'active'
+        status TEXT DEFAULT 'active',
+        created_at TEXT
       );
 
       CREATE TABLE IF NOT EXISTS care_event (
@@ -301,6 +303,39 @@ export class SeedService implements OnModuleInit {
         granted_at TEXT NOT NULL
       );
     `);
+    this.migrate();
+  }
+
+  /**
+   * 轻量迁移：为旧库补充 episode.created_at 列（接口按创建时间排序依赖该列）。
+   */
+  private migrate() {
+    const db = getDb();
+    const cols = db.prepare('PRAGMA table_info(episode)').all() as { name: string }[];
+    if (!cols.some((c) => c.name === 'created_at')) {
+      db.exec('ALTER TABLE episode ADD COLUMN created_at TEXT');
+      db.exec(`UPDATE episode SET created_at = COALESCE(
+        (SELECT MIN(occurred_at) FROM care_event WHERE care_event.episode_id = episode.id),
+        '2026-05-01T00:00:00.000Z'
+      ) WHERE created_at IS NULL`);
+    }
+
+    // phone_enc 使用随机 IV，不能直接用于等值查询；补充 sha256 盲索引列用于登录匹配。
+    const identityDb = getIdentityDb();
+    const idCols = identityDb.prepare('PRAGMA table_info(identity_profile)').all() as { name: string }[];
+    if (!idCols.some((c) => c.name === 'phone_hash')) {
+      identityDb.exec('ALTER TABLE identity_profile ADD COLUMN phone_hash TEXT');
+      const rows = identityDb.prepare('SELECT user_id, phone_enc FROM identity_profile').all() as { user_id: string; phone_enc: string }[];
+      for (const row of rows) {
+        try {
+          const phone = this.encryptionService.decrypt(row.phone_enc);
+          identityDb.prepare('UPDATE identity_profile SET phone_hash = ? WHERE user_id = ?')
+            .run(createHash('sha256').update(phone).digest('hex'), row.user_id);
+        } catch {
+          // 密文无法解开的旧行保持 NULL，不影响新数据
+        }
+      }
+    }
   }
 
   private seed() {
@@ -312,7 +347,7 @@ export class SeedService implements OnModuleInit {
     if (userCount && userCount.cnt > 0) return;
 
     const insertUser = db.prepare('INSERT INTO "user" (id, status, created_at, retention_until) VALUES (?, ?, ?, ?)');
-    const insertEpisode = db.prepare('INSERT INTO episode (id, user_id, title, onset_date, onset_certainty, status) VALUES (?, ?, ?, ?, ?, ?)');
+    const insertEpisode = db.prepare('INSERT INTO episode (id, user_id, title, onset_date, onset_certainty, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
     const insertCareEvent = db.prepare('INSERT INTO care_event (id, episode_id, event_type, occurred_at, reported_at, source_type, raw_text, verify_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     const insertReport = db.prepare('INSERT INTO report (id, care_event_id, report_date, raw_text, extracted_terms, oss_key) VALUES (?, ?, ?, ?, ?, ?)');
     const insertSymptomLog = db.prepare('INSERT INTO symptom_log (id, care_event_id, sit_minutes, planned_activity_done, sleep_impact, top_worry, leg_change) VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -329,7 +364,7 @@ export class SeedService implements OnModuleInit {
     const insertEvalSet = db.prepare('INSERT INTO eval_set (id, name, case_count, deidentified) VALUES (?, ?, ?, ?)');
     const insertModelRelease = db.prepare('INSERT INTO model_release (id, model_name, prompt_version, retrieval_strategy, content_lib_version, status) VALUES (?, ?, ?, ?, ?, ?)');
     const insertConsent = db.prepare('INSERT INTO consent (id, user_id, scope, granted_at, revoked_at) VALUES (?, ?, ?, ?, ?)');
-    const insertIdentity = identityDb.prepare('INSERT INTO identity_profile (user_id, phone_enc, real_name_enc) VALUES (?, ?, ?)');
+    const insertIdentity = identityDb.prepare('INSERT INTO identity_profile (user_id, phone_hash, phone_enc, real_name_enc) VALUES (?, ?, ?, ?)');
 
     const seedAll = db.transaction(() => {
       const user1Id = randomUUID();
@@ -338,13 +373,13 @@ export class SeedService implements OnModuleInit {
       insertUser.run(user1Id, 'active', now, null);
       insertUser.run(user2Id, 'active', now, null);
 
-      insertIdentity.run(user1Id, this.encryptionService.encrypt('13800001111'), this.encryptionService.encrypt('张三'));
-      insertIdentity.run(user2Id, this.encryptionService.encrypt('13900002222'), this.encryptionService.encrypt('李四'));
+      insertIdentity.run(user1Id, createHash('sha256').update('13800001111').digest('hex'), this.encryptionService.encrypt('13800001111'), this.encryptionService.encrypt('张三'));
+      insertIdentity.run(user2Id, createHash('sha256').update('13900002222').digest('hex'), this.encryptionService.encrypt('13900002222'), this.encryptionService.encrypt('李四'));
 
       const episode1Id = randomUUID();
       const episode2Id = randomUUID();
-      insertEpisode.run(episode1Id, user1Id, '腰痛三个月', '2026-06-01', '已确认', 'active');
-      insertEpisode.run(episode2Id, user2Id, '腰椎间盘突出', '2026-05-15', '已确认', 'active');
+      insertEpisode.run(episode1Id, user1Id, '腰痛三个月', '2026-06-01', '已确认', 'active', now);
+      insertEpisode.run(episode2Id, user2Id, '腰椎间盘突出', '2026-05-15', '已确认', 'active', now);
 
       const event1Id = randomUUID();
       insertCareEvent.run(event1Id, episode1Id, '报告', '2026-07-10', now, '报告原文', '腰椎MRI显示L4/5椎间盘突出，硬膜囊受压', '已确认');
