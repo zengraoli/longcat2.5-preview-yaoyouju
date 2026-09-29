@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ContentsModule } from './modules/contents/contents.module';
 import { EpisodesModule } from './modules/episodes/episodes.module';
 import { EvidenceModule } from './modules/evidence/evidence.module';
+import { FollowupModule } from './modules/followup/followup.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { HealthController } from './modules/health/health.controller';
 import { ModelsModule } from './modules/models/models.module';
@@ -26,6 +27,7 @@ import { SwitchesModule } from './modules/switches/switches.module';
     SafetyModule,
     ContentsModule,
     EvidenceModule,
+    FollowupModule,
     FeedbackModule,
     ModelsModule,
     QaModule,
