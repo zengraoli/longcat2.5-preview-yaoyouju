@@ -240,6 +240,13 @@ CREATE TABLE IF NOT EXISTS QA_FOLLOWUP_QUESTION (
   question TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS FEEDBACK_REPORT (
+  feedback_id TEXT PRIMARY KEY,
+  severity TEXT,
+  status TEXT NOT NULL DEFAULT '待处理',
+  resolution TEXT,
+  authorized INTEGER NOT NULL DEFAULT 0
+);
 CREATE INDEX IF NOT EXISTS idx_care_event_episode ON CARE_EVENT(episode_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_episode ON ANALYSIS(episode_id);
 CREATE INDEX IF NOT EXISTS idx_chunk_doc ON EVIDENCE_CHUNK(doc_id);

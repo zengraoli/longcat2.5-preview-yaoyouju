@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { FeedbackController } from './feedback.controller';
+import { FeedbackService } from './feedback.service';
 
-/** feedback 模块（T01 占位，后续任务实现） */
-@Module({})
+@Module({
+  imports: [AuthModule],
+  controllers: [FeedbackController],
+  providers: [FeedbackService],
+  exports: [FeedbackService],
+})
 export class FeedbackModule {}
