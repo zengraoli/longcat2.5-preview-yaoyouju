@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>腰有据 · API 接口文档</title>
+<style>
+  :root { --primary: #0F6E74; --bg: #F4F6F8; --surface: #FFFFFF; --border: #E4E8EE; --text-1: #1B2230; --text-2: #5C6675; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text-1); line-height: 1.6; }
+  header { background: var(--primary); color: #fff; padding: 24px 40px; }
+  header h1 { font-size: 20px; font-weight: 500; }
+  header p { font-size: 13px; opacity: .85; margin-top: 4px; }
+  main { max-width: 960px; margin: 24px auto; padding: 0 16px 48px; }
+  section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; }
+  h2 { font-size: 16px; font-weight: 500; margin-bottom: 12px; color: var(--primary); }
+  h3 { font-size: 14px; font-weight: 500; margin: 12px 0 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-2); font-weight: 500; }
+  code { background: var(--bg); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+  .method { display: inline-block; min-width: 52px; text-align: center; border-radius: 4px; padding: 1px 8px; font-size: 12px; font-weight: 500; color: #fff; }
+  .get { background: #1E9E5A; } .post { background: #0F6E74; } .put { background: #C77700; } .delete { background: #D93B3B; }
+  .note { font-size: 12px; color: var(--text-2); margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>腰有据 · API 接口文档</h1>
+  <p>统一响应格式：{"code": 0, "data": ..., "message": "ok"}；出错时 code 非 0，message 为中文。时间一律 UTC ISO8601。</p>
+</header>
+<main>
+  <section>
+    <h2>全局约定</h2>
+    <table>
+      <tr><th>约定</th><th>说明</th></tr>
+      <tr><td>用户登录态</td><td><code>Authorization: Bearer &lt;token&gt;</code>（手机号验证码登录，验证码固定 123456）</td></tr>
+      <tr><td>后台登录态</td><td><code>X-Admin-Token: &lt;token&gt;</code>（账号密码 + TOTP，演示固定码 123456）</td></tr>
+      <tr><td>错误码</td><td>1001 参数错误 / 1002 未登录 / 1003 无权限 / 1004 不存在 / 1005 状态冲突 / 1006 锁定 / 2001 验证码错误 / 3001 红旗 / 3002 停止个性化 / 3003 开关关闭 / 4001 评测门禁 / 5001 内部错误 / 5003 服务不可用</td></tr>
+      <tr><td>脱敏</td><td>手机号在列表、日志、非本人接口中脱敏为 138****1234</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>授权 auth</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/auth/sms-code</code></td><td>发送短信验证码（演示固定 123456，只写日志且脱敏）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/auth/login</code></td><td>手机号验证码登录，返回 token 与三项同意记录</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/auth/consents</code></td><td>当前用户的同意记录（可查）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/auth/consents</code></td><td>单独勾选 / 撤回同意（撤回立即生效）</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>安全 safety</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/safety/tips</code></td><td>就医提示（无需登录，不被任何流程阻断）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/safety/check</code></td><td>安全预检：红旗信号与服务范围校验，命中写安全事件</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>病程 episodes</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/episodes</code></td><td>病程列表</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/episodes</code></td><td>创建病程</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/episodes/:id</code></td><td>病程详情</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/episodes/:id/events</code></td><td>病程事件列表</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/episodes/:id/events</code></td><td>新增病程事件（报告/症状/医嘱/行动/结局）</td></tr>
+      <tr><td><span class="method put">PUT</span></td><td><code>/episodes/events/:eventId</code></td><td>纠正自己的记录</td></tr>
+      <tr><td><span class="method delete">DELETE</span></td><td><code>/episodes/events/:eventId</code></td><td>删除自己的记录</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/episodes/:id/timeline</code></td><td>时间线</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/episodes/:id/symptom-logs</code></td><td>记录今天的列表</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/episodes/:id/symptom-logs</code></td><td>记录今天（允许跳过，缺失为"尚未确认"，不复用昨日答案）</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>报告 reports</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/reports</code></td><td>录入报告（粘贴文字为主，抽取术语与位置）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/reports/ocr</code></td><td>拍照提取（模拟 OCR，返回示例文本）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/reports/:id</code></td><td>报告详情（含术语与原文位置）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/reports/:id/verify</code></td><td>结构化核对（来源、时间、核实状态、冲突项）</td></tr>
+      <tr><td><span class="method put">PUT</span></td><td><code>/reports/:id/confirm</code></td><td>用户确认报告（解决冲突项）</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>分析 analyses</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/analyses</code></td><td>提交分析：安全校验 → 开关检查 → 入队，返回 202 与任务 ID（附安全提示）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/analyses/:id</code></td><td>查询分析结果（五段 + 引用 + 版本快照）或任务状态；失败返回回退状态</td></tr>
+    </table>
+    <p class="note">分析由独立 Worker 进程（npm run worker）轮询消费；不启动 Worker 时任务保持排队。</p>
+  </section>
+
+  <section>
+    <h2>问与解释 qa</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/qa/sessions</code></td><td>创建会话（基于当前分析）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/qa/sessions</code></td><td>会话列表</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/qa/sessions/:id</code></td><td>会话历史</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/qa/sessions/:id/messages</code></td><td>提问（越界明确不答；反复求保证时稳定解释并结束本轮）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/qa/sessions/:id/followup-questions</code></td><td>一键加入复诊问题</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/qa/sessions/:id/followup-questions</code></td><td>已加入的复诊问题</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>复诊摘要 followup</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/followup/summary?episodeId=</code></td><td>预览（固定六段，不保存）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/followup/summary</code></td><td>保存/更新摘要</td></tr>
+      <tr><td><span class="method put">PUT</span></td><td><code>/followup/summary/:id</code></td><td>纠正摘要</td></tr>
+      <tr><td><span class="method put">PUT</span></td><td><code>/followup/summary/:id/questions</code></td><td>问题清单排序</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/followup/summary/:id/export</code></td><td>导出（记录导出时间与格式；PDF 由前端打印生成）</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>内容库 contents</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/contents/published</code></td><td>用户端：只能看到已发布内容</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/contents/recommended</code></td><td>推荐理由</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/contents</code></td><td>管理端：全部内容</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/contents</code></td><td>创建内容（草稿）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/contents/:id/transition</code></td><td>状态机流转（非法流转返回错误）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/contents/:id/publish</code></td><td>发布（双人确认）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/contents/:id/offline</code></td><td>一键下线并定位引用页面</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/contents/batch-offline</code></td><td>批量下线（双人确认）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/contents/:id/reviews</code></td><td>审核记录</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/contents/:id/versions</code></td><td>版本链</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>证据库 evidence</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/evidence/docs</code></td><td>证据文档列表</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/evidence/docs</code></td><td>创建证据文档（自动切分入库）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/evidence/pipeline</code></td><td>切分入库管线状态</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/evidence/search?q=</code></td><td>本地检索（只检索启用证据）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/evidence/docs/:id/impact</code></td><td>停用影响预览</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/evidence/docs/:id/deactivate</code></td><td>停用证据</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>反馈 feedback</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/feedback</code></td><td>帮助类型反馈（不自动进入训练或内容库）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/feedback/reports</code></td><td>错误举报（自动附带四类版本号）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/feedback</code></td><td>反馈列表（管理端）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/feedback/:id</code></td><td>详情（含四类版本）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/feedback/:id/authorize</code></td><td>单条授权查看用户原始内容</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/feedback/:id/handle</code></td><td>处置动作与处理记录</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>模型与评测 models</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/models/releases</code></td><td>发布组合列表</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/models/releases</code></td><td>创建发布组合（候选）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/models/releases/:id/eval</code></td><td>运行评测</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/models/releases/:id/eval-runs</code></td><td>评测运行记录</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/models/releases/:id/publish</code></td><td>发布（候选 → 评测门禁 → 灰度 → 生效）</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/models/releases/:id/rollback</code></td><td>回滚</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/models/eval-sets</code></td><td>评测集列表</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>后台 admin</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/admin/login</code></td><td>后台登录（账号密码 + TOTP）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/admin/audit-logs</code></td><td>审计日志（需 audit:read 权限）</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/admin/audit-logs/verify</code></td><td>审计哈希链校验</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/admin/authorizations</code></td><td>单条授权记录</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>健康检查</h2>
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/health</code></td><td>健康检查</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>

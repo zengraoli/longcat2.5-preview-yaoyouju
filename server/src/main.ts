@@ -1,11 +1,16 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import express from 'express';
+import path from 'node:path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // OpenAPI 文档页（本地静态文件，不加载外部资源）
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.use('/docs', express.static(path.join(__dirname, '../public')));
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, transform: true, stopAtFirstError: true }),
   );
