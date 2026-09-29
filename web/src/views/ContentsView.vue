@@ -1,10 +1,429 @@
 <template>
-  <div class="placeholder"><!-- ContentsView（后续任务实现） --></div>
+  <AppLayout>
+    <div class="contents-page">
+      <div class="contents-page__header">
+        <div>
+          <h1 class="contents-page__title">审核内容库</h1>
+          <p class="contents-page__meta">所有内容经临床审定，附字幕与文字替代。示意图不是你的真实病变，不能据此判断本人病因。</p>
+        </div>
+        <div class="contents-page__search">
+          <input class="contents-page__search-input" placeholder="🔍 搜索已发布内容" />
+        </div>
+      </div>
+
+      <!-- 筛选 -->
+      <div class="contents-page__filters">
+        <button
+          v-for="f in filters"
+          :key="f"
+          class="contents-page__filter"
+          :class="{ 'contents-page__filter--active': activeFilter === f }"
+          @click="activeFilter = f"
+        >
+          {{ f }}
+        </button>
+      </div>
+
+      <div class="contents-page__grid">
+        <!-- 左：内容卡片 -->
+        <div class="contents-page__main">
+          <p class="contents-page__section-title">为你推荐（原因：你的报告提到 L5/S1、硬膜囊受压）</p>
+          <div class="contents-page__cards">
+            <div
+              v-for="item in recommended"
+              :key="item.id"
+              class="content-card"
+              @click="selected = item"
+            >
+              <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
+              <div class="content-card__body">
+                <div class="content-card__title">{{ item.title }}</div>
+                <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }} · {{ item.type === '视频' ? '2:10' : '3分钟阅读' }}</div>
+                <div class="content-card__tags">
+                  <StatusTag label="已审核 v2" />
+                  <span class="content-card__scope">适用：{{ item.applicableScope }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="contents-page__section-title">全部内容（{{ all.length }} / 12）</p>
+          <div class="contents-page__cards">
+            <div
+              v-for="item in all"
+              :key="item.id"
+              class="content-card"
+              :class="{ 'content-card--offline': item.offline }"
+              @click="selected = item"
+            >
+              <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
+              <div class="content-card__body">
+                <div class="content-card__title">{{ item.title }}</div>
+                <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }} · {{ item.type === '视频' ? '3:05' : '4分钟阅读' }}</div>
+                <div class="content-card__tags">
+                  <StatusTag :label="item.offline ? '已下线 · 更正中' : '已审核 v1'" />
+                  <span class="content-card__scope">适用：{{ item.applicableScope }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <TipBar type="warn">
+            本库不包含实时生成的个性化查体或训练处方；康复动作内容待专业设计与审定后再加入。
+          </TipBar>
+        </div>
+
+        <!-- 右：详情抽屉 -->
+        <div v-if="selected" class="contents-page__drawer">
+          <div class="drawer">
+            <div class="drawer__header">
+              <div class="drawer__title">内容详情</div>
+              <button class="drawer__close" @click="selected = null">✕</button>
+            </div>
+            <div class="drawer__player">
+              <div class="drawer__play-btn">▶</div>
+              <div class="drawer__player-caption">示意动画（非本人影像） · CC 字幕</div>
+            </div>
+            <div class="drawer__body">
+              <div class="drawer__item-title">{{ selected.title }}</div>
+              <div class="drawer__meta">
+                <StatusTag label="已审核 v2" />
+                <span>临床审定 · 2026-08</span>
+              </div>
+              <div class="drawer__meta">
+                <span class="drawer__meta-tag">依据：指南 G-03 · 科普 #12</span>
+              </div>
+              <div class="drawer__scope">
+                <div class="drawer__scope-row">
+                  <span class="drawer__scope-label">适用</span>
+                  <span class="drawer__scope-text">{{ selected.applicableScope }}</span>
+                </div>
+                <div class="drawer__scope-row">
+                  <span class="drawer__scope-label">不适用</span>
+                  <span class="drawer__scope-text">{{ selected.notApplicable }}</span>
+                </div>
+              </div>
+              <div class="drawer__transcript">
+                <div class="drawer__transcript-title">文字替代（全文）</div>
+                <p class="drawer__transcript-text">
+                  脊柱由一节节椎骨组成，腰椎有 5 节，从上到下叫 L1 到 L5；L5 下面是骶骨 S1。两节骨头之间的软垫叫椎间盘，“L5/S1”就是第 5 腰椎和第 1 骶椎之间的那个椎间盘……
+                </p>
+              </div>
+              <div class="drawer__retell">
+                <div class="drawer__retell-title">看完后，用一句话说说你理解了什么（可选）</div>
+                <textarea
+                  class="drawer__textarea"
+                  placeholder="例如：L5/S1 是腰椎最下面那个椎间盘的位置…"
+                  :maxlength="500"
+                />
+                <button class="btn btn--primary btn--sm">提交</button>
+              </div>
+              <div class="drawer__feedback">
+                <div class="drawer__feedback-title">这条内容对你有帮助吗？</div>
+                <div class="drawer__feedback-chips">
+                  <button v-for="opt in ['看懂了', '没看懂', '内容有误（举报）']" :key="opt" class="chip">
+                    {{ opt }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import AppLayout from '@/components/AppLayout.vue';
+import StatusTag from '@/components/StatusTag.vue';
+import TipBar from '@/components/TipBar.vue';
+import { api } from '@/api/client';
+import type { ContentItem } from '@/api/types';
+
+const filters = ['全部', '报告术语', '节段位置', '医生会观察什么', '信息来源怎么看', '生活影响'];
+const activeFilter = ref('全部');
+const selected = ref<ContentItem | null>(null);
+const recommended = ref<ContentItem[]>([]);
+const all = ref<Array<ContentItem & { offline?: boolean }>>([]);
+
+onMounted(async () => {
+  try {
+    const items = await api.get<ContentItem[]>('/contents/published');
+    recommended.value = items.slice(0, 3);
+    all.value = items.slice(3, 6).map((item, i) => ({ ...item, offline: i === 2 }));
+  } catch {
+    // 加载失败不阻塞
+  }
+});
 </script>
 
 <style scoped>
-.placeholder { padding: 24px; min-height: 100vh; }
+.contents-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.contents-page__title {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 4px;
+}
+.contents-page__meta {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0;
+}
+.contents-page__search-input {
+  width: 280px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 14px;
+  outline: none;
+}
+.contents-page__filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.contents-page__filter {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.contents-page__filter--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.contents-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+.contents-page__section-title {
+  font-size: 14px;
+  color: var(--text-2);
+  margin: 0 0 12px;
+}
+.contents-page__cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.content-card {
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.content-card--offline {
+  opacity: 0.5;
+}
+.content-card__thumb {
+  height: 100px;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  font-size: 28px;
+}
+.content-card__body {
+  padding: 12px;
+}
+.content-card__title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.content-card__meta {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+.content-card__tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.content-card__scope {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.contents-page__drawer {
+  position: sticky;
+  top: 80px;
+}
+.drawer {
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer__title {
+  font-size: 15px;
+  font-weight: 500;
+}
+.drawer__close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+.drawer__player {
+  background: #1B2230;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.drawer__play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  font-size: 18px;
+}
+.drawer__player-caption {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.drawer__body {
+  padding: 16px;
+}
+.drawer__item-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.drawer__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.drawer__meta-tag {
+  font-size: 11px;
+  color: var(--text-2);
+  background: var(--bg);
+  padding: 1px 8px;
+  border-radius: 4px;
+}
+.drawer__scope {
+  margin: 12px 0;
+}
+.drawer__scope-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.drawer__scope-label {
+  font-size: 13px;
+  color: var(--text-2);
+  width: 48px;
+  flex-shrink: 0;
+}
+.drawer__scope-text {
+  font-size: 13px;
+  flex: 1;
+  line-height: 1.5;
+}
+.drawer__transcript {
+  margin: 12px 0;
+}
+.drawer__transcript-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.drawer__transcript-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin: 0;
+}
+.drawer__retell {
+  background: var(--primary-light);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 12px 0;
+}
+.drawer__retell-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.drawer__textarea {
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  outline: none;
+  font-family: inherit;
+}
+.drawer__feedback-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.drawer__feedback-chips {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn--primary { background: var(--primary); color: #fff; }
+.btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.chip {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+  cursor: pointer;
+}
 </style>
