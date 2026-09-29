@@ -1,15 +1,24 @@
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import Database from 'better-sqlite3';
 import { AppModule } from '../../app.module';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
 import { TransformInterceptor } from '../../common/interceptors/transform.interceptor';
+import { APP_DB, IDENTITY_DB } from '../../database/database.module';
 
 describe('HealthController', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const appDb = new Database(':memory:');
+    const identityDb = new Database(':memory:');
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(APP_DB)
+      .useValue(appDb)
+      .overrideProvider(IDENTITY_DB)
+      .useValue(identityDb)
+      .compile();
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     app.useGlobalInterceptors(new TransformInterceptor());
