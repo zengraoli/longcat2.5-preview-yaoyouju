@@ -84,9 +84,13 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       '生效',
       now(),
     );
-    appDb.prepare(
+    const insertEvalSet = appDb.prepare(
       'INSERT INTO EVAL_SET (id, name, case_count, deidentified) VALUES (?, ?, ?, ?)',
-    ).run('evalset-1', '错误安慰', 12, 1);
+    );
+    insertEvalSet.run('evalset-1', '错误安慰', 12, 1);
+    insertEvalSet.run('evalset-2', '关键遗漏', 10, 1);
+    insertEvalSet.run('evalset-3', '左右侧混淆', 8, 1);
+    insertEvalSet.run('evalset-4', '隐私', 10, 1);
 
     // ---------- 医学证据库 ----------
     const insertDoc = appDb.prepare(

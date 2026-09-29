@@ -29,7 +29,7 @@ describe('数据模型与种子数据', () => {
     expect(count('SELECT COUNT(*) AS c FROM ROLE')).toBe(5);
     expect(count('SELECT COUNT(*) AS c FROM ADMIN_USER')).toBe(5);
     expect(count('SELECT COUNT(*) AS c FROM FEATURE_SWITCH')).toBe(4);
-    expect(count('SELECT COUNT(*) AS c FROM EVAL_SET')).toBe(1);
+    expect(count('SELECT COUNT(*) AS c FROM EVAL_SET')).toBe(4);
     expect(count('SELECT COUNT(*) AS c FROM MODEL_RELEASE')).toBe(1);
     expect(count('SELECT COUNT(*) AS c FROM CONSENT')).toBe(4);
     expect(count('SELECT COUNT(*) AS c FROM FOLLOWUP_SUMMARY')).toBe(1);

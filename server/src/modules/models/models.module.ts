@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { ModelsController } from './models.controller';
+import { ModelsService } from './models.service';
 
-/** models 模块（T01 占位，后续任务实现） */
-@Module({})
+@Module({
+  imports: [AuthModule],
+  controllers: [ModelsController],
+  providers: [ModelsService],
+  exports: [ModelsService],
+})
 export class ModelsModule {}
