@@ -10,6 +10,7 @@ import { EvidenceModule } from './modules/evidence/evidence.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { HealthController } from './modules/health/health.controller';
 import { ModelsModule } from './modules/models/models.module';
+import { QaModule } from './modules/qa/qa.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { SwitchesModule } from './modules/switches/switches.module';
@@ -27,6 +28,7 @@ import { SwitchesModule } from './modules/switches/switches.module';
     EvidenceModule,
     FeedbackModule,
     ModelsModule,
+    QaModule,
     AdminModule,
     SwitchesModule,
   ],
