@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { SafetyController } from './safety.controller';
 
-/** safety 模块（T01 占位，后续任务实现） */
-@Module({})
+@Module({
+  controllers: [SafetyController],
+})
 export class SafetyModule {}

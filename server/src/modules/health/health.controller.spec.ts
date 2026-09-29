@@ -42,4 +42,10 @@ describe('HealthController', () => {
     expect(res.body.code).not.toBe(0);
     expect(typeof res.body.message).toBe('string');
   });
+
+  it('就医提示接口无需登录', async () => {
+    const res = await request(app.getHttpServer()).get('/safety/tips').expect(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.data.redFlags.length).toBeGreaterThan(0);
+  });
 });

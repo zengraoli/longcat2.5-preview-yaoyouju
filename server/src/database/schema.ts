@@ -226,6 +226,13 @@ CREATE TABLE IF NOT EXISTS QA_MESSAGE (
   citations TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS SESSION (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES USER(id),
+  token TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_care_event_episode ON CARE_EVENT(episode_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_episode ON ANALYSIS(episode_id);
 CREATE INDEX IF NOT EXISTS idx_chunk_doc ON EVIDENCE_CHUNK(doc_id);
@@ -236,6 +243,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_created ON AUDIT_LOG(created_at);
 export const IDENTITY_DDL = `
 CREATE TABLE IF NOT EXISTS IDENTITY_PROFILE (
   user_id TEXT PRIMARY KEY,
+  phone_hash TEXT NOT NULL UNIQUE,
   phone_enc TEXT NOT NULL,
   real_name_enc TEXT
 );

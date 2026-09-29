@@ -286,10 +286,20 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
     insertUser.run(user2, 'active', '2026-07-15T02:00:00.000Z', '2027-07-15T02:00:00.000Z');
 
     const insertIdentity = identityDb.prepare(
-      'INSERT INTO IDENTITY_PROFILE (user_id, phone_enc, real_name_enc) VALUES (?, ?, ?)',
+      'INSERT INTO IDENTITY_PROFILE (user_id, phone_hash, phone_enc, real_name_enc) VALUES (?, ?, ?, ?)',
     );
-    insertIdentity.run(user1, encryptField('13800000001'), encryptField('演示甲'));
-    insertIdentity.run(user2, encryptField('13800000002'), encryptField('演示乙'));
+    insertIdentity.run(
+      user1,
+      crypto.createHash('sha256').update('13800000001').digest('hex'),
+      encryptField('13800000001'),
+      encryptField('演示甲'),
+    );
+    insertIdentity.run(
+      user2,
+      crypto.createHash('sha256').update('13800000002').digest('hex'),
+      encryptField('13800000002'),
+      encryptField('演示乙'),
+    );
 
     const insertConsent = appDb.prepare(
       'INSERT INTO CONSENT (id, user_id, scope, granted_at, revoked_at) VALUES (?, ?, ?, ?, ?)',
