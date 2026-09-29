@@ -3,6 +3,7 @@ import { IsString, MaxLength } from 'class-validator';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminGuard, RequirePermission } from './admin.guard';
 import { AuditService } from '../audit/audit.service';
+import { FeedbackService } from '../feedback/feedback.service';
 import { CurrentAdmin } from './current-admin.decorator';
 
 class LoginDto {
@@ -33,6 +34,7 @@ export class AdminController {
   constructor(
     private readonly auth: AdminAuthService,
     private readonly audit: AuditService,
+    private readonly feedback: FeedbackService,
   ) {}
 
   /** 后台登录（账号密码 + TOTP） */
@@ -68,5 +70,13 @@ export class AdminController {
       target: `${dto.targetType}:${dto.targetId}`,
       diff: { reason: dto.reason },
     });
+  }
+
+  /** 反馈与举报列表（管理端） */
+  @Get('feedback')
+  @UseGuards(AdminGuard)
+  @RequirePermission('feedback:handle')
+  listFeedback(@CurrentAdmin() _admin: unknown) {
+    return this.feedback.list();
   }
 }

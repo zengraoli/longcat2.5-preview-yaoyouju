@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { AdminGuard } from '../admin/admin.guard';
+import { CurrentAdmin } from '../admin/current-admin.decorator';
+
 import { ContentsService } from './contents.service';
 import { ContentAction } from './state-machine';
 
@@ -59,60 +61,60 @@ export class ContentsController {
 
   /** 管理端：全部内容 */
   @Get()
-  @UseGuards(AuthGuard)
-  listAll(@CurrentUser() _user: { userId: string }) {
+  @UseGuards(AdminGuard)
+  listAll() {
     return this.contents.listAll();
   }
 
   /** 管理端：创建内容（草稿） */
   @Post()
-  @UseGuards(AuthGuard)
-  create(@CurrentUser() user: { userId: string }, @Body() dto: CreateItemDto) {
-    return this.contents.createItem(user.userId, dto);
+  @UseGuards(AdminGuard)
+  create(@CurrentAdmin() admin: { adminId: string }, @Body() dto: CreateItemDto) {
+    return this.contents.createItem(admin.adminId, dto);
   }
 
   /** 管理端：状态机流转 */
   @Post(':id/transition')
-  @UseGuards(AuthGuard)
+  @UseGuards(AdminGuard)
   transition(
-    @CurrentUser() user: { userId: string },
+    @CurrentAdmin() admin: { adminId: string },
     @Param('id') id: string,
     @Body() dto: TransitionDto,
   ) {
-    return this.contents.transitionItem(user.userId, id, dto.action, dto.comment);
+    return this.contents.transitionItem(admin.adminId, id, dto.action, dto.comment);
   }
 
   /** 管理端：发布（双人确认） */
   @Post(':id/publish')
-  @UseGuards(AuthGuard)
-  publish(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
-    return this.contents.publish(user.userId, id);
+  @UseGuards(AdminGuard)
+  publish(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.contents.publish(admin.adminId, id);
   }
 
   /** 管理端：一键下线并定位引用页面 */
   @Post(':id/offline')
-  @UseGuards(AuthGuard)
-  offline(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
-    return this.contents.offline(user.userId, id);
+  @UseGuards(AdminGuard)
+  offline(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.contents.offline(admin.adminId, id);
   }
 
   /** 管理端：批量下线（双人确认） */
   @Post('batch-offline')
-  @UseGuards(AuthGuard)
-  batchOffline(@CurrentUser() user: { userId: string }, @Body() dto: { itemIds: string[] }) {
-    return this.contents.batchOffline(user.userId, dto.itemIds);
+  @UseGuards(AdminGuard)
+  batchOffline(@CurrentAdmin() admin: { adminId: string }, @Body() dto: { itemIds: string[] }) {
+    return this.contents.batchOffline(admin.adminId, dto.itemIds);
   }
 
   /** 审核记录 */
   @Get(':id/reviews')
-  @UseGuards(AuthGuard)
+  @UseGuards(AdminGuard)
   reviews(@Param('id') id: string) {
     return this.contents.reviewRecords(id);
   }
 
   /** 版本链 */
   @Get(':id/versions')
-  @UseGuards(AuthGuard)
+  @UseGuards(AdminGuard)
   versions(@Param('id') id: string) {
     return this.contents.versions(id);
   }
