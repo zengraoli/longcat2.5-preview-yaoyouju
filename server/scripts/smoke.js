@@ -74,8 +74,12 @@ function stopProcess(child) {
 
 async function main() {
   console.log('冒烟测试：启动 API 与 Worker');
-  // 清理旧数据，保证冒烟可重复
-  fs.rmSync(path.join(ROOT, 'data'), { recursive: true, force: true });
+  // 清理旧数据，保证冒烟可重复（文件被占用时跳过，种子数据幂等）
+  try {
+    fs.rmSync(path.join(ROOT, 'data'), { recursive: true, force: true });
+  } catch {
+    // 数据目录被占用时使用现有数据
+  }
   const server = startProcess('node', ['dist/main.js'], path.join(ROOT, 'data-server.log'));
   const worker = startProcess('node', ['dist/worker/worker.js'], path.join(ROOT, 'data-worker.log'));
   try {
