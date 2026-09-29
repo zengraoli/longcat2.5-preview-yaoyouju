@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS CONTENT_VERSION (
   asset_key TEXT,
   subtitle_text TEXT,
   model_asset_version TEXT,
+  based_on TEXT,
   published_at TEXT
 );
 CREATE TABLE IF NOT EXISTS REVIEW_RECORD (

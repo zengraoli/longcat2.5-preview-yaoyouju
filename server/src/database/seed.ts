@@ -16,6 +16,11 @@ export function initDatabase(
 ): void {
   createBusinessSchema(appDb);
   createIdentitySchema(identityDb);
+  // 迁移：为旧库补充 CONTENT_VERSION.based_on 列
+  const cols = (appDb.prepare('PRAGMA table_info(CONTENT_VERSION)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!cols.includes('based_on')) {
+    appDb.exec('ALTER TABLE CONTENT_VERSION ADD COLUMN based_on TEXT');
+  }
   const userCount = appDb.prepare('SELECT COUNT(*) AS c FROM USER').get() as { c: number };
   if (userCount.c > 0) return;
   seed(appDb, identityDb);

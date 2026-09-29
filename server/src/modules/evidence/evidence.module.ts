@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { EvidenceController } from './evidence.controller';
+import { EvidenceService } from './evidence.service';
 
-/** evidence 模块（T01 占位，后续任务实现） */
-@Module({})
+@Module({
+  imports: [AuthModule],
+  controllers: [EvidenceController],
+  providers: [EvidenceService],
+  exports: [EvidenceService],
+})
 export class EvidenceModule {}
