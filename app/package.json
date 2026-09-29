@@ -1,0 +1,31 @@
+{
+  "name": "yaoyouju-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "腰有据 · 用户端 App（uni-app，H5 / Android）",
+  "scripts": {
+    "dev:h5": "uni",
+    "build:h5": "uni build",
+    "typecheck": "vue-tsc --noEmit",
+    "dev:android": "uni -p app-android",
+    "build:android": "uni build -p app-android"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-4060620250520001",
+    "@dcloudio/uni-components": "3.0.0-4060620250520001",
+    "@dcloudio/uni-h5": "3.0.0-4060620250520001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-4060620250520001",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.4.14",
+    "@dcloudio/uni-automator": "3.0.0-4060620250520001",
+    "@dcloudio/uni-cli-shared": "3.0.0-4060620250520001",
+    "@dcloudio/uni-stacktracey": "3.0.0-4060620250520001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-4060620250520001",
+    "@vue/tsconfig": "^0.7.0",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.2.10"
+  }
+}
