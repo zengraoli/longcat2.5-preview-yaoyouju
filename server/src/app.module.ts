@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AnalysesModule } from './modules/analyses/analyses.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -17,6 +17,7 @@ import { SwitchesModule } from './modules/switches/switches.module';
 @Module({
   imports: [
     DatabaseModule,
+    AuditModule,
     AuthModule,
     EpisodesModule,
     ReportsModule,

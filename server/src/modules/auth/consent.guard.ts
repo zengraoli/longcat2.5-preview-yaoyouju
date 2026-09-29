@@ -12,9 +12,9 @@ import { AuthService } from './auth.service';
 
 export const REQUIRE_CONSENT_KEY = 'require_consent';
 
-/** 要求当前用户已单独同意指定范围（如健康信息处理） */
+/** 标记接口需要的同意范围（配合控制器上的 ConsentGuard 使用） */
 export function RequireConsent(scope: string) {
-  return applyDecorators(SetMetadata(REQUIRE_CONSENT_KEY, scope), UseGuards(ConsentGuard));
+  return applyDecorators(SetMetadata(REQUIRE_CONSENT_KEY, scope));
 }
 
 @Injectable()

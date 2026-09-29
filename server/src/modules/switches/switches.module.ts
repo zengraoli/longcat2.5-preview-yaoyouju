@@ -1,5 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
+import { SwitchesService } from './switches.service';
 
-/** switches 模块（T01 占位，后续任务实现） */
-@Module({})
+@Global()
+@Module({
+  providers: [SwitchesService],
+  exports: [SwitchesService],
+})
 export class SwitchesModule {}

@@ -237,6 +237,15 @@ CREATE INDEX IF NOT EXISTS idx_care_event_episode ON CARE_EVENT(episode_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_episode ON ANALYSIS(episode_id);
 CREATE INDEX IF NOT EXISTS idx_chunk_doc ON EVIDENCE_CHUNK(doc_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON AUDIT_LOG(created_at);
+-- 审计日志只追加：数据库层禁止修改和删除
+CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON AUDIT_LOG
+BEGIN
+  SELECT RAISE(ABORT, 'AUDIT_LOG 只追加不可修改');
+END;
+CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON AUDIT_LOG
+BEGIN
+  SELECT RAISE(ABORT, 'AUDIT_LOG 只追加不可删除');
+END;
 `;
 
 /** 身份隔离库 DDL（identity.db） */
