@@ -176,6 +176,56 @@ export class ContentsService {
     return { status: '已下线', references };
   }
 
+  /** 批量下线：需双人确认（与发布一致） */
+  batchOffline(actorId: string, itemIds: string[]) {
+    for (const itemId of itemIds) {
+      const item = this.appDb
+        .prepare('SELECT current_status AS s FROM CONTENT_ITEM WHERE id = ?')
+        .get(itemId) as { s: ContentStatus } | undefined;
+      if (!item) throw new NotFoundException(`内容不存在：${itemId}`);
+      if (item.s !== '已发布') {
+        throw new ConflictException(`只有「已发布」状态可以下线：${itemId}`);
+      }
+    }
+    const target = itemIds.join(',');
+    const first = this.appDb
+      .prepare(
+        `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
+         WHERE target_id = ? AND decision = '批量下线-发起' ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
+      )
+      .get(target) as { reviewerId: string } | undefined;
+    const now = new Date().toISOString();
+    if (!first) {
+      // 第一个操作人发起
+      this.appDb
+        .prepare(
+          `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+           VALUES (?, ?, 'BATCH_OFFLINE', ?, '批量下线-发起', '批量下线第一操作人', NULL, ?)`,
+        )
+        .run(crypto.randomUUID(), target, actorId, now);
+      return { status: '待第二人确认', itemIds };
+    }
+    if (first.reviewerId === actorId) {
+      throw new ConflictException('批量下线需双人确认：不能由同一操作人发起并确认');
+    }
+    // 第二个操作人确认 → 全部下线
+    const results: Array<{ id: string; status: string }> = [];
+    for (const itemId of itemIds) {
+      this.appDb
+        .prepare('UPDATE CONTENT_ITEM SET current_status = ?, offline_switch = 1 WHERE id = ?')
+        .run('已下线', itemId);
+      results.push({ id: itemId, status: '已下线' });
+    }
+    this.appDb
+      .prepare(
+        `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+         VALUES (?, ?, 'BATCH_OFFLINE', ?, '批量下线-确认', '批量下线第二操作人', NULL, ?)`,
+      )
+      .run(crypto.randomUUID(), target, actorId, now);
+    this.audit.record({ actorId, action: 'content:batch-offline', target, diff: { count: itemIds.length } });
+    return { status: '已下线', results };
+  }
+
   /** 用户端：只能看到已发布内容 */
   listPublished() {
     return this.appDb

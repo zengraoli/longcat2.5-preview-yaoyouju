@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
+import { AdminController } from './admin.controller';
+import { AdminAuthService } from './admin-auth.service';
 
-/** admin 模块（T01 占位，后续任务实现） */
-@Module({})
+@Module({
+  controllers: [AdminController],
+  providers: [AdminAuthService],
+  exports: [AdminAuthService],
+})
 export class AdminModule {}

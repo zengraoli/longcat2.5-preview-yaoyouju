@@ -94,7 +94,7 @@ export class AuditService {
         actorId: row.actorId,
         action: row.action,
         target: row.target,
-        diff: row.diff,
+        diff: row.diff ? JSON.parse(row.diff as string) : null,
         requestId: row.requestId,
       });
       if (expected !== row.hash) {

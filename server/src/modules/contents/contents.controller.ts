@@ -96,6 +96,13 @@ export class ContentsController {
     return this.contents.offline(user.userId, id);
   }
 
+  /** 管理端：批量下线（双人确认） */
+  @Post('batch-offline')
+  @UseGuards(AuthGuard)
+  batchOffline(@CurrentUser() user: { userId: string }, @Body() dto: { itemIds: string[] }) {
+    return this.contents.batchOffline(user.userId, dto.itemIds);
+  }
+
   /** 审核记录 */
   @Get(':id/reviews')
   @UseGuards(AuthGuard)

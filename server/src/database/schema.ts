@@ -247,6 +247,21 @@ CREATE TABLE IF NOT EXISTS FEEDBACK_REPORT (
   resolution TEXT,
   authorized INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS ADMIN_SESSION (
+  id TEXT PRIMARY KEY,
+  admin_id TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ADMIN_AUTHORIZATION (
+  id TEXT PRIMARY KEY,
+  admin_id TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  reason TEXT,
+  created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_care_event_episode ON CARE_EVENT(episode_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_episode ON ANALYSIS(episode_id);
 CREATE INDEX IF NOT EXISTS idx_chunk_doc ON EVIDENCE_CHUNK(doc_id);
