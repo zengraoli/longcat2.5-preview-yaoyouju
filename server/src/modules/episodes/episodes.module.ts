@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { EpisodesController } from './episodes.controller';
+import { EpisodesService } from './episodes.service';
 
-/** episodes 模块（T01 占位，后续任务实现） */
-@Module({})
+@Module({
+  imports: [AuthModule],
+  controllers: [EpisodesController],
+  providers: [EpisodesService],
+  exports: [EpisodesService],
+})
 export class EpisodesModule {}
