@@ -1,0 +1,191 @@
+<template>
+  <div class="layout">
+    <header class="layout__nav">
+      <div class="layout__brand">
+        <span class="layout__logo">腰</span>
+        <span class="layout__name">腰有据</span>
+      </div>
+      <nav class="layout__menu">
+        <router-link
+          v-for="item in menu"
+          :key="item.to"
+          :to="item.to"
+          class="layout__menu-item"
+          :class="{ 'layout__menu-item--active': isActive(item.to) }"
+        >
+          {{ item.label }}
+        </router-link>
+      </nav>
+      <div class="layout__actions">
+        <button class="layout__emergency" @click="showEmergency = true">⚠ 紧急就医提示</button>
+        <span class="layout__bell">🔔</span>
+        <span class="layout__avatar">U</span>
+      </div>
+    </header>
+    <main class="layout__main">
+      <slot />
+    </main>
+
+    <!-- 就医提示弹层 -->
+    <div v-if="showEmergency" class="mask" @click="showEmergency = false">
+      <div class="dialog" @click.stop>
+        <h3 class="dialog__title">{{ emergency.title }}</h3>
+        <div v-for="(item, i) in emergency.redFlags" :key="i" class="dialog__item">
+          <span class="dialog__dot">•</span>
+          <span class="dialog__text">{{ item }}</span>
+        </div>
+        <p class="dialog__note">{{ emergency.note }}</p>
+        <button class="dialog__btn" @click="showEmergency = false">我知道了</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+import { api } from '@/api/client';
+
+const route = useRoute();
+const showEmergency = ref(false);
+const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
+
+const menu = [
+  { to: '/dashboard', label: '当前情况' },
+  { to: '/qa', label: '问与解释' },
+  { to: '/timeline', label: '病程' },
+  { to: '/followup', label: '复诊准备' },
+  { to: '/contents', label: '审核内容库' },
+];
+
+function isActive(to: string) {
+  return route.path.startsWith(to);
+}
+
+onMounted(async () => {
+  try {
+    const tips = await api.get<{ title: string; redFlags: string[]; note: string }>('/safety/tips');
+    emergency.value = tips;
+  } catch {
+    // 预取失败不阻塞
+  }
+});
+</script>
+
+<style scoped>
+.layout {
+  min-height: 100vh;
+}
+.layout__nav {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 40px;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.layout__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.layout__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.layout__name {
+  font-size: 16px;
+  font-weight: 500;
+}
+.layout__menu {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.layout__menu-item {
+  font-size: 14px;
+  color: var(--text-2);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.layout__menu-item--active {
+  color: var(--primary);
+  background: var(--primary-light);
+  font-weight: 500;
+}
+.layout__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.layout__emergency {
+  font-size: 12px;
+  color: var(--error);
+  background: rgba(217, 59, 59, 0.08);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.layout__bell { font-size: 16px; }
+.layout__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.layout__main {
+  padding: 24px 40px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 32px;
+}
+.dialog {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 24px;
+  width: 400px;
+}
+.dialog__title { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
+.dialog__item { display: flex; gap: 8px; margin-bottom: 8px; }
+.dialog__dot { color: var(--error); }
+.dialog__text { font-size: 14px; flex: 1; }
+.dialog__note { font-size: 12px; color: var(--text-2); margin: 12px 0 16px; }
+.dialog__btn {
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+</style>
