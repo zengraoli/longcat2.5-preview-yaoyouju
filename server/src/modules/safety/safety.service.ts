@@ -25,7 +25,7 @@ export class SafetyService {
       rulesetVersion: RULESET_VERSION,
       redFlags,
       outOfScope,
-      passed: redFlags.length === 0,
+      passed: redFlags.length === 0 && outOfScope.length === 0,
       safetyTips: [...redFlags, ...outOfScope].map((h) => h.message),
     };
   }

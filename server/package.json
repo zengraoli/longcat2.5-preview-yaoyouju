@@ -7,7 +7,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
-    "worker": "node dist/worker.js",
+    "worker": "node dist/worker/worker.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest --runInBand",
     "smoke": "node scripts/smoke.js"
