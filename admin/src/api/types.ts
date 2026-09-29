@@ -79,6 +79,7 @@ export interface EvalRun {
 
 export interface Release {
   id: string;
+  name: string;
   modelName: string;
   promptVersion: string;
   retrievalStrategy: string;
