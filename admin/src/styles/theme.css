@@ -1,0 +1,40 @@
+/* 设计规范主题变量（docs/design/README.md） */
+:root {
+  --primary: #0F6E74;
+  --primary-light: #E3F1F2;
+  --bg: #F4F6F8;
+  --surface: #FFFFFF;
+  --border: #E4E8EE;
+  --text-1: #1B2230;
+  --text-2: #5C6675;
+  --text-3: #98A1AE;
+  --ok: #1E9E5A;
+  --warn: #C77700;
+  --error: #D93B3B;
+  --info: #2F6FD8;
+
+  --font-page-title: 20px;
+  --font-card-title: 16px;
+  --font-body: 14px;
+  --font-aux: 13px;
+  --font-label: 12px;
+
+  --radius-card: 12px;
+  --radius-button: 10px;
+  --radius-label: 4px;
+
+  --page-margin: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: var(--font-body);
+  line-height: 1.6;
+}
