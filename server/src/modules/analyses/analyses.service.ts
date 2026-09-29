@@ -140,6 +140,49 @@ export class AnalysesService {
     };
   }
 
+  /** 病程的最新分析 */
+  getLatestByEpisode(userId: string, episodeId: string) {
+    const episode = this.appDb
+      .prepare('SELECT id FROM EPISODE WHERE id = ? AND user_id = ?')
+      .get(episodeId, userId) as { id: string } | undefined;
+    if (!episode) throw new NotFoundException('病程不存在');
+    const analysis = this.appDb
+      .prepare(
+        `SELECT id, episode_id AS episodeId, version, model_release_id AS modelReleaseId,
+                sections, retrieval_snapshot AS retrievalSnapshot, safety_flag AS safetyFlag, created_at AS createdAt
+         FROM ANALYSIS WHERE episode_id = ? ORDER BY version DESC LIMIT 1`,
+      )
+      .get(episodeId) as
+      | {
+          id: string;
+          episodeId: string;
+          version: number;
+          modelReleaseId: string;
+          sections: string;
+          retrievalSnapshot: string;
+          safetyFlag: string;
+          createdAt: string;
+        }
+      | undefined;
+    if (!analysis) return null;
+    const citations = this.appDb
+      .prepare(
+        `SELECT id, evidence_doc_id AS evidenceDocId, statement, supported FROM ANALYSIS_CITATION WHERE analysis_id = ?`,
+      )
+      .all(analysis.id) as Array<{ id: string; evidenceDocId: string; statement: string; supported: number }>;
+    return {
+      id: analysis.id,
+      episodeId: analysis.episodeId,
+      version: analysis.version,
+      modelReleaseId: analysis.modelReleaseId,
+      sections: JSON.parse(analysis.sections),
+      retrievalSnapshot: JSON.parse(analysis.retrievalSnapshot),
+      safetyFlag: analysis.safetyFlag,
+      createdAt: analysis.createdAt,
+      citations,
+    };
+  }
+
   /** 回退结果：明确说明原因，不无限重试 */
   fallback(reason: string) {
     return {

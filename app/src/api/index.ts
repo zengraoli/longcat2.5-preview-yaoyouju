@@ -224,6 +224,10 @@ export function getAnalysis(id: string) {
   return api.get<AnalysisTaskStatus>(`/analyses/${id}`);
 }
 
+export function getLatestAnalysis(episodeId: string) {
+  return api.get<AnalysisResult | null>(`/analyses/episodes/${episodeId}/latest`);
+}
+
 /* ---------- 问与解释 ---------- */
 export interface QaMessage {
   id: string;

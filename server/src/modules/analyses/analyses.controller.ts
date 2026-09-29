@@ -39,6 +39,12 @@ export class AnalysesController {
     return this.analyses.enqueue(user.userId, dto.episodeId, dto.context ?? {}, dto.safetyText);
   }
 
+  /** 病程的最新分析（首页摘要用） */
+  @Get('episodes/:episodeId/latest')
+  getLatest(@CurrentUser() user: { userId: string }, @Param('episodeId') episodeId: string) {
+    return this.analyses.getLatestByEpisode(user.userId, episodeId);
+  }
+
   /** 查询分析结果或任务状态 */
   @Get(':id')
   get(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
