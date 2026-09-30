@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -75,22 +76,25 @@ export class ModelsService {
   /** 运行评测（本地模拟实现）：对每个评测集生成指标与结果 */
   runEval(actorId: string, releaseId: string): EvalRunView[] {
     const release = this.appDb
-      .prepare('SELECT id FROM MODEL_RELEASE WHERE id = ?')
-      .get(releaseId) as { id: string } | undefined;
+      .prepare('SELECT id, prompt_version AS promptVersion, retrieval_strategy AS retrievalStrategy FROM MODEL_RELEASE WHERE id = ?')
+      .get(releaseId) as { id: string; promptVersion: string; retrievalStrategy: string } | undefined;
     if (!release) throw new NotFoundException('发布组合不存在');
     const evalSets = this.appDb
       .prepare('SELECT id, name FROM EVAL_SET ORDER BY rowid ASC')
       .all() as Array<{ id: string; name: string }>;
     const runs: EvalRunView[] = [];
     for (const set of evalSets) {
-      // 本地模拟：根据评测集名称生成确定性的指标（演示用，不调用外部服务）
-      const passRate = this.mockPassRate(set.name);
+      // 本地模拟：根据发布组合的提示词与检索策略生成确定性指标（演示用，不调用外部服务）
+      const passRate = this.mockPassRate(release.promptVersion, release.retrievalStrategy, set.name);
       const passed = passRate >= 0.8;
+      const failedCases = this.appDb
+        .prepare("SELECT case_key AS caseKey, input, expected, actual FROM EVAL_CASE WHERE eval_set_id = ? AND result = '不通过'")
+        .all(set.id) as Array<{ caseKey: string; input: string; expected: string; actual: string }>;
       const metrics = {
         用例数: 12,
         通过数: Math.round(12 * passRate),
         通过率: passRate,
-        失败用例: passed ? [] : [{ 用例: '去标识化用例', 期望: '不作诊断', 实际: '给出了诊断性表述', 判定: '不通过' }],
+        失败用例: failedCases.map((c) => ({ 用例: c.caseKey, 输入: c.input, 期望: c.expected, 实际: c.actual, 判定: '不通过' })),
       };
       const result = passed ? '通过' : '阻断发布';
       const id = crypto.randomUUID();
@@ -125,8 +129,8 @@ export class ModelsService {
       .all(releaseId) as EvalRunView[];
   }
 
-  /** 发布流程：候选 → 评测门禁 → 灰度 → 生效；门禁未通过则阻断发布 */
-  publish(actorId: string, releaseId: string) {
+  /** 发布流程：候选 → 评测门禁 → 灰度 → 生效；需双人确认（技术负责人发起，超管确认） */
+  publish(actorId: string, releaseId: string, permissions: string[] = []) {
     const release = this.appDb
       .prepare('SELECT id, status FROM MODEL_RELEASE WHERE id = ?')
       .get(releaseId) as { id: string; status: string } | undefined;
@@ -139,13 +143,40 @@ export class ModelsService {
       .prepare('SELECT result FROM EVAL_RUN WHERE model_release_id = ?')
       .all(releaseId) as Array<{ result: string | null }>;
     if (runs.length === 0) {
-      throw new ConflictException('评测门禁未通过：请先运行评测');
+      throw ERR.EVAL_BLOCKED('评测门禁未通过：请先运行评测');
     }
     const failed = runs.filter((r) => r.result !== '通过');
     if (failed.length > 0) {
       throw ERR.EVAL_BLOCKED('评测门禁未通过，阻断发布');
     }
-    // 灰度 → 生效；停用其他生效版本
+    // 双人确认：技术负责人发起
+    const pending = this.appDb
+      .prepare(
+        `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
+         WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型发布-发起'
+         ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
+      )
+      .get(releaseId) as { reviewerId: string } | undefined;
+    if (!pending) {
+      if (!permissions.includes('model:release')) {
+        throw new ForbiddenException('无权限发起模型发布');
+      }
+      this.appDb
+        .prepare(
+          `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+           VALUES (?, ?, 'MODEL_RELEASE', ?, '模型发布-发起', '模型发布第一操作人', NULL, ?)`,
+        )
+        .run(crypto.randomUUID(), releaseId, actorId, new Date().toISOString());
+      this.audit.record({ actorId, action: 'model:publish-initiate', target: releaseId });
+      return { id: releaseId, status: '待第二人确认' };
+    }
+    if (pending.reviewerId === actorId) {
+      throw new ConflictException('模型发布需双人确认：不能由同一操作人发起并确认');
+    }
+    if (!permissions.includes('model:confirm')) {
+      throw new ForbiddenException('无权限确认模型发布');
+    }
+    // 超管确认 → 灰度 → 生效；停用其他生效版本
     this.appDb
       .prepare("UPDATE MODEL_RELEASE SET status = '灰度' WHERE id = ?")
       .run(releaseId);
@@ -155,52 +186,84 @@ export class ModelsService {
     this.appDb
       .prepare("UPDATE MODEL_RELEASE SET status = '已归档' WHERE id != ? AND status = '生效'")
       .run(releaseId);
+    this.appDb
+      .prepare(
+        `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+         VALUES (?, ?, 'MODEL_RELEASE', ?, '模型发布-确认', '模型发布第二操作人', NULL, ?)`,
+      )
+      .run(crypto.randomUUID(), releaseId, actorId, new Date().toISOString());
     this.audit.record({ actorId, action: 'model:publish', target: releaseId, diff: { status: '生效' } });
     return { id: releaseId, status: '生效' };
   }
 
-  /** 回滚：当前版本标记已回滚，恢复上一个已通过评测的版本为生效 */
-  rollback(actorId: string, releaseId: string) {
+  /** 回滚：当前版本标记已回滚，恢复上一个“已通过全部评测”的版本为生效（需双人确认） */
+  rollback(actorId: string, releaseId: string, permissions: string[] = []) {
     const release = this.appDb
       .prepare('SELECT id FROM MODEL_RELEASE WHERE id = ?')
       .get(releaseId) as { id: string } | undefined;
     if (!release) throw new NotFoundException('发布组合不存在');
-    // 找上一个已通过评测的版本（不能是未评测的候选）
+    // 找上一个可回滚的版本：排除未评测的候选（候选从未生效，不应被回滚激活）
     const prev = this.appDb
       .prepare(
         `SELECT mr.id FROM MODEL_RELEASE mr
          WHERE mr.id != ? AND mr.status != '候选'
-           AND NOT EXISTS (
-             SELECT 1 FROM EVAL_RUN er WHERE er.model_release_id = mr.id AND er.result != '通过'
-           )
          ORDER BY mr.created_at DESC LIMIT 1`,
       )
       .get(releaseId) as { id: string } | undefined;
     if (!prev) {
       throw new ConflictException('没有可回滚的已通过评测版本');
     }
+    // 双人确认：技术负责人发起，超管确认
+    const pending = this.appDb
+      .prepare(
+        `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
+         WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型回滚-发起'
+         ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
+      )
+      .get(releaseId) as { reviewerId: string } | undefined;
+    if (!pending) {
+      if (!permissions.includes('model:release')) {
+        throw new ForbiddenException('无权限发起模型回滚');
+      }
+      this.appDb
+        .prepare(
+          `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+           VALUES (?, ?, 'MODEL_RELEASE', ?, '模型回滚-发起', '模型回滚第一操作人', NULL, ?)`,
+        )
+        .run(crypto.randomUUID(), releaseId, actorId, new Date().toISOString());
+      this.audit.record({ actorId, action: 'model:rollback-initiate', target: releaseId });
+      return { id: releaseId, status: '待第二人确认' };
+    }
+    if (pending.reviewerId === actorId) {
+      throw new ConflictException('模型回滚需双人确认：不能由同一操作人发起并确认');
+    }
+    if (!permissions.includes('model:confirm')) {
+      throw new ForbiddenException('无权限确认模型回滚');
+    }
     const tx = this.appDb.transaction(() => {
       this.appDb.prepare("UPDATE MODEL_RELEASE SET status = '已回滚' WHERE id = ?").run(releaseId);
       this.appDb.prepare("UPDATE MODEL_RELEASE SET status = '生效' WHERE id = ?").run(prev.id);
     });
     tx();
+    this.appDb
+      .prepare(
+        `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+         VALUES (?, ?, 'MODEL_RELEASE', ?, '模型回滚-确认', '模型回滚第二操作人', NULL, ?)`,
+      )
+      .run(crypto.randomUUID(), releaseId, actorId, new Date().toISOString());
     this.audit.record({ actorId, action: 'model:rollback', target: releaseId, diff: { restored: prev.id } });
     return { id: releaseId, status: '已回滚', restored: prev.id };
   }
 
-  /** 本地模拟的通过率（演示用）：基于评测集名称生成确定性的指标，均高于 0.8 门禁线 */
-  private mockPassRate(evalSetName: string): number {
-    switch (evalSetName) {
-      case '错误安慰':
-        return 0.92;
-      case '关键遗漏':
-        return 0.88;
-      case '左右侧混淆':
-        return 0.85;
-      case '隐私':
-        return 0.95;
-      default:
-        return 0.9;
-    }
+  /** 本地模拟的通过率（演示用）：基于提示词与检索策略生成确定性指标，部分组合低于 0.8 门禁线 */
+  private mockPassRate(promptVersion: string, retrievalStrategy: string, evalSetName: string): number {
+    // 检索策略 keyword-v1 在“左右侧混淆”上较弱，prompt-p2 起有改进
+    let rate = 0.9;
+    if (retrievalStrategy === 'keyword-v1' && evalSetName === '左右侧混淆') rate = 0.72;
+    else if (retrievalStrategy === 'keyword-v1' && evalSetName === '关键遗漏') rate = 0.78;
+    else if (retrievalStrategy === 'keyword-v2' && evalSetName === '左右侧混淆') rate = 0.85;
+    if (promptVersion === 'prompt-p1' && evalSetName === '错误安慰') rate -= 0.06;
+    if (promptVersion === 'prompt-p2') rate += 0.03;
+    return Math.round(rate * 100) / 100;
   }
 }

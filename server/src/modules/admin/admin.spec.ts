@@ -82,11 +82,17 @@ describe('后台账号、权限与审计', () => {
       .post('/admin/login')
       .send({ name: '超级管理-赵', password: 'Admin@123456', totp: '123456' });
     const token = login.body.data.token;
-    // 先写一条审计
+    // 先创建一条真实反馈，再写授权审计
+    const appDb = app.get(APP_DB);
+    const feedbackId = 'feedback-test-1';
+    appDb.prepare(
+      `INSERT INTO FEEDBACK (id, user_id, analysis_id, help_type, unsolved_question, is_error_report, created_at)
+       VALUES (?, 'user-demo-1', NULL, '都不好', '测试反馈', 0, ?)`,
+    ).run(feedbackId, new Date().toISOString());
     await request(app.getHttpServer())
       .post('/admin/authorizations')
       .set('X-Admin-Token', token)
-      .send({ targetType: 'FEEDBACK', targetId: 'x', reason: '测试授权' })
+      .send({ targetType: 'FEEDBACK', targetId: feedbackId, reason: '测试授权' })
       .expect(201);
     // 校验通过
     const before = await request(app.getHttpServer())
@@ -95,7 +101,6 @@ describe('后台账号、权限与审计', () => {
       .expect(200);
     expect(before.body.data.valid).toBe(true);
     // 模拟篡改：临时移除触发器，篡改一条记录，再恢复触发器
-    const appDb = app.get(APP_DB);
     appDb.exec('DROP TRIGGER IF EXISTS audit_log_no_update');
     appDb.prepare('UPDATE AUDIT_LOG SET action = ? WHERE 1=1').run('tampered');
     appDb.exec(`CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON AUDIT_LOG

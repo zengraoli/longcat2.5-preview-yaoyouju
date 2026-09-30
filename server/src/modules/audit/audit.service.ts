@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
+import { getRequestId } from '../../common/request-context';
 
 export interface AuditEntry {
   id: string;
@@ -31,7 +32,8 @@ export class AuditService {
   }): AuditEntry {
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
-    const requestId = entry.requestId ?? crypto.randomUUID();
+    // 优先采用请求上下文中的 request_id（来自 X-Request-Id 或网关注入）
+    const requestId = entry.requestId ?? getRequestId() ?? crypto.randomUUID();
     const prev = this.appDb
       .prepare('SELECT hash FROM AUDIT_LOG ORDER BY created_at DESC, rowid DESC LIMIT 1')
       .get() as { hash: string } | undefined;

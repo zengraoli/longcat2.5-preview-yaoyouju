@@ -27,11 +27,10 @@ export class SwitchesController {
     return this.switches.list();
   }
 
-  /** 变更开关（需 switch:write 权限，写审计） */
+  /** 变更开关（高危开关需双人确认：技术负责人发起，临床审核 / 超管确认） */
   @Post()
   @UseGuards(AdminGuard)
-  @RequirePermission('switch:write')
-  set(@CurrentAdmin() admin: { adminId: string }, @Body() dto: SetSwitchDto) {
-    return this.switches.set(dto.key, dto.enabled === 'true', dto.reason, admin.adminId);
+  set(@CurrentAdmin() admin: { adminId: string; permissions: string[] }, @Body() dto: SetSwitchDto) {
+    return this.switches.set(dto.key, dto.enabled === 'true', dto.reason, admin.adminId, admin.permissions);
   }
 }

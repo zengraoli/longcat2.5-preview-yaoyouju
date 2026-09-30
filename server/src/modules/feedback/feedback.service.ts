@@ -46,6 +46,8 @@ export class FeedbackService {
     analysisId: string;
     description: string;
     severity: '高' | '中' | '低';
+    problemTypes?: string[];
+    authorized?: boolean;
   }) {
     this.assertOwnAnalysis(userId, input.analysisId);
     const versions = this.getVersions(input.analysisId);
@@ -58,9 +60,10 @@ export class FeedbackService {
       .run(id, userId, input.analysisId, input.description, new Date().toISOString());
     this.appDb
       .prepare(
-        `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status) VALUES (?, ?, '待处理')`,
+        `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, authorized, problem_types)
+         VALUES (?, ?, '待处理', ?, ?)`,
       )
-      .run(id, input.severity);
+      .run(id, input.severity, input.authorized ? 1 : 0, input.problemTypes ? JSON.stringify(input.problemTypes) : null);
     this.audit.record({
       actorId: userId,
       action: 'feedback:report',
@@ -81,17 +84,52 @@ export class FeedbackService {
       .all(userId);
   }
 
-  /** 管理端：全部反馈（含严重度与处理状态） */
+  /** 管理端：全部反馈（含严重度与处理状态；未授权时原文脱敏） */
   list() {
     return this.appDb
       .prepare(
         `SELECT f.id, f.user_id AS userId, f.analysis_id AS analysisId, f.help_type AS helpType,
                 f.unsolved_question AS unsolvedQuestion, f.is_error_report AS isErrorReport, f.created_at AS createdAt,
-                r.severity, r.status, r.resolution
+                r.severity, r.status, r.resolution, r.authorized, r.problem_types AS problemTypes
          FROM FEEDBACK f LEFT JOIN FEEDBACK_REPORT r ON r.feedback_id = f.id
          ORDER BY f.created_at DESC, f.rowid DESC`,
       )
       .all();
+  }
+
+  /** 管理端列表（按管理员是否已授权返回原文；未授权时脱敏） */
+  listForAdmin(adminId: string) {
+    const rows = this.list() as Array<{
+      id: string;
+      userId: string;
+      analysisId: string | null;
+      helpType: string | null;
+      unsolvedQuestion: string | null;
+      isErrorReport: number;
+      createdAt: string;
+      severity: string | null;
+      status: string | null;
+      resolution: string | null;
+      authorized: number | null;
+      problemTypes: string | null;
+    }>;
+    return rows.map((row) => {
+      const authorized = this.isAuthorized(row.id, row.authorized);
+      return {
+        ...row,
+        authorized,
+        unsolvedQuestion: authorized ? row.unsolvedQuestion : '（已脱敏，需单条授权后查看原文）',
+      };
+    });
+  }
+
+  /** 是否已授权查看该反馈原文（用户勾选或后台单条授权） */
+  isAuthorized(feedbackId: string, reportAuthorized: number | null): boolean {
+    if (reportAuthorized) return true;
+    const row = this.appDb
+      .prepare('SELECT id FROM ADMIN_AUTHORIZATION WHERE target_type = ? AND target_id = ?')
+      .get('FEEDBACK', feedbackId) as { id: string } | undefined;
+    return !!row;
   }
 
   /** 详情（含四类版本）；用户只能看自己的 */
@@ -153,12 +191,19 @@ export class FeedbackService {
     };
   }
 
-  /** 单条授权查看用户原始内容（仅管理端）；帮助类反馈不生成举报工单 */
+  /** 单条授权查看用户原始内容（仅管理端）：写入授权表并记审计，授权约束后续读取 */
   authorize(actorId: string, id: string) {
     const row = this.appDb
       .prepare('SELECT id, is_error_report AS isErrorReport FROM FEEDBACK WHERE id = ?')
       .get(id) as { id: string; isErrorReport: number } | undefined;
     if (!row) throw ERR.NOT_FOUND('反馈不存在');
+    // 写入单条授权表（每次授权写审计）
+    this.appDb
+      .prepare(
+        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, created_at)
+         VALUES (?, ?, 'FEEDBACK', ?, '单条授权查看反馈原文', ?)`,
+      )
+      .run(crypto.randomUUID(), actorId, id, new Date().toISOString());
     if (row.isErrorReport) {
       // 仅错误举报生成处理工单
       this.appDb
@@ -173,21 +218,55 @@ export class FeedbackService {
     return { id, authorized: true };
   }
 
-  /** 处置动作与处理记录（仅管理端） */
+  /** 处置动作与处理记录（仅管理端）；帮助类反馈不生成举报工单 */
   handle(actorId: string, id: string, input: { action: string; resolution: string }) {
-    const row = this.appDb.prepare('SELECT id FROM FEEDBACK WHERE id = ?').get(id) as
-      | { id: string }
-      | undefined;
+    const row = this.appDb
+      .prepare('SELECT id, is_error_report AS isErrorReport FROM FEEDBACK WHERE id = ?')
+      .get(id) as { id: string; isErrorReport: number } | undefined;
     if (!row) throw ERR.NOT_FOUND('反馈不存在');
+    // 帮助类反馈不生成举报工单，只记录处置
+    if (!row.isErrorReport) {
+      this.audit.record({ actorId, action: 'feedback:handle', target: id, diff: input });
+      return { id, status: '已记录', resolution: input.resolution, isErrorReport: false };
+    }
+    // 不同处置动作对应不同状态
+    const statusMap: Record<string, string> = {
+      '回复用户': '已处理',
+      '转临床复核': '临床复核中',
+      '下线相关内容': '已处理',
+      '修订解释模板': '已处理',
+      '加入评测集': '已处理',
+    };
+    const status = statusMap[input.action] ?? '已处理';
+    // 加入评测集：把举报内容作为去标识化用例加入“关键遗漏”评测集
+    if (input.action === '加入评测集') {
+      const description = this.appDb
+        .prepare('SELECT unsolved_question AS q FROM FEEDBACK WHERE id = ?')
+        .get(id) as { q: string | null } | undefined;
+      const evalSet = this.appDb
+        .prepare("SELECT id FROM EVAL_SET WHERE name = '关键遗漏'")
+        .get() as { id: string } | undefined;
+      if (evalSet && description?.q) {
+        this.appDb
+          .prepare(
+            `INSERT INTO EVAL_CASE (id, eval_set_id, case_key, input, expected, actual, result, source, created_at)
+             VALUES (?, ?, ?, ?, '按举报描述修正输出', NULL, '未运行', '举报', ?)`,
+          )
+          .run(crypto.randomUUID(), evalSet.id, `FB-${id.slice(0, 8)}`, description.q.slice(0, 200), new Date().toISOString());
+        this.appDb
+          .prepare('UPDATE EVAL_SET SET case_count = case_count + 1 WHERE id = ?')
+          .run(evalSet.id);
+      }
+    }
     this.appDb
       .prepare(
         `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, resolution, authorized)
-         VALUES (?, '中', '已处理', ?, 0)
-         ON CONFLICT(feedback_id) DO UPDATE SET status = '已处理', resolution = excluded.resolution`,
+         VALUES (?, '中', ?, ?, 0)
+         ON CONFLICT(feedback_id) DO UPDATE SET status = excluded.status, resolution = excluded.resolution`,
       )
-      .run(id, input.resolution);
+      .run(id, status, input.resolution);
     this.audit.record({ actorId, action: 'feedback:handle', target: id, diff: input });
-    return { id, status: '已处理', resolution: input.resolution };
+    return { id, status, resolution: input.resolution, isErrorReport: true };
   }
 
   /** 校验分析属于当前用户 */

@@ -35,8 +35,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
             ? ((body as { message: string[] }).message[0] ?? exception.message)
             : ((body as { message?: string }).message ?? exception.message);
       code = this.mapStatusToCode(status);
-      // 404 统一中文提示（NestJS 未匹配路由的默认文案是英文）
-      message = status === 404 ? '接口不存在' : msg;
+      message = msg;
+      // 404：仅“路由未匹配”提示“接口不存在”；资源不存在等保留具体中文提示
+      if (status === 404 && /^Cannot (GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS) /.test(message)) {
+        message = '接口不存在';
+      }
     } else if (typeof (exception as { status?: unknown })?.status === 'number') {
       // body-parser 等中间件抛出的错误（如请求体过大、坏 JSON）带 status 字段
       const err = exception as { status: number; message?: string; type?: string };

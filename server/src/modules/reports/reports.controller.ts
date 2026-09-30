@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { IsIn, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ReportsService } from './reports.service';
 import { SwitchesService } from '../switches/switches.service';
@@ -35,7 +36,7 @@ class ConfirmReportDto {
 }
 
 @Controller('reports')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, ConsentGuard)
 export class ReportsController {
   constructor(
     private readonly reports: ReportsService,
@@ -44,12 +45,14 @@ export class ReportsController {
 
   /** 录入报告（粘贴文字为主） */
   @Post()
+  @RequireConsent('健康信息处理')
   create(@CurrentUser() user: { userId: string }, @Body() dto: CreateReportDto) {
     return this.reports.createReport(user.userId, dto);
   }
 
   /** 拍照提取：模拟 OCR，返回示例文本（受“拍照提取”开关控制） */
   @Post('ocr')
+  @RequireConsent('健康信息处理')
   ocr(@CurrentUser() user: { userId: string }, @Body() dto: { careEventId: string }) {
     if (!this.switches.isOn('拍照提取')) {
       return { text: '', disabled: true, message: '拍照提取功能已暂时关闭，请粘贴报告文字。' };

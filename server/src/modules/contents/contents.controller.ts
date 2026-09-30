@@ -72,9 +72,10 @@ export class ContentsController {
     return this.contents.publishedDetail(id);
   }
 
-  /** 管理端：全部内容 */
+  /** 管理端：全部内容（需 content:read） */
   @Get()
   @UseGuards(AdminGuard)
+  @RequirePermission('content:read')
   listAll() {
     return this.contents.listAll();
   }
@@ -99,7 +100,7 @@ export class ContentsController {
     return this.contents.updateItem(admin.adminId, id, dto);
   }
 
-  /** 管理端：状态机流转 */
+  /** 管理端：状态机流转（发布/撤回/下线/更正需双人确认） */
   @Post(':id/transition')
   @UseGuards(AdminGuard)
   transition(
@@ -110,34 +111,45 @@ export class ContentsController {
     return this.contents.transitionItem(admin.adminId, id, dto.action, dto.comment, admin.permissions);
   }
 
-  /** 管理端：发布（双人确认） */
+  /** 管理端：发布（双人确认：运营发起 + 临床/超管确认） */
   @Post(':id/publish')
   @UseGuards(AdminGuard)
-  @RequirePermission('content:review')
-  publish(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
-    return this.contents.publish(admin.adminId, id);
+  publish(@CurrentAdmin() admin: CurrentAdminInfo, @Param('id') id: string) {
+    return this.contents.publish(admin.adminId, id, admin.permissions);
   }
 
-  /** 管理端：一键下线并定位引用页面 */
+  /** 管理端：一键下线并定位引用页面（双人确认） */
   @Post(':id/offline')
   @UseGuards(AdminGuard)
-  @RequirePermission('content:review')
-  offline(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
-    return this.contents.offline(admin.adminId, id);
+  offline(@CurrentAdmin() admin: CurrentAdminInfo, @Param('id') id: string) {
+    return this.contents.offline(admin.adminId, id, admin.permissions);
+  }
+
+  /** 管理端：取消下线（应急下线开关复位） */
+  @Post(':id/restore')
+  @UseGuards(AdminGuard)
+  restore(@CurrentAdmin() admin: CurrentAdminInfo, @Param('id') id: string) {
+    return this.contents.restore(admin.adminId, id, admin.permissions);
+  }
+
+  /** 管理端：下线开关（应急隐藏 / 恢复，不改变审核状态） */
+  @Post(':id/offline-switch')
+  @UseGuards(AdminGuard)
+  setOfflineSwitch(@CurrentAdmin() admin: CurrentAdminInfo, @Param('id') id: string, @Body() body: { offline: boolean }) {
+    return this.contents.setOfflineSwitch(admin.adminId, id, !!body.offline, admin.permissions);
   }
 
   /** 管理端：批量下线（双人确认） */
   @Post('batch-offline')
   @UseGuards(AdminGuard)
-  @RequirePermission('content:review')
-  batchOffline(@CurrentAdmin() admin: { adminId: string }, @Body() dto: BatchOfflineDto) {
-    return this.contents.batchOffline(admin.adminId, dto.itemIds);
+  batchOffline(@CurrentAdmin() admin: CurrentAdminInfo, @Body() dto: BatchOfflineDto) {
+    return this.contents.batchOffline(admin.adminId, dto.itemIds, admin.permissions);
   }
 
-  /** 审核记录 */
+  /** 审核记录（content:read 即可查看） */
   @Get(':id/reviews')
   @UseGuards(AdminGuard)
-  @RequirePermission('content:review')
+  @RequirePermission('content:read')
   reviews(@Param('id') id: string) {
     return this.contents.reviewRecords(id);
   }
@@ -145,7 +157,7 @@ export class ContentsController {
   /** 版本链 */
   @Get(':id/versions')
   @UseGuards(AdminGuard)
-  @RequirePermission('content:review')
+  @RequirePermission('content:read')
   versions(@Param('id') id: string) {
     return this.contents.versions(id);
   }

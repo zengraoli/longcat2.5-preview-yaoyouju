@@ -4,24 +4,25 @@ import { APP_DB } from '../../database/database.module';
 import { Inject } from '@nestjs/common';
 import { AdminGuard, RequirePermission } from './admin.guard';
 
-/** 后台仪表盘聚合数据 */
+/** 后台仪表盘聚合数据（所有后台角色可读） */
 @Controller('admin/dashboard')
 @UseGuards(AdminGuard)
 export class AdminDashboardController {
   constructor(@Inject(APP_DB) private readonly appDb: Database.Database) {}
 
   @Get()
-  @RequirePermission('*')
   stats() {
     // 今日任务（按创建日期统计，北京时间）
     const now = new Date();
     const today = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     const taskTotal = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK').get() as { c: number }).c;
     const taskToday = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE created_at >= ?').get(today) as { c: number }).c;
-    // 失败数：仅统计今日创建的任务
-    const taskFailed = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '失败' AND created_at >= ?").get(today) as { c: number }).c;
-    // 阻断：被安全规则引擎停止个性化的次数（今日，按规则去重）
-    const taskBlocked = (this.appDb.prepare("SELECT COUNT(DISTINCT rule_code) AS c FROM SAFETY_EVENT WHERE action_taken = '停止个性化分析' AND created_at >= ?").get(today) as { c: number }).c;
+    // 失败率（15 分钟）：最近 15 分钟内创建的任务
+    const since15 = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const recentTotal = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE created_at >= ?').get(since15) as { c: number }).c;
+    const taskFailed = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '失败' AND created_at >= ?").get(since15) as { c: number }).c;
+    // 阻断：今日被安全规则引擎停止个性化的提交次数（按安全事件计）
+    const taskBlocked = (this.appDb.prepare("SELECT COUNT(*) AS c FROM SAFETY_EVENT WHERE action_taken = '停止个性化分析' AND created_at >= ?").get(today) as { c: number }).c;
     const pendingReview = (this.appDb.prepare("SELECT COUNT(*) AS c FROM CONTENT_ITEM WHERE current_status = '待审'").get() as { c: number }).c;
     // 待处理举报（FEEDBACK_REPORT.status = '待处理'）
     const pendingReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理'").get() as { c: number }).c;
@@ -56,6 +57,12 @@ export class AdminDashboardController {
       .all();
     return {
       tasks: { total: taskTotal, today: taskToday, failed: taskFailed, blocked: taskBlocked },
+      failureRate: {
+        window: '15 分钟',
+        total: recentTotal,
+        failed: taskFailed,
+        rate: recentTotal === 0 ? 0 : Math.round((taskFailed / recentTotal) * 1000) / 10,
+      },
       dailyTasks,
       pendingReview,
       pendingReports: { total: pendingReports, high: highReports, mid: midReports, low: lowReports },

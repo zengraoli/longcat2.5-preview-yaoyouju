@@ -71,11 +71,29 @@ describe('功能开关', () => {
     expect(switches.isOn('案例卡片')).toBe(false);
   });
 
-  it('关闭个性化分析开关后立即生效，且变更写审计', () => {
-    switches.set('个性化分析', false, '维护需要', 'admin-tech');
+  it('关闭个性化分析开关：技术发起 + 临床确认后生效，且变更写审计', () => {
+    // 技术负责人发起
+    const first = switches.set('个性化分析', false, '维护需要', 'admin-tech', ['switch:write']);
+    expect(first.status).toBe('待第二人确认');
+    expect(switches.isOn('个性化分析')).toBe(true);
+    // 同一操作人不能确认
+    expect(() => switches.set('个性化分析', false, '维护需要', 'admin-tech', ['switch:write', 'switch:confirm'])).toThrow('双人确认');
+    // 临床审核确认 → 生效
+    const second = switches.set('个性化分析', false, '维护需要', 'admin-clinical', ['switch:confirm']);
+    expect(second.status).toBe('已生效');
     expect(switches.isOn('个性化分析')).toBe(false);
     const logs = audit.list(10);
     expect(logs.some((l) => l.action === 'switch:update' && l.target === '个性化分析')).toBe(true);
+  });
+
+  it('单人开关（拍照提取）直接生效', () => {
+    const result = switches.set('拍照提取', false, '维护', 'admin-tech', ['switch:write']);
+    expect(result.status).toBe('已生效');
+    expect(switches.isOn('拍照提取')).toBe(false);
+  });
+
+  it('无权限变更开关被拒绝', () => {
+    expect(() => switches.set('个性化分析', false, '维护', 'admin-ops', ['content:edit'])).toThrow('无权限');
   });
 
   it('审计日志只追加：数据库层禁止修改和删除', () => {

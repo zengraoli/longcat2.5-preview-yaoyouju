@@ -125,21 +125,9 @@ export class ContentsService {
     return this.getView(itemId);
   }
 
-  /** 状态机流转（非法流转返回错误） */
-  transitionItem(
-    actorId: string,
-    itemId: string,
-    action: ContentAction,
-    comment?: string,
-    permissions: string[] = [],
-  ): ContentItemView {
-    // 按动作校验权限（B10 权限矩阵）：提交/更正需 content:edit，通过/退回/撤回需 content:review
-    const needPermission =
-      action === '提交审核' || action === '更正' ? 'content:edit' : 'content:review';
-    if (!permissions.includes('*') && !permissions.includes(needPermission)) {
-      throw new ForbiddenException(`无权限执行「${action}」`);
-    }
-    const item = this.appDb
+  /** 取内容行 */
+  private getItem(itemId: string) {
+    return this.appDb
       .prepare('SELECT * FROM CONTENT_ITEM WHERE id = ?')
       .get(itemId) as {
       id: string;
@@ -150,57 +138,150 @@ export class ContentsService {
       current_status: ContentStatus;
       offline_switch: number;
     } | undefined;
-    if (!item) throw new NotFoundException('内容不存在');
-    const next = transition(item.current_status, action);
-    if (!next) {
-      throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
-    }
-    const now = new Date().toISOString();
-    this.appDb
-      .prepare('UPDATE CONTENT_ITEM SET current_status = ?, offline_switch = ? WHERE id = ?')
-      .run(next, next === '已撤回' || next === '已下线' ? 1 : 0, itemId);
+  }
+
+  /** 查最近的待确认发起记录 */
+  private pendingByDecision(itemId: string, decision: string) {
+    return this.appDb
+      .prepare(
+        `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
+         WHERE target_id = ? AND target_type = 'CONTENT_ITEM' AND decision = ?
+         ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
+      )
+      .get(itemId, decision) as { reviewerId: string } | undefined;
+  }
+
+  private hasPermission(permissions: string[], ...needed: string[]): boolean {
+    return needed.some((n) => permissions.includes(n));
+  }
+
+  private insertReview(itemId: string, actorId: string, decision: string, scope: string, comment: string | null) {
     this.appDb
       .prepare(
         `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
          VALUES (?, ?, 'CONTENT_ITEM', ?, ?, ?, ?, ?)`,
       )
-      .run(crypto.randomUUID(), itemId, actorId, action, '内容与医学准确性', comment ?? null, now);
-    this.audit.record({
-      actorId,
-      action: 'content:transition',
-      target: itemId,
-      diff: { from: item.current_status, to: next, action },
-    });
-    return this.getView(itemId);
+      .run(crypto.randomUUID(), itemId, actorId, decision, scope, comment, new Date().toISOString());
   }
 
-  /** 发布需双人确认：第一个审核人发起，第二个审核人确认 */
-  publish(actorId: string, itemId: string) {
-    const item = this.appDb
-      .prepare('SELECT current_status AS s FROM CONTENT_ITEM WHERE id = ?')
-      .get(itemId) as { s: ContentStatus } | undefined;
+  /** 状态机流转（非法流转返回错误）；发布/撤回/下线/更正需双人确认 */
+  transitionItem(
+    actorId: string,
+    itemId: string,
+    action: ContentAction,
+    comment?: string,
+    permissions: string[] = [],
+  ): ContentItemView {
+    const item = this.getItem(itemId);
     if (!item) throw new NotFoundException('内容不存在');
-    if (item.s !== '已审定') {
+    const now = new Date().toISOString();
+
+    // 通过 / 退回：仅临床审核（B10 中超管无此权限）
+    if (action === '通过' || action === '退回') {
+      if (!this.hasPermission(permissions, 'content:review')) {
+        throw new ForbiddenException(`无权限执行「${action}」`);
+      }
+      if (action === '退回' && !comment?.trim()) {
+        throw new ConflictException('退回时必须填写审核意见');
+      }
+      const next = transition(item.current_status, action);
+      if (!next) throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
+      this.appDb.prepare('UPDATE CONTENT_ITEM SET current_status = ? WHERE id = ?').run(next, itemId);
+      this.insertReview(itemId, actorId, action, '内容与医学准确性', comment ?? null);
+      this.audit.record({ actorId, action: 'content:transition', target: itemId, diff: { from: item.current_status, to: next, action } });
+      return this.getView(itemId);
+    }
+
+    // 提交审核：运营编辑 / 超管
+    if (action === '提交审核') {
+      if (!this.hasPermission(permissions, 'content:edit')) {
+        throw new ForbiddenException(`无权限执行「${action}」`);
+      }
+      const next = transition(item.current_status, action);
+      if (!next) throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
+      this.appDb.prepare('UPDATE CONTENT_ITEM SET current_status = ? WHERE id = ?').run(next, itemId);
+      this.insertReview(itemId, actorId, action, '内容与医学准确性', comment ?? null);
+      this.audit.record({ actorId, action: 'content:transition', target: itemId, diff: { from: item.current_status, to: next, action } });
+      return this.getView(itemId);
+    }
+
+    // 更正：运营发起 + 临床/超管确认（双人）
+    if (action === '更正') {
+      const pending = this.pendingByDecision(itemId, '更正-发起');
+      if (!pending) {
+        if (!this.hasPermission(permissions, 'content:correct:initiate')) {
+          throw new ForbiddenException('无权限发起更正');
+        }
+        this.insertReview(itemId, actorId, '更正-发起', '更正第一操作人', comment ?? null);
+        this.audit.record({ actorId, action: 'content:correct-initiate', target: itemId });
+        return { ...this.getView(itemId), pending: '待第二人确认' } as ContentItemView & { pending: string };
+      }
+      if (pending.reviewerId === actorId) {
+        throw new ConflictException('更正需双人确认：不能由同一操作人发起并确认');
+      }
+      if (!this.hasPermission(permissions, 'content:correct:confirm')) {
+        throw new ForbiddenException('无权限确认更正');
+      }
+      const next = transition(item.current_status, action);
+      if (!next) throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
+      this.appDb.prepare('UPDATE CONTENT_ITEM SET current_status = ? WHERE id = ?').run(next, itemId);
+      this.insertReview(itemId, actorId, '更正-确认', '更正第二操作人', comment ?? null);
+      this.audit.record({ actorId, action: 'content:transition', target: itemId, diff: { from: item.current_status, to: next, action } });
+      return this.getView(itemId);
+    }
+
+    // 撤回 / 应急下线：临床审核 + 超管（双人）
+    if (action === '撤回' || action === '下线') {
+      const decision = action === '撤回' ? '撤回-发起' : '下线-发起';
+      const pending = this.pendingByDecision(itemId, decision);
+      if (!pending) {
+        if (!this.hasPermission(permissions, 'content:offline')) {
+          throw new ForbiddenException(`无权限执行「${action}」`);
+        }
+        this.insertReview(itemId, actorId, decision, `${action}第一操作人`, comment ?? null);
+        this.audit.record({ actorId, action: 'content:offline-initiate', target: itemId });
+        return { ...this.getView(itemId), pending: '待第二人确认' } as ContentItemView & { pending: string };
+      }
+      if (pending.reviewerId === actorId) {
+        throw new ConflictException(`${action}需双人确认：不能由同一操作人发起并确认`);
+      }
+      if (!this.hasPermission(permissions, 'content:offline')) {
+        throw new ForbiddenException(`无权限执行「${action}」`);
+      }
+      const next = transition(item.current_status, action);
+      if (!next) throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
+      this.appDb
+        .prepare('UPDATE CONTENT_ITEM SET current_status = ?, offline_switch = ? WHERE id = ?')
+        .run(next, next === '已撤回' || next === '已下线' ? 1 : 0, itemId);
+      this.insertReview(itemId, actorId, `${action}-确认`, `${action}第二操作人`, comment ?? null);
+      this.audit.record({ actorId, action: 'content:transition', target: itemId, diff: { from: item.current_status, to: next, action } });
+      return this.getView(itemId);
+    }
+
+    throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
+  }
+
+  /** 发布需双人确认：运营编辑发起，临床审核 / 超管确认 */
+  publish(actorId: string, itemId: string, permissions: string[] = []) {
+    const item = this.getItem(itemId);
+    if (!item) throw new NotFoundException('内容不存在');
+    if (item.current_status !== '已审定') {
       throw new ConflictException('只有「已审定」状态可以发布');
     }
-    const pending = this.appDb
-      .prepare(
-        `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
-         WHERE target_id = ? AND decision = '发布' ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
-      )
-      .get(itemId) as { reviewerId: string } | undefined;
+    const pending = this.pendingByDecision(itemId, '发布-发起');
     if (!pending) {
-      // 第一个审核人发起发布确认
-      this.appDb
-        .prepare(
-          `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
-           VALUES (?, ?, 'CONTENT_ITEM', ?, '发布', '第一审核人发起', NULL, ?)`,
-        )
-        .run(crypto.randomUUID(), itemId, actorId, new Date().toISOString());
+      if (!this.hasPermission(permissions, 'content:publish:initiate')) {
+        throw new ForbiddenException('无权限发起发布');
+      }
+      this.insertReview(itemId, actorId, '发布-发起', '发布第一审核人', null);
+      this.audit.record({ actorId, action: 'content:publish-initiate', target: itemId });
       return { status: '待第二人确认', pendingReviewer: actorId };
     }
     if (pending.reviewerId === actorId) {
       throw new ConflictException('发布需双人确认：不能由同一审核人发起并确认');
+    }
+    if (!this.hasPermission(permissions, 'content:publish:confirm')) {
+      throw new ForbiddenException('无权限确认发布');
     }
     // 第二个审核人确认 → 已发布，生成版本号
     const now = new Date().toISOString();
@@ -215,24 +296,32 @@ export class ContentsService {
     this.appDb
       .prepare('UPDATE CONTENT_VERSION SET published_at = ? WHERE item_id = ? AND version = ?')
       .run(now, itemId, version);
-    this.appDb
-      .prepare(
-        `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
-         VALUES (?, ?, 'CONTENT_ITEM', ?, '发布', '第二审核人确认', NULL, ?)`,
-      )
-      .run(crypto.randomUUID(), itemId, actorId, now);
+    this.insertReview(itemId, actorId, '发布-确认', '发布第二审核人', null);
     this.audit.record({ actorId, action: 'content:publish', target: itemId, diff: { version } });
     return { status: '已发布', version };
   }
 
-  /** 一键下线并定位引用页面 */
-  offline(actorId: string, itemId: string) {
-    const item = this.appDb
-      .prepare('SELECT current_status AS s FROM CONTENT_ITEM WHERE id = ?')
-      .get(itemId) as { s: ContentStatus } | undefined;
+  /** 一键下线并定位引用页面（需双人确认，与撤回一致） */
+  offline(actorId: string, itemId: string, permissions: string[] = []) {
+    const item = this.getItem(itemId);
     if (!item) throw new NotFoundException('内容不存在');
-    if (item.s !== '已发布') {
+    if (item.current_status !== '已发布') {
       throw new ConflictException('只有「已发布」状态可以下线');
+    }
+    const pending = this.pendingByDecision(itemId, '下线-发起');
+    if (!pending) {
+      if (!this.hasPermission(permissions, 'content:offline')) {
+        throw new ForbiddenException('无权限执行下线');
+      }
+      this.insertReview(itemId, actorId, '下线-发起', '下线第一操作人', null);
+      this.audit.record({ actorId, action: 'content:offline-initiate', target: itemId });
+      return { status: '待第二人确认', pendingReviewer: actorId } as { status: string; pendingReviewer: string };
+    }
+    if (pending.reviewerId === actorId) {
+      throw new ConflictException('下线需双人确认：不能由同一操作人发起并确认');
+    }
+    if (!this.hasPermission(permissions, 'content:offline')) {
+      throw new ForbiddenException('无权限执行下线');
     }
     const now = new Date().toISOString();
     this.appDb
@@ -245,21 +334,47 @@ export class ContentsService {
          WHERE a.sections LIKE ?`,
       )
       .all(`%${itemId}%`) as Array<{ id: string; episodeId: string }>;
+    this.insertReview(itemId, actorId, '下线-确认', '下线第二操作人', null);
     this.audit.record({ actorId, action: 'content:offline', target: itemId, diff: { references } });
     return { status: '已下线', references };
   }
 
+  /** 取消下线（应急下线开关复位；若状态为“已下线”则恢复为“已发布”） */
+  restore(actorId: string, itemId: string, permissions: string[] = []) {
+    const item = this.getItem(itemId);
+    if (!item) throw new NotFoundException('内容不存在');
+    if (!this.hasPermission(permissions, 'content:offline')) {
+      throw new ForbiddenException('无权限执行取消下线');
+    }
+    const nextStatus = item.current_status === '已下线' ? '已发布' : item.current_status;
+    this.appDb
+      .prepare('UPDATE CONTENT_ITEM SET offline_switch = 0, current_status = ? WHERE id = ?')
+      .run(nextStatus, itemId);
+    this.audit.record({ actorId, action: 'content:restore', target: itemId });
+    return this.getView(itemId);
+  }
+
+  /** 下线开关：立即对用户端隐藏 / 恢复内容，不改变审核状态（应急用） */
+  setOfflineSwitch(actorId: string, itemId: string, offline: boolean, permissions: string[] = []) {
+    const item = this.getItem(itemId);
+    if (!item) throw new NotFoundException('内容不存在');
+    if (!this.hasPermission(permissions, 'content:offline')) {
+      throw new ForbiddenException('无权限操作下线开关');
+    }
+    this.appDb.prepare('UPDATE CONTENT_ITEM SET offline_switch = ? WHERE id = ?').run(offline ? 1 : 0, itemId);
+    this.audit.record({ actorId, action: offline ? 'content:offline-switch-on' : 'content:offline-switch-off', target: itemId });
+    return this.getView(itemId);
+  }
+
   /** 批量下线：需双人确认（与发布一致） */
-  batchOffline(actorId: string, itemIds: string[]) {
+  batchOffline(actorId: string, itemIds: string[], permissions: string[] = []) {
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       throw new ConflictException('批量下线需要至少选择一条内容');
     }
     for (const itemId of itemIds) {
-      const item = this.appDb
-        .prepare('SELECT current_status AS s FROM CONTENT_ITEM WHERE id = ?')
-        .get(itemId) as { s: ContentStatus } | undefined;
+      const item = this.getItem(itemId);
       if (!item) throw new NotFoundException(`内容不存在：${itemId}`);
-      if (item.s !== '已发布') {
+      if (item.current_status !== '已发布') {
         throw new ConflictException(`只有「已发布」状态可以下线：${itemId}`);
       }
     }
@@ -272,6 +387,9 @@ export class ContentsService {
       .get(target) as { reviewerId: string } | undefined;
     const now = new Date().toISOString();
     if (!first) {
+      if (!this.hasPermission(permissions, 'content:offline')) {
+        throw new ForbiddenException('无权限执行批量下线');
+      }
       // 第一个操作人发起
       this.appDb
         .prepare(
@@ -284,6 +402,9 @@ export class ContentsService {
     if (first.reviewerId === actorId) {
       throw new ConflictException('批量下线需双人确认：不能由同一操作人发起并确认');
     }
+    if (!this.hasPermission(permissions, 'content:offline')) {
+      throw new ForbiddenException('无权限执行批量下线');
+    }
     // 第二个操作人确认 → 全部下线
     const results: Array<{ id: string; status: string }> = [];
     for (const itemId of itemIds) {
@@ -295,7 +416,7 @@ export class ContentsService {
     this.appDb
       .prepare(
         `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
-         VALUES (?, ?, 'BATCH_OFFLINE', ?, '批量下线-确认', '批量下线第二操作人', NULL, ?)`,
+           VALUES (?, ?, 'BATCH_OFFLINE', ?, '批量下线-确认', '批量下线第二操作人', NULL, ?)`,
       )
       .run(crypto.randomUUID(), target, actorId, now);
     this.audit.record({ actorId, action: 'content:batch-offline', target, diff: { count: itemIds.length } });

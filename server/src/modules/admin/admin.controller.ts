@@ -1,6 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ERR } from '../../common/utils/business-exception';
-import { IsString, MaxLength } from 'class-validator';
+import { IsIn, IsString, MaxLength } from 'class-validator';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
@@ -33,6 +33,12 @@ class AuthorizationDto {
   reason!: string;
 }
 
+class ExportRequestDto {
+  @IsString()
+  @MaxLength(500)
+  reason!: string;
+}
+
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -57,11 +63,12 @@ export class AdminController {
     return { loggedOut: true };
   }
 
-  /** 审计日志列表 */
+  /** 审计日志列表（读取写审计） */
   @Get('audit-logs')
   @UseGuards(AdminGuard)
   @RequirePermission('audit:read')
-  listAuditLogs(@CurrentAdmin() _admin: unknown) {
+  listAuditLogs(@CurrentAdmin() admin: { adminId: string }) {
+    this.audit.record({ actorId: admin.adminId, action: 'admin:audit-view', target: 'audit-logs' });
     return this.audit.list(1000);
   }
 
@@ -74,10 +81,64 @@ export class AdminController {
     return { valid: !tampered, tampered };
   }
 
+  /** 审计导出申请（合规发起，超管审批） */
+  @Post('audit-logs/export-requests')
+  @UseGuards(AdminGuard)
+  @RequirePermission('audit:export:request')
+  createExportRequest(@CurrentAdmin() admin: { adminId: string }, @Body() dto: ExportRequestDto) {
+    const id = crypto.randomUUID();
+    this.appDb
+      .prepare(
+        `INSERT INTO AUDIT_EXPORT_REQUEST (id, requester_id, reason, status, created_at)
+         VALUES (?, ?, ?, '待审批', ?)`,
+      )
+      .run(id, admin.adminId, dto.reason, new Date().toISOString());
+    this.audit.record({ actorId: admin.adminId, action: 'admin:audit-export-request', target: id, diff: { reason: dto.reason } });
+    return { id, status: '待审批' };
+  }
+
+  /** 审计导出申请列表（超管审批） */
+  @Get('audit-logs/export-requests')
+  @UseGuards(AdminGuard)
+  @RequirePermission('audit:read')
+  listExportRequests(@CurrentAdmin() _admin: unknown) {
+    return this.appDb
+      .prepare(
+        `SELECT r.id, r.reason, r.status, r.created_at AS createdAt, r.reviewed_at AS reviewedAt,
+                au.name AS requesterName
+         FROM AUDIT_EXPORT_REQUEST r LEFT JOIN ADMIN_USER au ON au.id = r.requester_id
+         ORDER BY r.created_at DESC, r.rowid DESC`,
+      )
+      .all();
+  }
+
+  /** 审批审计导出申请 */
+  @Post('audit-logs/export-requests/:id/approve')
+  @UseGuards(AdminGuard)
+  @RequirePermission('audit:export')
+  approveExportRequest(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    const request = this.appDb
+      .prepare('SELECT id, status FROM AUDIT_EXPORT_REQUEST WHERE id = ?')
+      .get(id) as { id: string; status: string } | undefined;
+    if (!request) throw new NotFoundException('申请不存在');
+    if (request.status !== '待审批') throw new ConflictException('该申请已审批');
+    this.appDb
+      .prepare("UPDATE AUDIT_EXPORT_REQUEST SET status = '已批准', approver_id = ?, reviewed_at = ? WHERE id = ?")
+      .run(admin.adminId, new Date().toISOString(), id);
+    this.audit.record({ actorId: admin.adminId, action: 'admin:audit-export-approve', target: id });
+    return { id, status: '已批准' };
+  }
+
   /** 单条授权记录（查看用户原始内容需授权）：写入授权表并记审计 */
   @Post('authorizations')
   @UseGuards(AdminGuard)
+  @RequirePermission('user:read:authorized')
   createAuthorization(@CurrentAdmin() admin: { adminId: string }, @Body() dto: AuthorizationDto) {
+    // 校验目标对象存在（如 feedback:no-such-id 应被拒绝）
+    if (dto.targetType === 'FEEDBACK') {
+      const row = this.appDb.prepare('SELECT id FROM FEEDBACK WHERE id = ?').get(dto.targetId) as { id: string } | undefined;
+      if (!row) throw ERR.NOT_FOUND('反馈不存在');
+    }
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
@@ -94,22 +155,24 @@ export class AdminController {
     return { id, authorized: true };
   }
 
-  /** 反馈与举报列表（管理端） */
+  /** 反馈与举报列表（管理端；未授权时原文脱敏） */
   @Get('feedback')
   @UseGuards(AdminGuard)
-  @RequirePermission('feedback:handle')
-  listFeedback(@CurrentAdmin() _admin: unknown) {
-    return this.feedback.list();
+  @RequirePermission('feedback:triage')
+  listFeedback(@CurrentAdmin() admin: { adminId: string }) {
+    this.audit.record({ actorId: admin.adminId, action: 'admin:feedback-view', target: 'feedback' });
+    return this.feedback.listForAdmin(admin.adminId);
   }
 
-  /** 后台成员列表（需 user:read 权限） */
+  /** 后台成员列表（需 member:read 权限） */
   @Get('users')
   @UseGuards(AdminGuard)
-  @RequirePermission('user:read')
+  @RequirePermission('member:read')
   listUsers(@CurrentAdmin() _admin: unknown) {
     return this.appDb
       .prepare(
-        `SELECT u.id, u.name, u.mfa_enabled AS mfaEnabled, u.status, u.last_login_at AS lastLoginAt, r.name AS roleName
+        `SELECT u.id, u.name, u.email, u.role_id AS roleId, r.name AS roleName,
+                u.mfa_enabled AS mfaEnabled, u.status, u.last_login_at AS lastLoginAt
          FROM ADMIN_USER u JOIN ROLE r ON r.id = u.role_id ORDER BY u.rowid ASC`,
       )
       .all();
@@ -130,10 +193,10 @@ export class AdminController {
       .all();
   }
 
-  /** 停用 / 启用后台账号（不能停用自己） */
+  /** 停用 / 启用后台账号（不能停用自己，不能停用最后一个超管） */
   @Post('users/:id/status')
   @UseGuards(AdminGuard)
-  @RequirePermission('*')
+  @RequirePermission('member:read')
   setUserStatus(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { status: string }) {
     if (!['active', 'disabled'].includes(body.status)) {
       throw new BadRequestException('状态不合法');
@@ -141,32 +204,61 @@ export class AdminController {
     if (id === admin.adminId) {
       throw new BadRequestException('不能停用当前登录的账号');
     }
-    const target = this.appDb.prepare('SELECT id FROM ADMIN_USER WHERE id = ?').get(id) as { id: string } | undefined;
+    const target = this.appDb.prepare('SELECT id, role_id AS roleId FROM ADMIN_USER WHERE id = ?').get(id) as
+      | { id: string; roleId: string }
+      | undefined;
     if (!target) throw new NotFoundException('账号不存在');
+    // 不能停用最后一个超级管理员
+    if (body.status === 'disabled' && target.roleId === 'role-super') {
+      const superCount = (
+        this.appDb
+          .prepare("SELECT COUNT(*) AS c FROM ADMIN_USER WHERE role_id = 'role-super' AND status = 'active'")
+          .get() as { c: number }
+      ).c;
+      if (superCount <= 1) {
+        throw new ConflictException('不能停用最后一个超级管理员');
+      }
+    }
     this.appDb.prepare('UPDATE ADMIN_USER SET status = ? WHERE id = ?').run(body.status, id);
     this.audit.record({ actorId: admin.adminId, action: 'admin:user-status', target: id, diff: { status: body.status } });
     return { id, status: body.status };
   }
 
-  /** 修改后台账号角色 */
+  /** 修改后台账号角色（不能改自己的角色，不能把最后一个超管改成其他角色） */
   @Post('users/:id/role')
   @UseGuards(AdminGuard)
-  @RequirePermission('*')
+  @RequirePermission('member:read')
   setUserRole(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { roleId: string }) {
-    const target = this.appDb.prepare('SELECT id FROM ADMIN_USER WHERE id = ?').get(id) as { id: string } | undefined;
+    if (id === admin.adminId) {
+      throw new BadRequestException('不能修改当前登录账号的角色');
+    }
+    const target = this.appDb.prepare('SELECT id, role_id AS roleId FROM ADMIN_USER WHERE id = ?').get(id) as
+      | { id: string; roleId: string }
+      | undefined;
     if (!target) throw new NotFoundException('账号不存在');
     const role = this.appDb.prepare('SELECT id FROM ROLE WHERE id = ?').get(body.roleId) as { id: string } | undefined;
-    if (!role) throw new NotFoundException('角色不存在');
+    if (!role) throw ERR.NOT_FOUND('角色不存在');
+    // 不能把最后一个超管改成其他角色
+    if (target.roleId === 'role-super' && body.roleId !== 'role-super') {
+      const superCount = (
+        this.appDb
+          .prepare("SELECT COUNT(*) AS c FROM ADMIN_USER WHERE role_id = 'role-super' AND status = 'active'")
+          .get() as { c: number }
+      ).c;
+      if (superCount <= 1) {
+        throw new ConflictException('不能修改最后一个超级管理员的角色');
+      }
+    }
     this.appDb.prepare('UPDATE ADMIN_USER SET role_id = ? WHERE id = ?').run(body.roleId, id);
     this.audit.record({ actorId: admin.adminId, action: 'admin:user-role', target: id, diff: { roleId: body.roleId } });
     return { id, roleId: body.roleId };
   }
 
-  /** 安全事件列表（匿名标识，不含问卷原文） */
+  /** 安全事件列表（匿名标识，不含问卷原文；所有后台角色可读） */
   @Get('safety-events')
   @UseGuards(AdminGuard)
-  @RequirePermission('audit:read')
-  listSafetyEvents(@CurrentAdmin() _admin: unknown) {
+  listSafetyEvents(@CurrentAdmin() admin: { adminId: string }) {
+    this.audit.record({ actorId: admin.adminId, action: 'admin:safety-view', target: 'safety-events' });
     return this.appDb
       .prepare(
         `SELECT id, user_id AS userId, rule_code AS ruleCode, severity, action_taken AS actionTaken,
@@ -202,9 +294,11 @@ export class AdminController {
     if (submission.status !== '待审') {
       throw new ConflictException('该投稿已处理');
     }
-    const decision = body.decision === '发布' ? '发布' : '退回';
+    if (body.decision !== '发布' && body.decision !== '退回') {
+      throw new BadRequestException('decision 只能是“发布”或“退回”');
+    }
     // 案例卡片开关关闭时禁止发布
-    if (decision === '发布') {
+    if (body.decision === '发布') {
       const switchRow = this.appDb
         .prepare("SELECT enabled FROM FEATURE_SWITCH WHERE key = '案例卡片'")
         .get() as { enabled: number } | undefined;
@@ -212,7 +306,7 @@ export class AdminController {
         throw ERR.SWITCH_OFF('案例卡片功能已关闭，不能发布案例');
       }
     }
-    const next = decision === '发布' ? '已发布' : '已撤回';
+    const next = body.decision === '发布' ? '已发布' : '已撤回';
     this.appDb
       .prepare('UPDATE CASE_SUBMISSION SET status = ? WHERE id = ?')
       .run(next, id);

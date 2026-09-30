@@ -30,18 +30,17 @@ describe('模型发布与评测', () => {
       contentLibVersion: 'content-c2',
     });
     expect(release.status).toBe('候选');
-    // 未运行评测时发布被拒绝
-    expect(() => models.publish('admin-tech', release.id)).toThrow('评测门禁');
-    // 运行评测（默认全部通过）
+    // 未运行评测时发布被拒绝（4001 评测门禁未通过）
+    expect(() => models.publish('admin-tech', release.id, ['model:release'])).toThrow('评测门禁');
+    // 运行评测
     const runs = models.runEval('admin-tech', release.id);
     expect(runs.length).toBe(4);
-    expect(runs.every((r) => r.result === '通过')).toBe(true);
     // 手动构造一个失败用例演示门禁阻断
     appDb.prepare("UPDATE EVAL_RUN SET result = '阻断发布', metrics = '{\"通过率\":0.75}' WHERE model_release_id = ? AND eval_set_id = 'evalset-3'").run(release.id);
-    expect(() => models.publish('admin-tech', release.id)).toThrow('阻断发布');
+    expect(() => models.publish('admin-tech', release.id, ['model:release'])).toThrow('阻断发布');
   });
 
-  it('门禁全部通过时发布成功，可回滚', () => {
+  it('门禁全部通过时发布成功（双人确认），可回滚', () => {
     const release = models.createRelease('admin-tech', {
       modelName: 'local-mock-v3',
       promptVersion: 'prompt-p3',
@@ -51,10 +50,32 @@ describe('模型发布与评测', () => {
     // 手动把左右侧混淆的评测结果改为通过（模拟修复后重测）
     models.runEval('admin-tech', release.id);
     appDb.prepare("UPDATE EVAL_RUN SET result = '通过', metrics = '{\"通过率\":1}' WHERE model_release_id = ? AND eval_set_id = 'evalset-3'").run(release.id);
-    const published = models.publish('admin-tech', release.id);
+    // 技术负责人发起
+    const first = models.publish('admin-tech', release.id, ['model:release']);
+    expect(first.status).toBe('待第二人确认');
+    // 同一操作人不能确认
+    expect(() => models.publish('admin-tech', release.id, ['model:release', 'model:confirm'])).toThrow('双人确认');
+    // 超管确认 → 生效
+    const published = models.publish('admin-super', release.id, ['model:confirm']);
     expect(published.status).toBe('生效');
-    const rolledBack = models.rollback('admin-tech', release.id);
+    // 回滚：技术发起 + 超管确认
+    const rbFirst = models.rollback('admin-tech', release.id, ['model:release']);
+    expect(rbFirst.status).toBe('待第二人确认');
+    const rolledBack = models.rollback('admin-super', release.id, ['model:confirm']);
     expect(rolledBack.status).toBe('已回滚');
+  });
+
+  it('未评测的候选不能被回滚激活', () => {
+    // release-1 是生效版本；新建一个未评测的候选
+    const candidate = models.createRelease('admin-tech', {
+      modelName: 'local-mock-v4',
+      promptVersion: 'prompt-p4',
+      retrievalStrategy: 'keyword-v4',
+      contentLibVersion: 'content-c4',
+    });
+    // 回滚生效版本：没有“已通过全部评测”的其他版本（候选未评测）→ 拒绝
+    expect(() => models.rollback('admin-tech', 'release-1', ['model:release'])).toThrow('没有可回滚');
+    expect(candidate.status).toBe('候选');
   });
 
   it('失败用例去标识化', () => {

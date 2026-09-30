@@ -15,6 +15,7 @@ import { QaModule } from './modules/qa/qa.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { SwitchesModule } from './modules/switches/switches.module';
+import { CasesModule } from './modules/cases/cases.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SwitchesModule } from './modules/switches/switches.module';
     QaModule,
     AdminModule,
     SwitchesModule,
+    CasesModule,
   ],
   controllers: [HealthController],
 })

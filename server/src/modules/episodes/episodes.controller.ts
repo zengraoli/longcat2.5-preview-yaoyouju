@@ -19,6 +19,7 @@ import {
   Min,
 } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { EpisodesService } from './episodes.service';
 
@@ -97,7 +98,7 @@ class AddSymptomLogDto {
 }
 
 @Controller('episodes')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, ConsentGuard)
 export class EpisodesController {
   constructor(private readonly episodes: EpisodesService) {}
 
@@ -107,6 +108,7 @@ export class EpisodesController {
   }
 
   @Post()
+  @RequireConsent('健康信息处理')
   create(@CurrentUser() user: { userId: string }, @Body() dto: CreateEpisodeDto) {
     return this.episodes.createEpisode(user.userId, dto.title, dto.onsetDate ?? null, dto.onsetCertainty ?? '尚未确认');
   }
@@ -122,16 +124,19 @@ export class EpisodesController {
   }
 
   @Post(':id/events')
+  @RequireConsent('健康信息处理')
   addEvent(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: AddEventDto) {
     return this.episodes.addEvent(user.userId, id, dto);
   }
 
   @Put('events/:eventId')
+  @RequireConsent('健康信息处理')
   correctEvent(@CurrentUser() user: { userId: string }, @Param('eventId') eventId: string, @Body() dto: CorrectEventDto) {
     return this.episodes.correctEvent(user.userId, eventId, dto);
   }
 
   @Delete('events/:eventId')
+  @RequireConsent('健康信息处理')
   deleteEvent(@CurrentUser() user: { userId: string }, @Param('eventId') eventId: string) {
     return this.episodes.deleteEvent(user.userId, eventId);
   }
@@ -147,6 +152,7 @@ export class EpisodesController {
   }
 
   @Post(':id/symptom-logs')
+  @RequireConsent('健康信息处理')
   addSymptomLog(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: AddSymptomLogDto) {
     return this.episodes.addSymptomLog(user.userId, id, dto);
   }

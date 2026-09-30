@@ -69,10 +69,10 @@ describe('反馈与错误举报', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ analysisId: 'analysis-1', description: '测试处置', severity: '中' });
     const id = report.body.data.id;
-    // 后台登录
+    // 后台登录（临床审核可授权与处置）
     const adminLogin = await request(app.getHttpServer())
       .post('/admin/login')
-      .send({ name: '运营编辑-林', password: 'Admin@123456', totp: '123456' });
+      .send({ name: '临床审核-沈', password: 'Admin@123456', totp: '123456' });
     const adminToken = adminLogin.body.data.token;
     // 授权
     const authorized = await request(app.getHttpServer())
@@ -84,9 +84,9 @@ describe('反馈与错误举报', () => {
     const handled = await request(app.getHttpServer())
       .post(`/feedback/${id}/handle`)
       .set('X-Admin-Token', adminToken)
-      .send({ action: '转人工复核', resolution: '已转临床审核复核' })
+      .send({ action: '转临床复核', resolution: '已转临床审核复核' })
       .expect(201);
-    expect(handled.body.data.status).toBe('已处理');
+    expect(handled.body.data.status).toBe('临床复核中');
     // 详情
     const detail = await request(app.getHttpServer())
       .get(`/feedback/${id}`)

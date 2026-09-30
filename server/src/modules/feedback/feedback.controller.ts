@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -29,6 +29,15 @@ class ErrorReportDto {
 
   @IsIn(['高', '中', '低'])
   severity!: '高' | '中' | '低';
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  problemTypes?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  authorized?: boolean;
 }
 
 class HandleDto {
@@ -72,26 +81,26 @@ export class FeedbackController {
     return this.feedback.detail(id, user.userId);
   }
 
-  /** 管理端：全部反馈 */
+  /** 管理端：全部反馈（未授权时原文脱敏） */
   @Get()
   @UseGuards(AdminGuard)
-  @RequirePermission('feedback:handle')
-  list(@CurrentAdmin() _admin: unknown) {
-    return this.feedback.list();
+  @RequirePermission('feedback:triage')
+  list(@CurrentAdmin() admin: { adminId: string }) {
+    return this.feedback.listForAdmin(admin.adminId);
   }
 
-  /** 管理端：单条授权查看用户原始内容 */
+  /** 管理端：单条授权查看用户原始内容（临床审核 / 超管） */
   @Post(':id/authorize')
   @UseGuards(AdminGuard)
-  @RequirePermission('feedback:handle')
+  @RequirePermission('user:read:authorized')
   authorize(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
     return this.feedback.authorize(admin.adminId, id);
   }
 
-  /** 管理端：处置动作与处理记录 */
+  /** 管理端：处置动作与处理记录（运营初筛或临床复核） */
   @Post(':id/handle')
   @UseGuards(AdminGuard)
-  @RequirePermission('feedback:handle')
+  @RequirePermission('feedback:triage', 'feedback:review')
   handle(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() dto: HandleDto) {
     return this.feedback.handle(admin.adminId, id, dto);
   }

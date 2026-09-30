@@ -27,16 +27,16 @@ class CreateReleaseDto {
 export class ModelsController {
   constructor(private readonly models: ModelsService) {}
 
-  /** 发布组合列表 */
+  /** 发布组合列表（模型读取权限） */
   @Get('releases')
-  @RequirePermission('model:release')
+  @RequirePermission('model:read')
   listReleases() {
     return this.models.listReleases();
   }
 
-  /** 评测集列表 */
+  /** 评测集列表（评测读取权限） */
   @Get('eval-sets')
-  @RequirePermission('eval:run')
+  @RequirePermission('eval:read')
   listEvalSets() {
     return this.models.listEvalSets();
   }
@@ -55,24 +55,24 @@ export class ModelsController {
     return this.models.runEval(admin.adminId, id);
   }
 
-  /** 评测运行记录 */
+  /** 评测运行记录（评测读取权限） */
   @Get('releases/:id/eval-runs')
-  @RequirePermission('eval:run')
+  @RequirePermission('eval:read')
   listEvalRuns(@Param('id') id: string) {
     return this.models.listEvalRuns(id);
   }
 
-  /** 发布（候选 → 评测门禁 → 灰度 → 生效） */
+  /** 发布（候选 → 评测门禁 → 灰度 → 生效；双人确认） */
   @Post('releases/:id/publish')
   @RequirePermission('model:release')
-  publish(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
-    return this.models.publish(admin.adminId, id);
+  publish(@CurrentAdmin() admin: { adminId: string; permissions: string[] }, @Param('id') id: string) {
+    return this.models.publish(admin.adminId, id, admin.permissions);
   }
 
-  /** 回滚 */
+  /** 回滚（双人确认） */
   @Post('releases/:id/rollback')
   @RequirePermission('model:release')
-  rollback(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
-    return this.models.rollback(admin.adminId, id);
+  rollback(@CurrentAdmin() admin: { adminId: string; permissions: string[] }, @Param('id') id: string) {
+    return this.models.rollback(admin.adminId, id, admin.permissions);
   }
 }

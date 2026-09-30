@@ -34,7 +34,9 @@ describe('分析接口与功能开关', () => {
   });
 
   it('关闭个性化分析开关后，分析接口返回回退结果', async () => {
-    switches.set('个性化分析', false, '测试关闭', 'admin-tech');
+    // 技术负责人发起 + 临床确认 → 关闭
+    switches.set('个性化分析', false, '测试关闭', 'admin-tech', ['switch:write']);
+    switches.set('个性化分析', false, '测试关闭', 'admin-clinical', ['switch:confirm']);
     const login = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ phone: '13800000001', code: '123456' });
@@ -47,7 +49,9 @@ describe('分析接口与功能开关', () => {
     expect(res.body.data.fallback).toBe(true);
     expect(res.body.data.reason).toContain('个性化分析');
     expect(res.body.data.available).toContain('已审核资料');
-    switches.set('个性化分析', true, '测试恢复', 'admin-tech');
+    // 重新开启：技术发起 + 超管确认
+    switches.set('个性化分析', true, '测试恢复', 'admin-tech', ['switch:write']);
+    switches.set('个性化分析', true, '测试恢复', 'admin-super', ['switch:confirm']);
   });
 
   it('开关开启时提交分析返回 202 与任务 ID', async () => {

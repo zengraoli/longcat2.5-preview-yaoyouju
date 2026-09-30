@@ -13,10 +13,10 @@ import { AdminAuthService } from './admin-auth.service';
 
 export const REQUIRE_PERMISSION_KEY = 'require_permission';
 
-/** 要求后台账号具有指定权限（最小必要，不含完整病历） */
-export function RequirePermission(permission: string) {
+/** 要求后台账号具有指定权限（最小必要，不含完整病历）；传多个时任一即可 */
+export function RequirePermission(...permissions: string[]) {
   return applyDecorators(
-    SetMetadata(REQUIRE_PERMISSION_KEY, permission),
+    SetMetadata(REQUIRE_PERMISSION_KEY, permissions),
     UseGuards(AdminGuard),
   );
 }
@@ -35,11 +35,12 @@ export class AdminGuard implements CanActivate {
     if (!session) {
       throw new UnauthorizedException('未登录或会话已过期');
     }
-    const permission = this.reflector.getAllAndOverride<string>(REQUIRE_PERMISSION_KEY, [
+    const permission = this.reflector.getAllAndOverride<string | string[]>(REQUIRE_PERMISSION_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (permission && !session.permissions.includes(permission) && !session.permissions.includes('*')) {
+    const required = Array.isArray(permission) ? permission : permission ? [permission] : [];
+    if (required.length > 0 && !required.some((p) => session.permissions.includes(p))) {
       // 越权：已登录但无权限，返回 1003（区别于未登录的 1002）
       throw new ForbiddenException('无权限执行该操作');
     }

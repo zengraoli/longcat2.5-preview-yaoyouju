@@ -3,6 +3,7 @@ import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 import { AuthService, CONSENT_SCOPES, ConsentScope } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from './current-user.decorator';
+import { ERR } from '../../common/utils/business-exception';
 
 class SmsCodeDto {
   @Matches(/^1\d{10}$/, { message: '手机号格式不正确' })
@@ -26,9 +27,9 @@ class ConsentDto {
   @IsIn(CONSENT_SCOPES as unknown as string[])
   scope!: ConsentScope;
 
-  /** 只接受 true/false 字符串，避免 "abc" 等被当作撤回 */
-  @IsIn(['true', 'false'])
-  granted!: string;
+  /** 接受布尔或 true/false 字符串，避免 "abc" 等被当作撤回 */
+  @IsOptional()
+  granted?: boolean | string;
 }
 
 @Controller('auth')
@@ -68,6 +69,9 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @HttpCode(200)
   setConsent(@CurrentUser() user: { userId: string }, @Body() dto: ConsentDto) {
+    if (dto.granted === undefined) {
+      throw ERR.PARAM_INVALID('granted 必须是布尔值或 true/false 字符串');
+    }
     return this.auth.setConsent(user.userId, dto.scope, dto.granted);
   }
 
