@@ -19,7 +19,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.yaoyouju.app.AppGraph
+import com.yaoyouju.app.core.components.TabDestination
 import com.yaoyouju.app.core.design.AppColors
+import com.yaoyouju.app.feature.home.HomeRoute
+import com.yaoyouju.app.feature.login.LoginRoute
 
 /**
  * 单 Activity 的 Compose 导航图。
@@ -74,7 +77,31 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
         NavHost(navController = navController, startDestination = start) {
             val back: () -> Unit = { navController.popBackStack() }
 
-            composable(Routes.Login) { PlaceholderScreen(Routes.Login) }
+            fun routeOf(tab: TabDestination): String = when (tab) {
+                TabDestination.Home -> Routes.Home
+                TabDestination.Qa -> Routes.Qa
+                TabDestination.Timeline -> Routes.Timeline
+                TabDestination.Followup -> Routes.Summary
+                TabDestination.Mine -> Routes.Mine
+            }
+
+            val onSelectTab: (TabDestination) -> Unit = { tab ->
+                navController.navigate(routeOf(tab)) {
+                    popUpTo(Routes.Home) { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+
+            composable(Routes.Login) {
+                LoginRoute(
+                    onLoggedIn = {
+                        navController.navigate(Routes.Home) {
+                            popUpTo(Routes.Login) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
             composable(Routes.Confirm) { PlaceholderScreen(Routes.Confirm, back) }
             composable(Routes.RedFlag) { PlaceholderScreen(Routes.RedFlag, back) }
             composable(Routes.Confusion) { PlaceholderScreen(Routes.Confusion, back) }
@@ -88,9 +115,20 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
             composable(Routes.Qa) { PlaceholderScreen(Routes.Qa) }
             composable(Routes.Timeline) { PlaceholderScreen(Routes.Timeline) }
             composable(Routes.Record) { PlaceholderScreen(Routes.Record, back) }
-            composable(Routes.Summary) { PlaceholderScreen(Routes.Summary, back) }
+            composable(Routes.Summary) { PlaceholderScreen(Routes.Summary) }
             composable(Routes.Contents) { PlaceholderScreen(Routes.Contents, back) }
-            composable(Routes.Home) { PlaceholderScreen(Routes.Home) }
+            composable(Routes.Home) {
+                HomeRoute(
+                    onSelectTab = onSelectTab,
+                    onConfirm = { navController.navigate(Routes.Confirm) },
+                    onRecord = { navController.navigate(Routes.Record) },
+                    onReport = { navController.navigate(Routes.Report) },
+                    onQa = { onSelectTab(TabDestination.Qa) },
+                    onSummary = { navController.navigate(Routes.Summary) },
+                    onAnalysis = { id -> navController.navigate(Routes.analysis(id)) },
+                    onContentDetail = { id -> navController.navigate(Routes.content(id)) },
+                )
+            }
             composable(
                 route = "${Routes.ContentDetail}?${Routes.ContentArg}={${Routes.ContentArg}}",
                 arguments = listOf(navArgument(Routes.ContentArg) { type = NavType.StringType; defaultValue = "" }),
