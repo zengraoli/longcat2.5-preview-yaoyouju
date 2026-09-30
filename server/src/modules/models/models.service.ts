@@ -28,6 +28,7 @@ export interface EvalRunView {
   evalSetName: string;
   metrics: Record<string, unknown> | null;
   result: string | null;
+  trigger?: string | null;
   createdAt: string;
 }
 
@@ -85,23 +86,34 @@ export class ModelsService {
 
   /** 评测集的运行记录 */
   listEvalSetRuns(evalSetId: string) {
-    return this.appDb
+    const rows = this.appDb
       .prepare(
-        `SELECT r.id, r.model_release_id AS modelReleaseId, r.result, r.metrics, r.created_at AS createdAt
+        `SELECT r.id, r.model_release_id AS modelReleaseId, r.result, r.metrics, r.trigger, r.created_at AS createdAt
          FROM EVAL_RUN r WHERE r.eval_set_id = ? ORDER BY r.created_at DESC, r.rowid DESC LIMIT 20`,
       )
-      .all(evalSetId) as Array<{ id: string; modelReleaseId: string; result: string; metrics: string; createdAt: string }>;
+      .all(evalSetId) as Array<{ id: string; modelReleaseId: string; result: string; metrics: string; trigger: string | null; createdAt: string }>;
+    return rows.map((r) => ({ ...r, metrics: this.parseMetrics(r.metrics) }));
   }
 
-  /** 全部运行记录（最近） */
+  /** 全部运行记录（最近，含触发原因与解析后的指标） */
   listAllEvalRuns() {
-    return this.appDb
+    const rows = this.appDb
       .prepare(
-        `SELECT r.id, r.model_release_id AS modelReleaseId, s.name AS evalSetName, r.result, r.metrics, r.created_at AS createdAt
+        `SELECT r.id, r.model_release_id AS modelReleaseId, s.name AS evalSetName, r.result, r.metrics, r.trigger, r.created_at AS createdAt
          FROM EVAL_RUN r JOIN EVAL_SET s ON s.id = r.eval_set_id
          ORDER BY r.created_at DESC, r.rowid DESC LIMIT 20`,
       )
-      .all() as Array<{ id: string; modelReleaseId: string; evalSetName: string; result: string; metrics: string; createdAt: string }>;
+      .all() as Array<{ id: string; modelReleaseId: string; evalSetName: string; result: string; metrics: string; trigger: string | null; createdAt: string }>;
+    return rows.map((r) => ({ ...r, metrics: this.parseMetrics(r.metrics) }));
+  }
+
+  private parseMetrics(metrics: string | null): { 用例数?: number; 通过数?: number; 通过率?: number } {
+    if (!metrics) return {};
+    try {
+      return JSON.parse(metrics);
+    } catch {
+      return {};
+    }
   }
 
   /** 导入用例（去标识化，每行一条“输入 | 期望”） */
@@ -162,14 +174,14 @@ export class ModelsService {
       )
       .get(row.evalSetId) as { modelReleaseId: string } | undefined;
     if (run) {
-      this.runEval(actorId, run.modelReleaseId);
+      this.runEval(actorId, run.modelReleaseId, '标记已修复并重跑');
     }
     this.audit.record({ actorId, action: 'model:eval-case-fix', target: caseId });
     return { id: caseId, fixed: true };
   }
 
-  /** 运行评测（本地模拟实现）：对每个评测集生成指标与结果 */
-  runEval(actorId: string, releaseId: string): EvalRunView[] {
+  /** 运行评测（本地模拟实现）：对每个评测集生成指标与结果；trigger 为触发原因 */
+  runEval(actorId: string, releaseId: string, trigger = '手动运行'): EvalRunView[] {
     const release = this.appDb
       .prepare('SELECT id, prompt_version AS promptVersion, retrieval_strategy AS retrievalStrategy FROM MODEL_RELEASE WHERE id = ?')
       .get(releaseId) as { id: string; promptVersion: string; retrievalStrategy: string } | undefined;
@@ -181,13 +193,15 @@ export class ModelsService {
     for (const set of evalSets) {
       // 本地模拟：根据发布组合的提示词与检索策略生成确定性指标（演示用，不调用外部服务）
       const passRate = this.mockPassRate(release.promptVersion, release.retrievalStrategy, set.name);
-      const passed = passRate >= 0.8;
       const failedCases = this.appDb
         .prepare("SELECT case_key AS caseKey, input, expected, actual FROM EVAL_CASE WHERE eval_set_id = ? AND result = '不通过'")
         .all(set.id) as Array<{ caseKey: string; input: string; expected: string; actual: string }>;
+      // 结果判定：通过率达标且评测集内没有未修复的不通过用例才算通过
+      const passed = passRate >= 0.8 && failedCases.length === 0;
+      const caseCount = 12;
       const metrics = {
-        用例数: 12,
-        通过数: Math.round(12 * passRate),
+        用例数: caseCount,
+        通过数: Math.round(caseCount * passRate),
         通过率: passRate,
         失败用例: failedCases.map((c) => ({ 用例: c.caseKey, 输入: c.input, 期望: c.expected, 实际: c.actual, 判定: '不通过' })),
       };
@@ -195,10 +209,10 @@ export class ModelsService {
       const id = crypto.randomUUID();
       this.appDb
         .prepare(
-          `INSERT INTO EVAL_RUN (id, model_release_id, eval_set_id, metrics, result, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO EVAL_RUN (id, model_release_id, eval_set_id, metrics, result, trigger, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(id, releaseId, set.id, JSON.stringify(metrics), result, new Date().toISOString());
+        .run(id, releaseId, set.id, JSON.stringify(metrics), result, trigger, new Date().toISOString());
       runs.push({
         id,
         modelReleaseId: releaseId,
@@ -206,6 +220,7 @@ export class ModelsService {
         evalSetName: set.name,
         metrics,
         result,
+        trigger,
         createdAt: new Date().toISOString(),
       });
     }
@@ -214,14 +229,15 @@ export class ModelsService {
   }
 
   listEvalRuns(releaseId: string): EvalRunView[] {
-    return this.appDb
+    const rows = this.appDb
       .prepare(
         `SELECT r.id, r.model_release_id AS modelReleaseId, r.eval_set_id AS evalSetId,
-                s.name AS evalSetName, r.metrics, r.result, r.created_at AS createdAt
+                s.name AS evalSetName, r.metrics, r.result, r.trigger, r.created_at AS createdAt
          FROM EVAL_RUN r JOIN EVAL_SET s ON s.id = r.eval_set_id
          WHERE r.model_release_id = ? ORDER BY r.created_at DESC, r.rowid DESC`,
       )
-      .all(releaseId) as EvalRunView[];
+      .all(releaseId) as Array<{ id: string; modelReleaseId: string; evalSetId: string; evalSetName: string; metrics: string; result: string; trigger: string | null; createdAt: string }>;
+    return rows.map((r) => ({ ...r, metrics: this.parseMetrics(r.metrics) }));
   }
 
   /** 发布流程：候选 → 评测门禁 → 灰度 → 生效；需双人确认（技术负责人发起，超管确认） */
@@ -256,6 +272,10 @@ export class ModelsService {
       if (!permissions.includes('model:release')) {
         throw new ForbiddenException('无权限发起模型发布');
       }
+      // 发起时把旧的未消费发起记录标记为已消费
+      this.appDb
+        .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型发布-发起' AND consumed = 0")
+        .run(releaseId);
       this.appDb
         .prepare(
           `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
@@ -271,6 +291,10 @@ export class ModelsService {
     if (!permissions.includes('model:confirm')) {
       throw new ForbiddenException('无权限确认模型发布');
     }
+    // 消费发起记录
+    this.appDb
+      .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型发布-发起' AND consumed = 0")
+      .run(releaseId);
     // 超管确认 → 灰度 → 生效；停用其他生效版本
     this.appDb
       .prepare("UPDATE MODEL_RELEASE SET status = '灰度' WHERE id = ?")
@@ -294,14 +318,20 @@ export class ModelsService {
   /** 回滚：当前版本标记已回滚，恢复上一个“已通过全部评测”的版本为生效（需双人确认） */
   rollback(actorId: string, releaseId: string, permissions: string[] = []) {
     const release = this.appDb
-      .prepare('SELECT id FROM MODEL_RELEASE WHERE id = ?')
-      .get(releaseId) as { id: string } | undefined;
+      .prepare('SELECT id, status FROM MODEL_RELEASE WHERE id = ?')
+      .get(releaseId) as { id: string; status: string } | undefined;
     if (!release) throw new NotFoundException('发布组合不存在');
-    // 找上一个可回滚的版本：排除未评测的候选（候选从未生效，不应被回滚激活）
+    // 候选（从未评测/从未生效）不允许回滚
+    if (release.status === '候选') {
+      throw new ConflictException('候选发布组合未通过评测，不能回滚');
+    }
+    // 找上一个可回滚的版本：必须已通过全部评测（有评测记录且全部通过），且不是候选
     const prev = this.appDb
       .prepare(
         `SELECT mr.id FROM MODEL_RELEASE mr
-         WHERE mr.id != ? AND mr.status != '候选'
+         WHERE mr.id != ? AND mr.status != '候选' AND mr.status != '已回滚'
+           AND EXISTS (SELECT 1 FROM EVAL_RUN r WHERE r.model_release_id = mr.id)
+           AND NOT EXISTS (SELECT 1 FROM EVAL_RUN r WHERE r.model_release_id = mr.id AND r.result != '通过')
          ORDER BY mr.created_at DESC LIMIT 1`,
       )
       .get(releaseId) as { id: string } | undefined;
@@ -312,7 +342,7 @@ export class ModelsService {
     const pending = this.appDb
       .prepare(
         `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
-         WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型回滚-发起'
+         WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型回滚-发起' AND consumed = 0
          ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
       )
       .get(releaseId) as { reviewerId: string } | undefined;
@@ -320,6 +350,10 @@ export class ModelsService {
       if (!permissions.includes('model:release')) {
         throw new ForbiddenException('无权限发起模型回滚');
       }
+      // 发起时把旧的未消费发起记录标记为已消费
+      this.appDb
+        .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型回滚-发起' AND consumed = 0")
+        .run(releaseId);
       this.appDb
         .prepare(
           `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
@@ -335,8 +369,14 @@ export class ModelsService {
     if (!permissions.includes('model:confirm')) {
       throw new ForbiddenException('无权限确认模型回滚');
     }
+    // 消费发起记录
+    this.appDb
+      .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型回滚-发起' AND consumed = 0")
+      .run(releaseId);
     const tx = this.appDb.transaction(() => {
       this.appDb.prepare("UPDATE MODEL_RELEASE SET status = '已回滚' WHERE id = ?").run(releaseId);
+      // 恢复上一个已通过评测的版本为生效；同时停用其他生效版本，保证只有一个生效
+      this.appDb.prepare("UPDATE MODEL_RELEASE SET status = '已归档' WHERE id != ? AND id != ? AND status = '生效'").run(releaseId, prev.id);
       this.appDb.prepare("UPDATE MODEL_RELEASE SET status = '生效' WHERE id = ?").run(prev.id);
     });
     tx();

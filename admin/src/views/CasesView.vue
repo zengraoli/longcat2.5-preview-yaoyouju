@@ -54,24 +54,24 @@
                 <StatusTag label="待人工判断" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon risk-item__icon--error">⚠</span>
+                <span class="risk-item__icon" :class="riskIcon('thirdParty')">⚠</span>
                 <span class="risk-item__text">是否包含第三方（医生、家人、病友）可识别信息</span>
-                <StatusTag label="见右侧对照" tone="error" />
+                <StatusTag :label="riskStatus('thirdParty')" :tone="riskTone('thirdParty')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon risk-item__icon--ok">✓</span>
+                <span class="risk-item__icon" :class="riskIcon('orgInfo')">✓</span>
                 <span class="risk-item__text">是否包含具体机构名称、地址、联系方式</span>
-                <StatusTag label="已清除" />
+                <StatusTag :label="riskStatus('orgInfo')" :tone="riskTone('orgInfo')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon risk-item__icon--ok">✓</span>
+                <span class="risk-item__icon" :class="riskIcon('image')">✓</span>
                 <span class="risk-item__text">是否包含影像 / 报告截图</span>
-                <StatusTag label="无" />
+                <StatusTag :label="riskStatus('image')" :tone="riskTone('image')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon risk-item__icon--ok">✓</span>
+                <span class="risk-item__icon" :class="riskIcon('outcome')">✓</span>
                 <span class="risk-item__text">结局是否为“未知 / 失访”并如实标注</span>
-                <StatusTag label="已标注" />
+                <StatusTag :label="riskStatus('outcome')" :tone="riskTone('outcome')" />
               </div>
               <div class="risk-item">
                 <span class="risk-item__icon risk-item__icon--ok">✓</span>
@@ -86,7 +86,7 @@
         <div class="cases__side">
           <div v-if="selected" class="card">
             <div class="card__header">
-              <div class="card__title">{{ selected.id }} · 第三方信息去除</div>
+              <div class="card__title">{{ selected.shortId }} · 第三方信息去除</div>
               <StatusTag :label="selected.status" />
             </div>
             <div class="detail-section">
@@ -99,17 +99,9 @@
             </div>
             <div class="detail-section">
               <div class="detail-section__label">授权范围（用户单独勾选）</div>
-              <div class="consent-item">
-                <span class="consent-item__check consent-item__check--ok">✓</span>
-                <span>发表为匿名案例卡片</span>
-              </div>
-              <div class="consent-item">
-                <span class="consent-item__check consent-item__check--ok">✓</span>
-                <span>用于产品改进（解释缺口分析）</span>
-              </div>
-              <div class="consent-item">
-                <span class="consent-item__check consent-item__check--none">✕</span>
-                <span class="consent-item__muted">用于模型训练</span>
+              <div v-for="(label, key) in consentItems" :key="key" class="consent-item">
+                <span class="consent-item__check" :class="hasConsent(key) ? 'consent-item__check--ok' : 'consent-item__check--none'">{{ hasConsent(key) ? '✓' : '✕' }}</span>
+                <span :class="{ 'consent-item__muted': !hasConsent(key) }">{{ label }}</span>
               </div>
             </div>
             <div class="detail-actions">
@@ -137,6 +129,7 @@ import { reviewCase } from '@/api';
 
 interface CaseRow {
   id: string;
+  shortId: string;
   summary: string;
   scope: string;
   status: string;
@@ -152,6 +145,49 @@ const stats = computed(() => ({
   published: cases.value.filter((c) => c.status === '已发布').length,
   withdrawn: cases.value.filter((c) => c.status === '已撤回').length,
 }));
+
+const consentItems: Record<string, string> = {
+  publish: '发表为匿名案例卡片',
+  improve: '用于产品改进（解释缺口分析）',
+  train: '用于模型训练',
+};
+
+/** 投稿实际勾选的授权范围（consentScope 为顿号/逗号分隔的中文键） */
+function hasConsent(key: string): boolean {
+  const scope = selected.value?.scope ?? '';
+  const map: Record<string, string[]> = {
+    publish: ['发表', 'publish'],
+    improve: ['产品改进', 'improve'],
+    train: ['训练', 'train'],
+  };
+  return (map[key] ?? []).some((k) => scope.includes(k));
+}
+
+/** 风险检查：根据投稿实际内容动态判断 */
+function riskIcon(kind: string): string {
+  const r = riskStatus(kind);
+  return r === '已清除' || r === '无' || r === '已标注' ? 'risk-item__icon--ok' : 'risk-item__icon--error';
+}
+function riskTone(kind: string): 'ok' | 'error' {
+  const r = riskStatus(kind);
+  return r === '已清除' || r === '无' || r === '已标注' ? 'ok' : 'error';
+}
+function riskStatus(kind: string): string {
+  const text = selected.value?.editedContent ?? '';
+  if (kind === 'thirdParty') {
+    return /(李某某|张某某|王某某|医生|家属|病友|家人)/.test(text) ? '待清除' : '已清除';
+  }
+  if (kind === 'orgInfo') {
+    return /(市第.*医院|省人民医院|县医院|地址|电话|路\d+号)/.test(text) ? '待清除' : '已清除';
+  }
+  if (kind === 'image') {
+    return /(截图|影像|报告图片|CT片|MRI片)/.test(text) ? '待清除' : '无';
+  }
+  if (kind === 'outcome') {
+    return /(失访|未知|结局不明)/.test(text) ? '已标注' : '未涉及';
+  }
+  return '—';
+}
 
 /** 生成去标识化的编辑建议（去除可能的第三方称谓与机构名） */
 function makeSuggestion(content: string): string {
@@ -175,7 +211,8 @@ async function load() {
   try {
     const items = await api.get<Array<{ id: string; editedContent: string; consentScope: string; status: string }>>('/admin/cases');
     cases.value = items.map((item) => ({
-      id: item.id.slice(0, 8),
+      id: item.id,
+      shortId: item.id.slice(0, 8),
       summary: item.editedContent.slice(0, 40) + (item.editedContent.length > 40 ? '…' : ''),
       scope: item.consentScope || '—',
       status: item.status,

@@ -141,7 +141,7 @@ export function handleFeedback(id: string, action: string, resolution: string) {
 
 /* ---------- 安全 ---------- */
 export function listSafetyEvents() {
-  return api.get<SafetyEvent[]>('/admin/dashboard');
+  return api.get<SafetyEvent[]>('/admin/safety-events');
 }
 
 /* ---------- 开关 ---------- */

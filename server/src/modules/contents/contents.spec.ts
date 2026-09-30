@@ -110,7 +110,11 @@ describe('内容库与审核流程', () => {
     contents.offline(actor2, item.id, ['content:offline']);
     contents.offline('admin-super', item.id, ['content:offline']);
     expect(contents.listPublished().length).toBe(5);
-    contents.restore('admin-super', item.id, ['content:offline']);
+    // 取消下线也需双人确认：发起 → 确认后用户端重新可见
+    const restoreInit = contents.restore('admin-super', item.id, ['content:offline']) as unknown as { pending: string };
+    expect(restoreInit.pending).toBe('待第二人确认');
+    expect(contents.listPublished().length).toBe(5);
+    contents.restore(actor2, item.id, ['content:offline']);
     expect(contents.listPublished().length).toBe(6);
   });
 

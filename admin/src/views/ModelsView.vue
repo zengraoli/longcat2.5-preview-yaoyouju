@@ -193,7 +193,8 @@ async function onRunEval(r: Release) {
 async function onPublish(r: Release) {
   try {
     const result = await publishRelease(r.id);
-    toast(result.status === '已发布' ? '已发布（双人确认完成）' : '已发起，待超管确认');
+    // 服务端确认后返回“生效”，按实际状态提示
+    toast(result.status === '生效' ? '已生效（双人确认完成）' : '已发起，待超管确认');
     await load();
   } catch (e) {
     toast((e as Error).message);

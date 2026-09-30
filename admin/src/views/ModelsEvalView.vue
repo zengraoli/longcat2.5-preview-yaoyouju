@@ -98,7 +98,7 @@
             </div>
             <div v-for="(c, i) in failedCases" :key="i" class="failed-case">
               <div class="failed-case__header">
-                <span class="failed-case__id">{{ c.caseId }}</span>
+                <span class="failed-case__id">{{ c.caseKey }}</span>
                 <span class="failed-case__tag">自动比对 + 人工复核</span>
               </div>
               <div class="failed-case__rows">
@@ -181,6 +181,7 @@ interface RunRecord {
 
 interface FailedCase {
   caseId: string;
+  caseKey: string;
   input: string;
   expected: string;
   actual: string;
@@ -304,19 +305,19 @@ async function load() {
 
 async function loadRunRecords() {
   try {
-    const records = await api.get<Array<{ id: string; modelReleaseId: string; evalSetName: string; result: string; createdAt: string; metrics: { 通过率?: number; 用例数?: number } }>>(
+    const records = await api.get<Array<{ id: string; modelReleaseId: string; evalSetName: string; result: string; createdAt: string; trigger: string | null; metrics: { 通过率?: number; 用例数?: number; 通过数?: number } }>>(
       '/models/eval-runs',
     );
     runRecords.value = records.slice(0, 10).map((r) => {
       const metrics = r.metrics ?? {};
       const total = metrics.用例数 ?? 0;
-      const rate = metrics.通过率 ?? 0;
+      const passedCount = metrics.通过数 ?? 0;
       return {
-        id: r.id.slice(0, 8),
+        id: r.id,
         release: r.modelReleaseId,
         result: r.result,
-        passed: `${Math.round(total * rate)} / ${total}`,
-        reason: '发布前门禁',
+        passed: `${passedCount} / ${total}`,
+        reason: r.trigger ?? '手动运行',
         time: r.createdAt.slice(5, 16).replace('T', ' '),
       };
     });
@@ -331,10 +332,10 @@ async function loadFailedCases() {
     return;
   }
   try {
-    const cases = await api.get<Array<{ caseKey: string; input: string; expected: string; actual: string }>>(
+    const cases = await api.get<Array<{ id: string; caseKey: string; input: string; expected: string; actual: string }>>(
       `/models/eval-sets/${selectedSet.value.id}/cases?result=不通过`,
     );
-    failedCases.value = cases.map((c) => ({ caseId: c.caseKey, input: c.input, expected: c.expected, actual: c.actual, showOutput: false }));
+    failedCases.value = cases.map((c) => ({ caseId: c.id, caseKey: c.caseKey, input: c.input, expected: c.expected, actual: c.actual, showOutput: false }));
   } catch {
     failedCases.value = [];
   }

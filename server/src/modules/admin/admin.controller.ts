@@ -8,7 +8,7 @@ import { AdminAuthService } from './admin-auth.service';
 import { AdminGuard, RequirePermission } from './admin.guard';
 import { AuditService } from '../audit/audit.service';
 import { FeedbackService } from '../feedback/feedback.service';
-import { CurrentAdmin } from './current-admin.decorator';
+import { CurrentAdmin, CurrentAdminInfo } from './current-admin.decorator';
 
 class LoginDto {
   @IsString()
@@ -134,10 +134,16 @@ export class AdminController {
   @UseGuards(AdminGuard)
   @RequirePermission('user:read:authorized')
   createAuthorization(@CurrentAdmin() admin: { adminId: string }, @Body() dto: AuthorizationDto) {
-    // 校验目标对象存在（如 feedback:no-such-id 应被拒绝）
+    // 校验 targetType 合法且目标对象存在（feedback 小写、USER 配不存在的 id 都应拒绝）
+    if (dto.targetType !== 'FEEDBACK' && dto.targetType !== 'USER') {
+      throw new BadRequestException('targetType 只能是 FEEDBACK 或 USER');
+    }
     if (dto.targetType === 'FEEDBACK') {
       const row = this.appDb.prepare('SELECT id FROM FEEDBACK WHERE id = ?').get(dto.targetId) as { id: string } | undefined;
       if (!row) throw ERR.NOT_FOUND('反馈不存在');
+    } else {
+      const row = this.appDb.prepare('SELECT id FROM USER WHERE id = ?').get(dto.targetId) as { id: string } | undefined;
+      if (!row) throw ERR.NOT_FOUND('用户不存在');
     }
     const id = crypto.randomUUID();
     this.appDb
@@ -155,13 +161,13 @@ export class AdminController {
     return { id, authorized: true };
   }
 
-  /** 反馈与举报列表（管理端；未授权时原文脱敏） */
+  /** 反馈与举报列表（管理端；未授权时原文脱敏；运营初筛 / 临床复核 / 超管可读） */
   @Get('feedback')
   @UseGuards(AdminGuard)
-  @RequirePermission('feedback:triage')
-  listFeedback(@CurrentAdmin() admin: { adminId: string }) {
+  @RequirePermission('feedback:triage', 'feedback:review')
+  listFeedback(@CurrentAdmin() admin: CurrentAdminInfo) {
     this.audit.record({ actorId: admin.adminId, action: 'admin:feedback-view', target: 'feedback' });
-    return this.feedback.listForAdmin(admin.adminId);
+    return this.feedback.listForAdmin(admin.adminId, admin.permissions);
   }
 
   /** 角色列表（供成员角色选择） */
@@ -172,11 +178,12 @@ export class AdminController {
     return this.appDb.prepare('SELECT id, name FROM ROLE ORDER BY rowid ASC').all();
   }
 
-  /** 后台成员列表（需 member:read 权限） */
+  /** 后台成员列表（需 member:read 权限，读取写审计） */
   @Get('users')
   @UseGuards(AdminGuard)
   @RequirePermission('member:read')
-  listUsers(@CurrentAdmin() _admin: unknown) {
+  listUsers(@CurrentAdmin() admin: { adminId: string }) {
+    this.audit.record({ actorId: admin.adminId, action: 'admin:member-view', target: 'users' });
     return this.appDb
       .prepare(
         `SELECT u.id, u.name, u.email, u.role_id AS roleId, r.name AS roleName,
@@ -186,11 +193,12 @@ export class AdminController {
       .all();
   }
 
-  /** 单条授权记录列表 */
+  /** 单条授权记录列表（读取写审计） */
   @Get('authorizations')
   @UseGuards(AdminGuard)
   @RequirePermission('audit:read')
-  listAuthorizations(@CurrentAdmin() _admin: unknown) {
+  listAuthorizations(@CurrentAdmin() admin: { adminId: string }) {
+    this.audit.record({ actorId: admin.adminId, action: 'admin:authorization-view', target: 'authorizations' });
     return this.appDb
       .prepare(
         `SELECT a.id, a.admin_id AS adminId, au.name AS adminName, a.target_type AS targetType,
@@ -201,10 +209,10 @@ export class AdminController {
       .all();
   }
 
-  /** 停用 / 启用后台账号（不能停用自己，不能停用最后一个超管） */
+  /** 停用 / 启用后台账号（需 member:write，不能停用自己，不能停用最后一个超管） */
   @Post('users/:id/status')
   @UseGuards(AdminGuard)
-  @RequirePermission('member:read')
+  @RequirePermission('member:write')
   setUserStatus(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { status: string }) {
     if (!['active', 'disabled'].includes(body.status)) {
       throw new BadRequestException('状态不合法');
@@ -232,10 +240,10 @@ export class AdminController {
     return { id, status: body.status };
   }
 
-  /** 修改后台账号角色（不能改自己的角色，不能把最后一个超管改成其他角色） */
+  /** 修改后台账号角色（需 member:write，不能改自己的角色，不能把最后一个超管改成其他角色） */
   @Post('users/:id/role')
   @UseGuards(AdminGuard)
-  @RequirePermission('member:read')
+  @RequirePermission('member:write')
   setUserRole(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { roleId: string }) {
     if (id === admin.adminId) {
       throw new BadRequestException('不能修改当前登录账号的角色');

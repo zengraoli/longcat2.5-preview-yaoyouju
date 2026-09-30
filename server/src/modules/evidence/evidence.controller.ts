@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentAdmin } from '../admin/current-admin.decorator';
+import { AuditService } from '../audit/audit.service';
 import { EvidenceService } from './evidence.service';
 
 class CreateDocDto {
@@ -32,7 +33,10 @@ class CreateDocDto {
 @Controller('evidence')
 @UseGuards(AdminGuard)
 export class EvidenceController {
-  constructor(private readonly evidence: EvidenceService) {}
+  constructor(
+    private readonly evidence: EvidenceService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** 证据文档列表 */
   @Get('docs')
@@ -62,10 +66,11 @@ export class EvidenceController {
     return this.evidence.create(admin.adminId, dto);
   }
 
-  /** 停用影响预览 */
+  /** 停用影响预览（读取写审计） */
   @Get('docs/:id/impact')
   @RequirePermission('evidence:review')
-  impact(@Param('id') id: string) {
+  impact(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    this.audit.record({ actorId: admin.adminId, action: 'admin:evidence-impact-view', target: id });
     return this.evidence.impactPreview(id);
   }
 

@@ -38,7 +38,13 @@ export const useAuthStore = defineStore('auth', () => {
     return result;
   }
 
-  function logout() {
+  async function logout() {
+    // 先通知服务端销毁会话（令牌立即失效），再清除本地状态
+    try {
+      await api.post('/admin/logout', {});
+    } catch {
+      // 服务端销毁失败也继续清除本地
+    }
     session.value = null;
     localStorage.removeItem(SESSION_KEY);
     setAdminToken(null);

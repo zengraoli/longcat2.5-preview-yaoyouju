@@ -4,15 +4,21 @@
       <div class="evidence__header">
         <h1 class="evidence__title">医学证据库</h1>
         <div class="evidence__search">
-          <input class="evidence__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
+          <input v-model="search" class="evidence__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
         </div>
       </div>
 
       <!-- 筛选 -->
       <div class="evidence__filters">
-        <select class="evidence__select"><option>来源类型：全部</option><option>指南</option><option>研究</option><option>审核科普</option></select>
-        <select class="evidence__select"><option>许可：全部</option><option>可引用</option><option>待确认</option></select>
-        <select class="evidence__select"><option>状态：全部</option><option>已核实</option><option>已停用</option></select>
+        <select v-model="typeFilter" class="evidence__select">
+          <option value="">来源类型：全部</option><option>指南</option><option>研究</option><option>审核科普</option>
+        </select>
+        <select v-model="licenseFilter" class="evidence__select">
+          <option value="">许可：全部</option><option>可引用</option><option>待确认</option>
+        </select>
+        <select v-model="statusFilter" class="evidence__select">
+          <option value="">状态：全部</option><option value="active">已核实</option><option value="inactive">已停用</option>
+        </select>
         <div class="evidence__filter-actions">
           <button class="btn btn--secondary" @click="onCreate">＋ 新建证据条目</button>
         </div>
@@ -35,7 +41,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="doc in docs" :key="doc.id">
+              <tr v-for="doc in filteredDocs" :key="doc.id">
                 <td class="table__id">{{ doc.id }}</td>
                 <td class="table__title">{{ doc.title }}<span class="table__source">（{{ doc.chunkCount }} 片段）</span></td>
                 <td>{{ doc.sourceType }}</td>
@@ -100,7 +106,25 @@ import { listEvidence, createEvidence, deactivateEvidence, getEvidenceImpact, ge
 import type { EvidenceDoc } from '@/api/types';
 
 const docs = ref<Array<EvidenceDoc>>([]);
+const search = ref('');
+const typeFilter = ref('');
+const licenseFilter = ref('');
+const statusFilter = ref('');
 const selected = ref<EvidenceDoc | null>(null);
+
+/** 搜索与筛选（来源类型 / 许可 / 状态） */
+const filteredDocs = computed(() => {
+  let list = docs.value;
+  if (typeFilter.value) list = list.filter((d) => d.sourceType === typeFilter.value);
+  if (licenseFilter.value) list = list.filter((d) => (d.license ?? '') === licenseFilter.value);
+  if (statusFilter.value === 'active') list = list.filter((d) => d.active);
+  if (statusFilter.value === 'inactive') list = list.filter((d) => !d.active);
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase();
+    list = list.filter((d) => d.title.toLowerCase().includes(q) || d.id.toLowerCase().includes(q));
+  }
+  return list;
+});
 const impact = ref<{ analyses: Array<{ analysisId: string; episodeId: string }>; contents: Array<{ itemId: string; title: string }> } | null>(null);
 const pipeline = ref<Array<{ docId: string; title: string; status: string; chunkCount: number }>>([]);
 

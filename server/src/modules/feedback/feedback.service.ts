@@ -84,9 +84,9 @@ export class FeedbackService {
       .all(userId);
   }
 
-  /** 管理端：全部反馈（含严重度与处理状态；未授权时原文脱敏） */
+  /** 管理端：全部反馈（含严重度、处理状态与四类版本；未授权时原文脱敏） */
   list() {
-    return this.appDb
+    const rows = this.appDb
       .prepare(
         `SELECT f.id, f.user_id AS userId, f.analysis_id AS analysisId, f.help_type AS helpType,
                 f.unsolved_question AS unsolvedQuestion, f.is_error_report AS isErrorReport, f.created_at AS createdAt,
@@ -94,11 +94,35 @@ export class FeedbackService {
          FROM FEEDBACK f LEFT JOIN FEEDBACK_REPORT r ON r.feedback_id = f.id
          ORDER BY f.created_at DESC, f.rowid DESC`,
       )
-      .all();
+      .all() as Array<{
+      id: string;
+      userId: string;
+      analysisId: string | null;
+      helpType: string | null;
+      unsolvedQuestion: string | null;
+      isErrorReport: number;
+      createdAt: string;
+      severity: string | null;
+      status: string | null;
+      resolution: string | null;
+      authorized: number | null;
+      problemTypes: string | null;
+    }>;
+    // 附带四类版本（分析 / 模型 / 内容库 / 规则集）
+    return rows.map((row) => {
+      const versions = row.analysisId ? this.getVersions(row.analysisId) : null;
+      return {
+        ...row,
+        analysisVersion: versions?.analysisVersion ?? null,
+        modelVersion: versions?.modelVersion ?? null,
+        contentVersion: versions?.contentVersion ?? null,
+        rulesetVersion: versions?.rulesetVersion ?? null,
+      };
+    });
   }
 
   /** 管理端列表（按管理员是否已授权返回原文；未授权时脱敏） */
-  listForAdmin(adminId: string) {
+  listForAdmin(adminId: string, permissions: string[] = []) {
     const rows = this.list() as Array<{
       id: string;
       userId: string;
@@ -113,8 +137,10 @@ export class FeedbackService {
       authorized: number | null;
       problemTypes: string | null;
     }>;
+    // 拥有 user:read:authorized 权限的角色（临床/超管）默认可看原文；其他角色需单条授权
+    const canReadPlain = permissions.includes('user:read:authorized');
     return rows.map((row) => {
-      const authorized = this.isAuthorized(row.id, row.authorized);
+      const authorized = canReadPlain || this.isAuthorized(row.id, row.authorized, adminId);
       return {
         ...row,
         authorized,
@@ -123,13 +149,27 @@ export class FeedbackService {
     });
   }
 
-  /** 是否已授权查看该反馈原文（用户勾选或后台单条授权） */
-  isAuthorized(feedbackId: string, reportAuthorized: number | null): boolean {
+  /**
+   * 是否已授权查看该反馈原文（用户勾选或后台单条授权）。
+   * 单条授权区分人：只有授权人本人（或授权未过期/未撤回）才能看原文。
+   */
+  isAuthorized(feedbackId: string, reportAuthorized: number | null, adminId?: string): boolean {
     if (reportAuthorized) return true;
+    if (!adminId) return false;
     const row = this.appDb
-      .prepare('SELECT id FROM ADMIN_AUTHORIZATION WHERE target_type = ? AND target_id = ?')
-      .get('FEEDBACK', feedbackId) as { id: string } | undefined;
-    return !!row;
+      .prepare(
+        `SELECT id, admin_id AS adminId, expires_at AS expiresAt, revoked_at AS revokedAt
+         FROM ADMIN_AUTHORIZATION
+         WHERE target_type = 'FEEDBACK' AND target_id = ? AND admin_id = ?
+         ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+      )
+      .get(feedbackId, adminId) as
+      | { id: string; adminId: string; expiresAt: string | null; revokedAt: string | null }
+      | undefined;
+    if (!row) return false;
+    if (row.revokedAt) return false;
+    if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) return false;
+    return true;
   }
 
   /** 详情（含四类版本）；用户只能看自己的 */
@@ -191,19 +231,21 @@ export class FeedbackService {
     };
   }
 
-  /** 单条授权查看用户原始内容（仅管理端）：写入授权表并记审计，授权约束后续读取 */
+  /** 单条授权查看用户原始内容（仅管理端）：写入授权表（默认 7 天有效）并记审计 */
   authorize(actorId: string, id: string) {
     const row = this.appDb
       .prepare('SELECT id, is_error_report AS isErrorReport FROM FEEDBACK WHERE id = ?')
       .get(id) as { id: string; isErrorReport: number } | undefined;
     if (!row) throw ERR.NOT_FOUND('反馈不存在');
-    // 写入单条授权表（每次授权写审计）
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+    // 写入单条授权表（每次授权写审计，授权 7 天有效）
     this.appDb
       .prepare(
-        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, created_at)
-         VALUES (?, ?, 'FEEDBACK', ?, '单条授权查看反馈原文', ?)`,
+        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, created_at, expires_at)
+         VALUES (?, ?, 'FEEDBACK', ?, '单条授权查看反馈原文', ?, ?)`,
       )
-      .run(crypto.randomUUID(), actorId, id, new Date().toISOString());
+      .run(crypto.randomUUID(), actorId, id, now.toISOString(), expiresAt.toISOString());
     if (row.isErrorReport) {
       // 仅错误举报生成处理工单
       this.appDb
@@ -229,6 +271,11 @@ export class FeedbackService {
       this.audit.record({ actorId, action: 'feedback:handle', target: id, diff: input });
       return { id, status: '已记录', resolution: input.resolution, isErrorReport: false };
     }
+    // 只接受预定义的处置动作（任意动作名都返回 201 会被利用）
+    const ALLOWED_ACTIONS = ['回复用户', '转临床复核', '下线相关内容', '修订解释模板', '加入评测集'];
+    if (!ALLOWED_ACTIONS.includes(input.action)) {
+      throw ERR.PARAM_INVALID(`不支持的处置动作：${input.action}`);
+    }
     // 不同处置动作对应不同状态
     const statusMap: Record<string, string> = {
       '回复用户': '已处理',
@@ -238,6 +285,21 @@ export class FeedbackService {
       '加入评测集': '已处理',
     };
     const status = statusMap[input.action] ?? '已处理';
+    // 下线相关内容：把该分析引用的已发布内容全部下线（应急隐藏）
+    if (input.action === '下线相关内容') {
+      const analysis = this.appDb
+        .prepare('SELECT id, sections FROM ANALYSIS WHERE id = (SELECT analysis_id FROM FEEDBACK WHERE id = ?)')
+        .get(id) as { id: string; sections: string } | undefined;
+      if (analysis) {
+        const sections = JSON.parse(analysis.sections) as { 视频?: Array<{ contentId: string }> };
+        const contentIds = (sections.视频 ?? []).map((v) => v.contentId);
+        for (const contentId of contentIds) {
+          this.appDb
+            .prepare("UPDATE CONTENT_ITEM SET offline_switch = 1 WHERE id = ? AND current_status = '已发布'")
+            .run(contentId);
+        }
+      }
+    }
     // 加入评测集：把举报内容作为去标识化用例加入“关键遗漏”评测集
     if (input.action === '加入评测集') {
       const description = this.appDb
@@ -267,6 +329,19 @@ export class FeedbackService {
       .run(id, status, input.resolution);
     this.audit.record({ actorId, action: 'feedback:handle', target: id, diff: input });
     return { id, status, resolution: input.resolution, isErrorReport: true };
+  }
+
+  /** 撤回单条授权（仅授权人本人可撤回，撤回后不能再查看原文） */
+  revokeAuthorization(actorId: string, id: string) {
+    const row = this.appDb
+      .prepare('SELECT id, admin_id AS adminId FROM ADMIN_AUTHORIZATION WHERE target_type = ? AND target_id = ? AND admin_id = ?')
+      .get('FEEDBACK', id, actorId) as { id: string; adminId: string } | undefined;
+    if (!row) throw ERR.NOT_FOUND('授权记录不存在');
+    this.appDb
+      .prepare('UPDATE ADMIN_AUTHORIZATION SET revoked_at = ? WHERE id = ?')
+      .run(new Date().toISOString(), row.id);
+    this.audit.record({ actorId, action: 'feedback:authorize-revoke', target: id });
+    return { id, revoked: true };
   }
 
   /** 校验分析属于当前用户 */

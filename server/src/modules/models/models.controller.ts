@@ -109,7 +109,7 @@ export class ModelsController {
   @Post('releases/:id/eval')
   @RequirePermission('eval:run')
   runEval(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
-    return this.models.runEval(admin.adminId, id);
+    return this.models.runEval(admin.adminId, id, '手动运行');
   }
 
   /** 评测运行记录（评测读取权限） */

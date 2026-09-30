@@ -60,7 +60,7 @@
                   :class="{ 'table__row--active': selected?.id === ticket.id }"
                   @click="selected = ticket"
                 >
-                  <td class="table__id">{{ ticket.id }}</td>
+                  <td class="table__id">{{ ticket.shortId }}</td>
                   <td>
                     <div class="table__title">{{ ticket.type }}</div>
                     <div class="table__sub">{{ ticket.content }} · {{ ticket.versions }} · {{ ticket.user }}</div>
@@ -85,7 +85,7 @@
         <div class="feedback__side">
           <div v-if="selected" class="card">
             <div class="card__header">
-              <div class="card__title">{{ selected.id }} · {{ selected.type }}</div>
+              <div class="card__title">{{ selected.shortId }} · {{ selected.type }}</div>
               <div class="card__header-tags">
                 <StatusTag :label="selected.severity" />
                 <button class="card__close" @click="selected = null">✕</button>
@@ -107,6 +107,13 @@
               <p class="detail-section__text" :class="{ 'detail-section__text--muted': !selected.authorized }">
                 {{ selected.description }}
               </p>
+            </div>
+
+            <div class="detail-section" v-if="selected.problemTypes.length > 0">
+              <div class="detail-section__label">问题类型</div>
+              <div class="detail-tags">
+                <span v-for="(p, i) in selected.problemTypes" :key="i" class="detail-tag">{{ p }}</span>
+              </div>
             </div>
 
             <div class="detail-section">
@@ -162,6 +169,7 @@ const activeTab = ref('reports');
 
 interface Ticket {
   id: string;
+  shortId: string;
   type: string;
   content: string;
   versions: string;
@@ -175,6 +183,7 @@ interface Ticket {
   rulesetVersion: string;
   description: string;
   authorized: boolean;
+  problemTypes: string[];
   records: Array<{ time: string; text: string }>;
 }
 
@@ -228,10 +237,16 @@ function mapTicket(item: {
   resolution: string | null;
   authorized?: boolean;
   problemTypes?: string | null;
+  analysisVersion?: number | null;
+  modelVersion?: string | null;
+  contentVersion?: string | null;
+  rulesetVersion?: string | null;
 }): Ticket {
   const isError = !!item.isErrorReport;
   return {
-    id: item.id.slice(0, 8),
+    // 完整 id 用于接口调用；短 id 仅用于展示
+    id: item.id,
+    shortId: item.id.slice(0, 8),
     type: isError ? '错误举报' : '帮助类型反馈',
     content: isError ? (item.unsolvedQuestion ?? '错误举报').slice(0, 20) : (item.helpType ?? '帮助类型'),
     versions: item.analysisId ? `分析 ${item.analysisId.slice(0, 8)}` : '—',
@@ -239,12 +254,13 @@ function mapTicket(item: {
     severity: item.severity ?? '—',
     status: item.status ?? '待处理',
     time: item.createdAt.slice(5, 16).replace('T', ' '),
-    analysisVersion: item.analysisId ? `${item.analysisId.slice(0, 8)}` : '—',
-    modelVersion: '—',
-    contentVersion: '—',
-    rulesetVersion: 'RF-v3',
+    analysisVersion: item.analysisVersion != null ? `v${item.analysisVersion}` : (item.analysisId ? `${item.analysisId.slice(0, 8)}` : '—'),
+    modelVersion: item.modelVersion ?? '—',
+    contentVersion: item.contentVersion ?? '—',
+    rulesetVersion: item.rulesetVersion ?? '',
     description: item.unsolvedQuestion || '用户提交的反馈',
     authorized: !!item.authorized,
+    problemTypes: item.problemTypes ? (JSON.parse(item.problemTypes) as string[]) : [],
     records: item.resolution ? [{ time: item.createdAt.slice(5, 16).replace('T', ' '), text: item.resolution }] : [],
   };
 }

@@ -3,15 +3,21 @@ import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { Inject } from '@nestjs/common';
 import { AdminGuard, RequirePermission } from './admin.guard';
+import { CurrentAdmin } from './current-admin.decorator';
+import { AuditService } from '../audit/audit.service';
 
 /** 后台仪表盘聚合数据（所有后台角色可读） */
 @Controller('admin/dashboard')
 @UseGuards(AdminGuard)
 export class AdminDashboardController {
-  constructor(@Inject(APP_DB) private readonly appDb: Database.Database) {}
+  constructor(
+    @Inject(APP_DB) private readonly appDb: Database.Database,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get()
-  stats() {
+  stats(@CurrentAdmin() admin: { adminId: string }) {
+    this.audit.record({ actorId: admin.adminId, action: 'admin:dashboard-view', target: 'dashboard' });
     // 今日任务（按创建日期统计，北京时间）
     const now = new Date();
     const today = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);

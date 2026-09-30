@@ -139,7 +139,8 @@ CREATE TABLE IF NOT EXISTS REVIEW_RECORD (
   decision TEXT NOT NULL,
   review_scope TEXT,
   comment TEXT,
-  reviewed_at TEXT NOT NULL
+  reviewed_at TEXT NOT NULL,
+  consumed INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS ADMIN_USER (
   id TEXT PRIMARY KEY,
@@ -184,6 +185,7 @@ CREATE TABLE IF NOT EXISTS EVAL_RUN (
   eval_set_id TEXT NOT NULL,
   metrics TEXT,
   result TEXT,
+  trigger TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS EVAL_SET (
@@ -294,7 +296,9 @@ CREATE TABLE IF NOT EXISTS ADMIN_AUTHORIZATION (
   target_type TEXT NOT NULL,
   target_id TEXT NOT NULL,
   reason TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  expires_at TEXT,
+  revoked_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_care_event_episode ON CARE_EVENT(episode_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_episode ON ANALYSIS(episode_id);

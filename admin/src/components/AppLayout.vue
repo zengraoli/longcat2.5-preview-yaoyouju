@@ -109,8 +109,8 @@ function isActive(to: string) {
   return route.path.startsWith(to);
 }
 
-function onLogout() {
-  auth.logout();
+async function onLogout() {
+  await auth.logout();
   router.push({ name: 'login' });
 }
 </script>

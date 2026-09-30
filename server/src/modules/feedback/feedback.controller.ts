@@ -3,7 +3,7 @@ import { IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class
 import { AuthGuard } from '../auth/auth.guard';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { CurrentAdmin } from '../admin/current-admin.decorator';
+import { CurrentAdmin, CurrentAdminInfo } from '../admin/current-admin.decorator';
 import { FeedbackService } from './feedback.service';
 
 class HelpFeedbackDto {
@@ -81,12 +81,12 @@ export class FeedbackController {
     return this.feedback.detail(id, user.userId);
   }
 
-  /** 管理端：全部反馈（未授权时原文脱敏） */
+  /** 管理端：全部反馈（未授权时原文脱敏；临床复核也可读） */
   @Get()
   @UseGuards(AdminGuard)
-  @RequirePermission('feedback:triage')
-  list(@CurrentAdmin() admin: { adminId: string }) {
-    return this.feedback.listForAdmin(admin.adminId);
+  @RequirePermission('feedback:triage', 'feedback:review')
+  list(@CurrentAdmin() admin: CurrentAdminInfo) {
+    return this.feedback.listForAdmin(admin.adminId, admin.permissions);
   }
 
   /** 管理端：单条授权查看用户原始内容（临床审核 / 超管） */
@@ -95,6 +95,14 @@ export class FeedbackController {
   @RequirePermission('user:read:authorized')
   authorize(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
     return this.feedback.authorize(admin.adminId, id);
+  }
+
+  /** 管理端：撤回单条授权（仅授权人本人） */
+  @Post('authorizations/:id/revoke')
+  @UseGuards(AdminGuard)
+  @RequirePermission('user:read:authorized')
+  revokeAuthorization(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.feedback.revokeAuthorization(admin.adminId, id);
   }
 
   /** 管理端：处置动作与处理记录（运营初筛或临床复核） */

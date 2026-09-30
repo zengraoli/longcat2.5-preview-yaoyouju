@@ -11,7 +11,7 @@
         </div>
         <div v-if="showActions" class="modal__actions">
           <button class="btn btn--secondary" @click="$emit('close')">取消</button>
-          <button class="btn btn--primary" @click="$emit('confirm')">{{ confirmText }}</button>
+          <button class="btn btn--primary" @click="$emit('confirm')">{{ confirmText || '确定' }}</button>
         </div>
       </div>
     </div>
@@ -19,17 +19,39 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed, onBeforeUnmount, onMounted } from 'vue';
+
+const props = defineProps<{
   open: boolean;
   title: string;
   confirmText?: string;
   showActions?: boolean;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'confirm'): void;
 }>();
+
+/** 有确认文案时默认展示操作区（历史调用未传 showActions 也能看到确认按钮） */
+const showActions = computed(() => props.showActions ?? !!props.confirmText);
+
+/** 回车触发确认（焦点在文本域/多行输入时不触发） */
+function onKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Enter' || !props.open) return;
+  const target = e.target as HTMLElement | null;
+  if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
+  if (target && target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'text') return;
+  e.preventDefault();
+  emit('confirm');
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown);
+});
 </script>
 
 <style scoped>

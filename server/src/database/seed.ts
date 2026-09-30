@@ -24,6 +24,24 @@ export function initDatabase(
   if (!cols.includes('duration')) {
     appDb.exec('ALTER TABLE CONTENT_VERSION ADD COLUMN duration TEXT');
   }
+  // 迁移：为旧库补充 REVIEW_RECORD.consumed 列（双人确认发起记录被确认后标记，避免过期记录被复用）
+  const rrCols = (appDb.prepare('PRAGMA table_info(REVIEW_RECORD)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!rrCols.includes('consumed')) {
+    appDb.exec('ALTER TABLE REVIEW_RECORD ADD COLUMN consumed INTEGER NOT NULL DEFAULT 0');
+  }
+  // 迁移：为旧库补充 EVAL_RUN.trigger 列
+  const evalCols = (appDb.prepare('PRAGMA table_info(EVAL_RUN)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!evalCols.includes('trigger')) {
+    appDb.exec('ALTER TABLE EVAL_RUN ADD COLUMN trigger TEXT');
+  }
+  // 迁移：为旧库补充 ADMIN_AUTHORIZATION 的 expires_at / revoked_at 列
+  const authCols = (appDb.prepare('PRAGMA table_info(ADMIN_AUTHORIZATION)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!authCols.includes('expires_at')) {
+    appDb.exec('ALTER TABLE ADMIN_AUTHORIZATION ADD COLUMN expires_at TEXT');
+  }
+  if (!authCols.includes('revoked_at')) {
+    appDb.exec('ALTER TABLE ADMIN_AUTHORIZATION ADD COLUMN revoked_at TEXT');
+  }
   // 迁移：为旧库补充 FEEDBACK.user_id 列
   const fbCols = (appDb.prepare('PRAGMA table_info(FEEDBACK)').all() as Array<{ name: string }>).map((c) => c.name);
   if (!fbCols.includes('user_id')) {
@@ -74,9 +92,9 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
         'evidence:review', 'feedback:review', 'user:read:masked', 'user:read:authorized',
         'model:read', 'eval:read', 'switch:confirm',
       ]],
-      // 技术：模型发布与确认、评测运行与读取、功能开关变更、用户资料脱敏查看
+      // 技术：模型发布发起、评测运行与读取、功能开关变更、用户资料脱敏查看（模型确认归超管）
       ['role-tech', '技术', [
-        'model:release', 'model:confirm', 'eval:run', 'eval:read', 'model:read',
+        'model:release', 'eval:run', 'eval:read', 'model:read',
         'switch:write', 'user:read:masked',
       ]],
       // 合规：审计读取与导出申请、用户资料脱敏查看、成员与角色
@@ -90,7 +108,7 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
         'evidence:create', 'evidence:review', 'feedback:triage', 'feedback:review',
         'user:read:masked', 'user:read:authorized', 'model:release', 'model:confirm',
         'eval:run', 'eval:read', 'model:read', 'switch:write', 'switch:confirm',
-        'audit:read', 'audit:export', 'member:read', 'case:review',
+        'audit:read', 'audit:export', 'member:read', 'member:write', 'case:review',
       ]],
     ];
     const insertRole = appDb.prepare(

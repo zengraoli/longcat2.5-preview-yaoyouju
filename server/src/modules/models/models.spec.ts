@@ -41,15 +41,27 @@ describe('模型发布与评测', () => {
   });
 
   it('门禁全部通过时发布成功（双人确认），可回滚', () => {
-    const release = models.createRelease('admin-tech', {
+    // 清除种子里的不通过用例（模拟全部修复后重测），使门禁全部通过
+    appDb.prepare("DELETE FROM EVAL_CASE WHERE result = '不通过'").run();
+    // 先发布一个“好”版本 A（可回滚的目标）
+    const releaseA = models.createRelease('admin-tech', {
       modelName: 'local-mock-v3',
-      promptVersion: 'prompt-p3',
-      retrievalStrategy: 'keyword-v3',
+      promptVersion: 'prompt-p2',
+      retrievalStrategy: 'keyword-v2',
       contentLibVersion: 'content-c3',
     });
-    // 手动把左右侧混淆的评测结果改为通过（模拟修复后重测）
+    models.runEval('admin-tech', releaseA.id);
+    models.publish('admin-tech', releaseA.id, ['model:release']);
+    const publishedA = models.publish('admin-super', releaseA.id, ['model:confirm']);
+    expect(publishedA.status).toBe('生效');
+    // 再发布版本 B（A 被归档）
+    const release = models.createRelease('admin-tech', {
+      modelName: 'local-mock-v4',
+      promptVersion: 'prompt-p2',
+      retrievalStrategy: 'keyword-v2',
+      contentLibVersion: 'content-c4',
+    });
     models.runEval('admin-tech', release.id);
-    appDb.prepare("UPDATE EVAL_RUN SET result = '通过', metrics = '{\"通过率\":1}' WHERE model_release_id = ? AND eval_set_id = 'evalset-3'").run(release.id);
     // 技术负责人发起
     const first = models.publish('admin-tech', release.id, ['model:release']);
     expect(first.status).toBe('待第二人确认');
@@ -58,11 +70,17 @@ describe('模型发布与评测', () => {
     // 超管确认 → 生效
     const published = models.publish('admin-super', release.id, ['model:confirm']);
     expect(published.status).toBe('生效');
-    // 回滚：技术发起 + 超管确认
+    // 回滚 B：技术发起 + 超管确认 → 恢复 A 为生效
     const rbFirst = models.rollback('admin-tech', release.id, ['model:release']);
     expect(rbFirst.status).toBe('待第二人确认');
     const rolledBack = models.rollback('admin-super', release.id, ['model:confirm']);
     expect(rolledBack.status).toBe('已回滚');
+    expect(rolledBack.restored).toBe(releaseA.id);
+    // 回滚后只有 A 一个生效版本
+    const activeCount = (
+      appDb.prepare("SELECT COUNT(*) AS c FROM MODEL_RELEASE WHERE status = '生效'").get() as { c: number }
+    ).c;
+    expect(activeCount).toBe(1);
   });
 
   it('未评测的候选不能被回滚激活', () => {
@@ -91,7 +109,7 @@ describe('模型发布与评测', () => {
     const runs = models.listEvalRuns(release.id);
     const failed = runs.find((r) => r.result === '阻断发布');
     expect(failed).toBeTruthy();
-    const metrics = JSON.parse((failed?.metrics as string | undefined) ?? '{}') as { 失败用例: Array<Record<string, string>> };
+    const metrics = (failed?.metrics ?? {}) as { 失败用例?: Array<Record<string, string>> };
     // 失败用例不包含真实用户信息
     const text = JSON.stringify(metrics.失败用例);
     expect(text).not.toMatch(/1\d{10}/);

@@ -68,6 +68,10 @@ export interface FeedbackItem {
   severity: string | null;
   status: string | null;
   resolution: string | null;
+  analysisVersion?: number | null;
+  modelVersion?: string | null;
+  contentVersion?: string | null;
+  rulesetVersion?: string | null;
 }
 
 export interface SafetyEvent {

@@ -79,21 +79,22 @@ export class SwitchesService {
     // 双人确认开关：第一个操作人发起（需 switch:write）
     const pending = this.appDb
       .prepare(
-        `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
-         WHERE target_id = ? AND target_type = 'FEATURE_SWITCH' AND decision = '开关变更-发起'
+        `SELECT reviewer_id AS reviewerId, comment FROM REVIEW_RECORD
+         WHERE target_id = ? AND target_type = 'FEATURE_SWITCH' AND decision = '开关变更-发起' AND consumed = 0
          ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
       )
-      .get(key) as { reviewerId: string } | undefined;
+      .get(key) as { reviewerId: string; comment: string | null } | undefined;
     if (!pending) {
       if (!permissions.includes('switch:write')) {
         throw new ForbiddenException('无权限变更开关');
       }
+      // 发起时把目标值与原因存入 comment，确认时按发起的值生效（确认人不能改目标值）
       this.appDb
         .prepare(
           `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
            VALUES (?, ?, 'FEATURE_SWITCH', ?, '开关变更-发起', '开关第一操作人', ?, ?)`,
         )
-        .run(crypto.randomUUID(), key, actorId, reason, now);
+        .run(crypto.randomUUID(), key, actorId, JSON.stringify({ enabled, reason }), now);
       this.audit.record({ actorId, action: 'switch:initiate', target: key, diff: { enabled, reason } });
       return { status: '待第二人确认', pendingReviewer: actorId };
     }
@@ -104,14 +105,24 @@ export class SwitchesService {
     if (!permissions.includes('switch:confirm')) {
       throw new ForbiddenException('无权限确认开关变更');
     }
-    // 消费待确认发起记录（避免下次发起时读到过期 pending）
+    // 按发起时的目标值生效（确认人传的值不生效，避免“开启”被确认成“关闭”）
+    let targetEnabled = enabled;
+    let targetReason = reason;
+    try {
+      const initiated = JSON.parse(pending.comment ?? '{}') as { enabled?: boolean; reason?: string };
+      if (typeof initiated.enabled === 'boolean') targetEnabled = initiated.enabled;
+      if (initiated.reason) targetReason = initiated.reason;
+    } catch {
+      // comment 解析失败时按确认请求的值生效
+    }
+    // 消费待确认发起记录（标记已确认，不删除，保留审计痕迹）
     this.appDb
-      .prepare("DELETE FROM REVIEW_RECORD WHERE target_id = ? AND target_type = 'FEATURE_SWITCH' AND decision = '开关变更-发起'")
+      .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'FEATURE_SWITCH' AND decision = '开关变更-发起' AND consumed = 0")
       .run(key);
     // 第二个操作人确认 → 生效
     this.appDb
       .prepare('UPDATE FEATURE_SWITCH SET enabled = ?, reason = ?, updated_at = ? WHERE id = ?')
-      .run(enabled ? 1 : 0, reason, now, existing.id);
+      .run(targetEnabled ? 1 : 0, targetReason, now, existing.id);
     this.appDb
       .prepare(
         `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)

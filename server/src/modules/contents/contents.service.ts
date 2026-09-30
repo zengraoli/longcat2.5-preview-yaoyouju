@@ -140,15 +140,27 @@ export class ContentsService {
     } | undefined;
   }
 
-  /** 查最近的待确认发起记录 */
+  /** 查最近的未消费待确认发起记录（已消费的发起记录不再被复用） */
   private pendingByDecision(itemId: string, decision: string) {
     return this.appDb
       .prepare(
         `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
-         WHERE target_id = ? AND target_type = 'CONTENT_ITEM' AND decision = ?
+         WHERE target_id = ? AND target_type = 'CONTENT_ITEM' AND decision = ? AND consumed = 0
          ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
       )
       .get(itemId, decision) as { reviewerId: string } | undefined;
+  }
+
+  /** 消费（标记已确认）某类发起记录，避免下一轮读到过期 pending */
+  private consumePending(itemId: string, decision: string) {
+    this.appDb
+      .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'CONTENT_ITEM' AND decision = ? AND consumed = 0")
+      .run(itemId, decision);
+  }
+
+  /** 发起新一轮时，把同类的旧未消费发起记录标记为已消费（被新一轮取代） */
+  private supersedePending(itemId: string, decision: string) {
+    this.consumePending(itemId, decision);
   }
 
   private hasPermission(permissions: string[], ...needed: string[]): boolean {
@@ -209,9 +221,13 @@ export class ContentsService {
     if (action === '更正') {
       const pending = this.pendingByDecision(itemId, '更正-发起');
       if (!pending) {
+        // 先校验状态流转合法，再写入发起记录（避免草稿等非法状态留下可被利用的发起记录）
+        const next = transition(item.current_status, action);
+        if (!next) throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
         if (!this.hasPermission(permissions, 'content:correct:initiate')) {
           throw new ForbiddenException('无权限发起更正');
         }
+        this.supersedePending(itemId, '更正-发起');
         this.insertReview(itemId, actorId, '更正-发起', '更正第一操作人', comment ?? null);
         this.audit.record({ actorId, action: 'content:correct-initiate', target: itemId });
         return { ...this.getView(itemId), pending: '待第二人确认' } as ContentItemView & { pending: string };
@@ -224,6 +240,7 @@ export class ContentsService {
       }
       const next = transition(item.current_status, action);
       if (!next) throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
+      this.consumePending(itemId, '更正-发起');
       this.appDb.prepare('UPDATE CONTENT_ITEM SET current_status = ? WHERE id = ?').run(next, itemId);
       this.insertReview(itemId, actorId, '更正-确认', '更正第二操作人', comment ?? null);
       this.audit.record({ actorId, action: 'content:transition', target: itemId, diff: { from: item.current_status, to: next, action } });
@@ -273,6 +290,7 @@ export class ContentsService {
       if (!this.hasPermission(permissions, 'content:publish:initiate')) {
         throw new ForbiddenException('无权限发起发布');
       }
+      this.supersedePending(itemId, '发布-发起');
       this.insertReview(itemId, actorId, '发布-发起', '发布第一审核人', null);
       this.audit.record({ actorId, action: 'content:publish-initiate', target: itemId });
       return { status: '待第二人确认', pendingReviewer: actorId };
@@ -283,6 +301,7 @@ export class ContentsService {
     if (!this.hasPermission(permissions, 'content:publish:confirm')) {
       throw new ForbiddenException('无权限确认发布');
     }
+    this.consumePending(itemId, '发布-发起');
     // 第二个审核人确认 → 已发布，生成版本号
     const now = new Date().toISOString();
     this.appDb
@@ -313,6 +332,7 @@ export class ContentsService {
       if (!this.hasPermission(permissions, 'content:offline')) {
         throw new ForbiddenException('无权限执行下线');
       }
+      this.supersedePending(itemId, '下线-发起');
       this.insertReview(itemId, actorId, '下线-发起', '下线第一操作人', null);
       this.audit.record({ actorId, action: 'content:offline-initiate', target: itemId });
       return { status: '待第二人确认', pendingReviewer: actorId } as { status: string; pendingReviewer: string };
@@ -323,6 +343,7 @@ export class ContentsService {
     if (!this.hasPermission(permissions, 'content:offline')) {
       throw new ForbiddenException('无权限执行下线');
     }
+    this.consumePending(itemId, '下线-发起');
     const now = new Date().toISOString();
     this.appDb
       .prepare('UPDATE CONTENT_ITEM SET current_status = ?, offline_switch = 1 WHERE id = ?')
@@ -339,13 +360,27 @@ export class ContentsService {
     return { status: '已下线', references };
   }
 
-  /** 取消下线（应急下线开关复位；若状态为“已下线”则恢复为“已发布”） */
+  /** 取消下线（应急下线开关复位；若状态为“已下线”则恢复为“已发布”；需双人确认） */
   restore(actorId: string, itemId: string, permissions: string[] = []) {
     const item = this.getItem(itemId);
     if (!item) throw new NotFoundException('内容不存在');
+    const pending = this.pendingByDecision(itemId, '取消下线-发起');
+    if (!pending) {
+      if (!this.hasPermission(permissions, 'content:offline')) {
+        throw new ForbiddenException('无权限执行取消下线');
+      }
+      this.supersedePending(itemId, '取消下线-发起');
+      this.insertReview(itemId, actorId, '取消下线-发起', '取消下线第一操作人', null);
+      this.audit.record({ actorId, action: 'content:restore-initiate', target: itemId });
+      return { ...this.getView(itemId), pending: '待第二人确认' } as ContentItemView & { pending: string };
+    }
+    if (pending.reviewerId === actorId) {
+      throw new ConflictException('取消下线需双人确认：不能由同一操作人发起并确认');
+    }
     if (!this.hasPermission(permissions, 'content:offline')) {
       throw new ForbiddenException('无权限执行取消下线');
     }
+    this.consumePending(itemId, '取消下线-发起');
     const nextStatus = item.current_status === '已下线' ? '已发布' : item.current_status;
     this.appDb
       .prepare('UPDATE CONTENT_ITEM SET offline_switch = 0, current_status = ? WHERE id = ?')
@@ -382,7 +417,8 @@ export class ContentsService {
     const first = this.appDb
       .prepare(
         `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
-         WHERE target_id = ? AND decision = '批量下线-发起' ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
+         WHERE target_id = ? AND target_type = 'BATCH_OFFLINE' AND decision = '批量下线-发起' AND consumed = 0
+         ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
       )
       .get(target) as { reviewerId: string } | undefined;
     const now = new Date().toISOString();
@@ -390,7 +426,10 @@ export class ContentsService {
       if (!this.hasPermission(permissions, 'content:offline')) {
         throw new ForbiddenException('无权限执行批量下线');
       }
-      // 第一个操作人发起
+      // 第一个操作人发起（先把旧的未消费发起记录标记为已消费）
+      this.appDb
+        .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'BATCH_OFFLINE' AND decision = '批量下线-发起' AND consumed = 0")
+        .run(target);
       this.appDb
         .prepare(
           `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
@@ -405,7 +444,10 @@ export class ContentsService {
     if (!this.hasPermission(permissions, 'content:offline')) {
       throw new ForbiddenException('无权限执行批量下线');
     }
-    // 第二个操作人确认 → 全部下线
+    // 第二个操作人确认 → 全部下线（消费发起记录）
+    this.appDb
+      .prepare("UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'BATCH_OFFLINE' AND decision = '批量下线-发起' AND consumed = 0")
+      .run(target);
     const results: Array<{ id: string; status: string }> = [];
     for (const itemId of itemIds) {
       this.appDb
