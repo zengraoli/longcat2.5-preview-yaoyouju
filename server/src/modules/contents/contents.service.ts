@@ -423,13 +423,16 @@ export class ContentsService {
     return { status: '已下线', results };
   }
 
-  /** 用户端：只能看到已发布内容 */
+  /** 用户端：只能看到已发布内容（含时长与审核版本） */
   listPublished() {
     return this.appDb
       .prepare(
-        `SELECT id, type, title, applicable_scope AS applicableScope, not_applicable AS notApplicable
-         FROM CONTENT_ITEM WHERE current_status = '已发布' AND offline_switch = 0
-         ORDER BY rowid ASC`,
+        `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
+                v.duration,
+                (SELECT MAX(v2.version) FROM CONTENT_VERSION v2 WHERE v2.item_id = i.id) AS auditVersion
+         FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
+         WHERE i.current_status = '已发布' AND i.offline_switch = 0
+         ORDER BY v.version DESC, i.rowid ASC`,
       )
       .all();
   }
@@ -438,8 +441,12 @@ export class ContentsService {
   recommend(scope: string | null) {
     const items = this.appDb
       .prepare(
-        `SELECT id, type, title, applicable_scope AS applicableScope, not_applicable AS notApplicable
-         FROM CONTENT_ITEM WHERE current_status = '已发布' AND offline_switch = 0`,
+        `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
+                v.duration,
+                (SELECT MAX(v2.version) FROM CONTENT_VERSION v2 WHERE v2.item_id = i.id) AS auditVersion
+         FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
+         WHERE i.current_status = '已发布' AND i.offline_switch = 0
+         ORDER BY v.version DESC, i.rowid ASC`,
       )
       .all() as Array<{
       id: string;
@@ -447,6 +454,8 @@ export class ContentsService {
       title: string;
       applicableScope: string;
       notApplicable: string;
+      duration: string | null;
+      auditVersion: number | null;
     }>;
     if (!scope) return items.map((i) => ({ ...i, reason: '已发布的审核内容' }));
     const tokens = (scope.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9/]{2,}/g) ?? []).filter((t) => t.length >= 2);
@@ -468,7 +477,7 @@ export class ContentsService {
       .prepare(
         `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
                 v.script, v.subtitle_text AS subtitleText, v.model_asset_version AS modelAssetVersion,
-                v.published_at AS publishedAt
+                v.duration, v.published_at AS publishedAt
          FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
          WHERE i.id = ? AND i.current_status = '已发布' AND i.offline_switch = 0
          ORDER BY v.version DESC LIMIT 1`,
@@ -483,6 +492,7 @@ export class ContentsService {
           script: string | null;
           subtitleText: string | null;
           modelAssetVersion: string | null;
+          duration: string | null;
           publishedAt: string | null;
         }
       | undefined;
@@ -498,6 +508,21 @@ export class ContentsService {
       .prepare('SELECT version, published_at AS publishedAt FROM CONTENT_VERSION WHERE item_id = ? ORDER BY version ASC')
       .all(itemId) as Array<{ version: number; publishedAt: string | null }>;
     return { ...item, reviews, versions };
+  }
+
+  /** 保存用户的内容复述（检验理解） */
+  saveRetell(userId: string, itemId: string, text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) throw new ConflictException('复述内容不能为空');
+    const item = this.getItem(itemId);
+    if (!item || item.current_status !== '已发布' || item.offline_switch) {
+      throw new NotFoundException('内容不存在或已下线');
+    }
+    const id = crypto.randomUUID();
+    this.appDb
+      .prepare('INSERT INTO CONTENT_RETELL (id, content_id, user_id, text, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(id, itemId, userId, trimmed.slice(0, 500), new Date().toISOString());
+    return { id, contentId: itemId, saved: true };
   }
 
   /** 管理端列表（全部状态） */

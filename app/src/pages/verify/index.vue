@@ -102,7 +102,7 @@ import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, timeline, correctEvent } from '@/api';
+import { listEpisodes, timeline, correctEvent, addEvent } from '@/api';
 
 const report = ref<{
   id: string;
@@ -139,9 +139,27 @@ async function onSaveCorrect() {
   }
 }
 
-function resolveConflict(choice: string) {
-  conflict.value = '';
-  uni.showToast({ title: `已记录：${choice}`, icon: 'success' });
+async function resolveConflict(choice: string) {
+  if (!report.value) return;
+  try {
+    // 侧别冲突确认：标记报告已确认，并记录用户选择的侧别（写入病程，供分析与摘要使用）
+    await correctEvent(report.value.id, { verifyStatus: '已确认' });
+    report.value.verifyStatus = '已确认';
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      await addEvent(episodes[0].id, {
+        eventType: '行动',
+        occurredAt: new Date().toISOString(),
+        sourceType: '自述',
+        rawText: `侧别确认：${choice}（报告与自述不一致，已按本人确认）`,
+        verifyStatus: '已确认',
+      });
+    }
+    conflict.value = '';
+    uni.showToast({ title: `已记录：${choice}`, icon: 'success' });
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
 }
 
 async function onGenerate() {

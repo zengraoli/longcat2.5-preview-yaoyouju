@@ -264,6 +264,30 @@ export class EpisodesService {
     };
   }
 
+  /** 更新症状记录字段（如工作台确认“腿部麻木或无力”） */
+  updateSymptomLog(
+    userId: string,
+    episodeId: string,
+    logId: string,
+    input: { legChange?: string },
+  ): SymptomLogView {
+    this.getEpisode(userId, episodeId);
+    const log = this.appDb
+      .prepare(
+        `SELECT s.id FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
+         WHERE s.id = ? AND e.episode_id = ?`,
+      )
+      .get(logId, episodeId) as { id: string } | undefined;
+    if (!log) throw new NotFoundException('记录不存在');
+    if (input.legChange !== undefined && !['有', '没有', '尚未确认'].includes(input.legChange)) {
+      throw new ForbiddenException('腿部变化取值不合法');
+    }
+    this.appDb
+      .prepare('UPDATE SYMPTOM_LOG SET leg_change = COALESCE(?, leg_change) WHERE id = ?')
+      .run(input.legChange ?? null, logId);
+    return this.listSymptomLogs(userId, episodeId).find((l) => l.id === logId) ?? ({} as SymptomLogView);
+  }
+
   listSymptomLogs(userId: string, episodeId: string): SymptomLogView[] {
     this.getEpisode(userId, episodeId);
     const logs = this.appDb

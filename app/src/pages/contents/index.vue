@@ -24,7 +24,7 @@
     </TipBar>
 
     <!-- 为你推荐 -->
-    <text class="contents__section-title">为你推荐（原因：你的报告提到 L5/S1、硬膜囊受压）</text>
+    <text class="contents__section-title">为你推荐<text v-if="recommendationReason">（{{ recommendationReason }}）</text></text>
     <view
       v-for="item in recommended"
       :key="item.id"
@@ -36,9 +36,9 @@
       </view>
       <view class="contents__body">
         <text class="contents__item-title">{{ item.title }}</text>
-        <text class="contents__item-meta">{{ item.type === '视频' ? '视频' : '图文' }} · {{ item.type === '视频' ? '2:10' : '3分钟阅读' }}</text>
+        <text class="contents__item-meta">{{ item.type === '视频' ? '视频' : '图文' }}<text v-if="item.duration"> · {{ item.duration }}</text></text>
         <view class="contents__tags">
-          <StatusTag label="已审核 v2" />
+          <StatusTag :label="`已审核 v${item.auditVersion ?? 1}`" />
           <text class="contents__scope">适用：{{ item.applicableScope }}</text>
         </view>
       </view>
@@ -57,9 +57,9 @@
       </view>
       <view class="contents__body">
         <text class="contents__item-title">{{ item.title }}</text>
-        <text class="contents__item-meta">{{ item.type === '视频' ? '视频' : '图文' }}</text>
+        <text class="contents__item-meta">{{ item.type === '视频' ? '视频' : '图文' }}<text v-if="item.duration"> · {{ item.duration }}</text></text>
         <view class="contents__tags">
-          <StatusTag label="已审核" />
+          <StatusTag :label="`已审核 v${item.auditVersion ?? 1}`" />
           <text class="contents__scope">适用：{{ item.applicableScope || '所有用户' }}</text>
         </view>
       </view>
@@ -123,7 +123,13 @@ onMounted(async () => {
     });
     const matched = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
     recommended.value = matched.slice(0, 2).map((s) => s.item);
-    recommendationReason.value = matched.length > 0 ? '原因：与你的报告或病程匹配' : '';
+    // 推荐理由：展示实际命中的报告术语；无报告或无命中时不显示具体原因
+    if (matched.length > 0) {
+      const hitTokens = tokens.filter((t) => matched.some((s) => s.item.title.includes(t) || (s.item.applicableScope ?? '').includes(t)));
+      recommendationReason.value = hitTokens.length > 0 ? `原因：你的报告提到 ${hitTokens.slice(0, 2).join('、')}` : '原因：与你的报告或病程匹配';
+    } else {
+      recommendationReason.value = '';
+    }
     // 全部内容：排除已在推荐中的
     const recommendedIds = new Set(recommended.value.map((i) => i.id));
     all.value = items.filter((i) => !recommendedIds.has(i.id));

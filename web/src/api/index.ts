@@ -126,6 +126,10 @@ export function addSymptomLog(episodeId: string, input: {
   return api.post<{ id: string }>(`/episodes/${episodeId}/symptom-logs`, input);
 }
 
+export function updateSymptomLog(episodeId: string, logId: string, input: { legChange?: string }) {
+  return api.put<{ id: string }>(`/episodes/symptom-logs/${logId}?episodeId=${episodeId}`, input);
+}
+
 /* ---------- 报告 ---------- */
 export function createReport(input: {
   careEventId: string;
@@ -251,6 +255,12 @@ export function exportSummary(id: string, format: '文本' | 'PDF' | '图片') {
   );
 }
 
+export function getSummaryStatus(episodeId: string) {
+  return api.get<{ exported: boolean; id: string | null; exportFormat: string | null; exportedAt: string | null }>(
+    `/followup/summary-status?episodeId=${episodeId}`,
+  );
+}
+
 /* ---------- 内容库 ---------- */
 export function listPublishedContents() {
   return api.get<ContentItem[]>('/contents/published');
@@ -258,6 +268,10 @@ export function listPublishedContents() {
 
 export function getContentDetail(id: string) {
   return api.get<ContentDetail>(`/contents/published/${id}`);
+}
+
+export function submitRetell(id: string, text: string) {
+  return api.post<{ id: string; saved: boolean }>(`/contents/published/${id}/retell`, { text });
 }
 
 /* ---------- 反馈 ---------- */

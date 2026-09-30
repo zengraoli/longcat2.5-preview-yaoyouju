@@ -155,6 +155,16 @@ export class FollowupService {
     };
   }
 
+  /** 摘要导出状态（供账户页展示“上次导出”） */
+  exportStatus(userId: string, episodeId: string) {
+    this.getEpisode(userId, episodeId);
+    const row = this.appDb
+      .prepare('SELECT id, export_format AS exportFormat, exported_at AS exportedAt FROM FOLLOWUP_SUMMARY WHERE episode_id = ?')
+      .get(episodeId) as { id: string; exportFormat: string | null; exportedAt: string | null } | undefined;
+    if (!row || !row.exportedAt) return { exported: false, exportFormat: null, exportedAt: null };
+    return { exported: true, id: row.id, exportFormat: row.exportFormat, exportedAt: row.exportedAt };
+  }
+
   /** 预览（不保存）：实时生成，并合并已保存的用户纠正（新增记录/医嘱/问题会实时反映） */
   preview(userId: string, episodeId: string) {
     this.getEpisode(userId, episodeId);

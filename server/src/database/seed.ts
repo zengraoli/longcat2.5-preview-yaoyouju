@@ -21,6 +21,9 @@ export function initDatabase(
   if (!cols.includes('based_on')) {
     appDb.exec('ALTER TABLE CONTENT_VERSION ADD COLUMN based_on TEXT');
   }
+  if (!cols.includes('duration')) {
+    appDb.exec('ALTER TABLE CONTENT_VERSION ADD COLUMN duration TEXT');
+  }
   // 迁移：为旧库补充 FEEDBACK.user_id 列
   const fbCols = (appDb.prepare('PRAGMA table_info(FEEDBACK)').all() as Array<{ name: string }>).map((c) => c.name);
   if (!fbCols.includes('user_id')) {
@@ -251,8 +254,8 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     );
     const insertVersion = appDb.prepare(
-      `INSERT INTO CONTENT_VERSION (id, item_id, version, script, asset_key, subtitle_text, model_asset_version, published_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO CONTENT_VERSION (id, item_id, version, script, asset_key, subtitle_text, model_asset_version, duration, published_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const insertReview = appDb.prepare(
       `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
@@ -270,9 +273,11 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       reviewer?: string;
       decision?: string;
       comment?: string;
+      duration?: string;
     }> = [
       {
         id: 'content-1', type: '视频', title: '什么是腰椎间盘突出',
+        duration: '2:10',
         scope: '已确诊或疑似腰椎间盘突出的用户', notScope: '急性外伤后剧痛者',
         status: '已发布', script: '腰椎间盘突出是椎间盘外层破裂、内部组织膨出的现象，是否引起症状需结合查体判断。',
         subtitle: '腰椎间盘突出是椎间盘外层破裂、内部组织膨出的现象。',
@@ -280,6 +285,7 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       },
       {
         id: 'content-2', type: '视频', title: '腰痛的红旗信号',
+        duration: '2:40',
         scope: '所有腰痛用户', notScope: '无',
         status: '已发布', script: '出现大小便功能障碍、进行性肌力下降、鞍区麻木等情况，请立即就医。',
         subtitle: '大小便功能障碍、肌力下降、鞍区麻木需立即就医。',
@@ -287,6 +293,7 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       },
       {
         id: 'content-3', type: '图文组件', title: '久坐与腰痛',
+        duration: '3分钟阅读',
         scope: '久坐办公人群', notScope: '急性期疼痛无法坐立者',
         status: '已发布', script: '久坐会增加腰椎负荷，建议每 40 分钟起身活动，逐步增加日常活动量。',
         subtitle: '每 40 分钟起身活动，逐步增加活动量。',
@@ -294,6 +301,7 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       },
       {
         id: 'content-4', type: '视频', title: '核心肌群基础训练',
+        duration: '3:05',
         scope: '慢性腰痛缓解期用户', notScope: '急性疼痛期、未经医生评估者',
         status: '已发布', script: '核心肌群训练应循序渐进，急性期请先咨询医生。',
         subtitle: '核心训练循序渐进，急性期先咨询医生。',
@@ -301,24 +309,28 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       },
       {
         id: 'content-5', type: '图文组件', title: '搬重物的正确姿势',
+        duration: '4分钟阅读',
         scope: '需要搬运重物的用户', notScope: '急性疼痛发作期',
         status: '已审定', script: '搬运重物时应屈膝下蹲、保持腰背挺直，避免弯腰直接发力。',
         subtitle: '屈膝下蹲、腰背挺直，避免弯腰发力。',
       },
       {
         id: 'content-6', type: '视频', title: '睡眠姿势与腰痛',
+        duration: '2:55',
         scope: '关注睡眠质量的用户', notScope: '无',
         status: '待审', script: '侧卧时膝间夹枕、仰卧时膝下垫枕有助于减轻腰椎压力。',
         subtitle: '侧卧膝间夹枕、仰卧膝下垫枕。',
       },
       {
         id: 'content-7', type: '图文组件', title: '复诊问题清单怎么列',
+        duration: '3分钟阅读',
         scope: '准备复诊的用户', notScope: '无',
         status: '草稿', script: '复诊前列出最困扰的 2-3 个问题，按影响程度排序。',
         subtitle: '列出最困扰的 2-3 个问题并排序。',
       },
       {
         id: 'content-8', type: '视频', title: '影像报告常见术语',
+        duration: '2:30',
         scope: '拿到影像报告的用户', notScope: '无',
         status: '已撤回', script: '报告中的术语描述的是影像表现，不等于症状原因。',
         subtitle: '术语描述影像表现，不等于症状原因。',
@@ -326,12 +338,14 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       },
       {
         id: 'content-9', type: '图文组件', title: '什么时候需要考虑手术',
+        duration: '4分钟阅读',
         scope: '保守治疗效果不佳的用户', notScope: '无',
         status: '草稿', script: '是否手术需由专科医生结合症状、查体与影像综合判断。',
         subtitle: '手术需专科医生综合判断。',
       },
       {
         id: 'content-10', type: '视频', title: '腰痛的分级诊疗',
+        duration: '2:45',
         scope: '初次就诊的用户', notScope: '无',
         status: '已发布', script: '轻症可先在社区或康复科就诊，症状复杂时再转诊上级医院。',
         subtitle: '轻症先到社区或康复科，复杂时转诊。',
@@ -346,7 +360,7 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
       const publishedAt =
         item.status === '已发布' ? '2026-08-01T08:00:00.000Z' : null;
       insertVersion.run(
-        uuid(), item.id, 1, item.script, `assets/${item.id}.mp4`, item.subtitle, 'asset-v1', publishedAt,
+        uuid(), item.id, 1, item.script, `assets/${item.id}.mp4`, item.subtitle, 'asset-v1', item.duration ?? null, publishedAt,
       );
       if (item.reviewer) {
         insertReview.run(

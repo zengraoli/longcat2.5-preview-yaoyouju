@@ -28,6 +28,7 @@
               <div class="card__title">同意记录</div>
               <span class="card__tag">可随时撤回</span>
             </div>
+            <div class="table-wrap">
             <table class="table">
               <thead>
                 <tr>
@@ -53,6 +54,7 @@
                 </tr>
               </tbody>
             </table>
+            </div>
             <p class="card__note">
               撤回“处理健康信息”后：立即停止个性化分析与问答；已审核科普、已导出文件与病程只读仍可使用；可重新授予。
             </p>
@@ -67,7 +69,7 @@
                 <p class="export-card__desc">
                   可读格式（PDF / JSON），包含病程、报告原文、分析版本与同意记录。完成后链接 24 小时内有效。
                 </p>
-                <p class="export-card__meta">上次导出：2026-09-15 · 已过期</p>
+                <p class="export-card__meta">{{ lastExportText }}</p>
                 <button class="btn btn--secondary" @click="onApplyExport">申请导出</button>
               </div>
               <div class="export-card export-card--danger">
@@ -83,6 +85,7 @@
           <!-- 反馈与举报 -->
           <div v-if="activeNav === 'feedback'" class="card">
             <div class="card__title">我的反馈与举报</div>
+            <div class="table-wrap">
             <table class="table">
               <thead>
                 <tr>
@@ -103,6 +106,7 @@
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <!-- 账户 -->
@@ -134,7 +138,7 @@
             </div>
             <div class="service-item">
               <div class="service-item__title">版本信息</div>
-              <p class="service-item__desc">Web v0.1.0 · 分析模型 M-2609 · 内容库 2026-09</p>
+              <p class="service-item__desc">{{ versionText }}</p>
             </div>
           </div>
         </div>
@@ -145,13 +149,15 @@
 
 <script setup lang="ts">
 import { toast } from "@/utils/toast";
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { useAuthStore } from '@/stores/auth';
 import { getMe, getConsents, setConsent, logout, deleteAccount, listEpisodes } from '@/api';
 
 const auth = useAuthStore();
+const router = useRouter();
 
 const maskedPhone = ref('');
 const anonymousId = ref('');
@@ -168,6 +174,21 @@ const navItems = [
 const activeNav = ref('account');
 const modelVersion = ref('');
 const lastExport = ref('');
+const contentLibVersion = ref('');
+
+/** 上次导出展示：优先取摘要导出记录 */
+const lastExportText = computed(() => {
+  if (lastExport.value && lastExport.value !== '未导出') return lastExport.value;
+  return '尚未导出摘要';
+});
+
+/** 版本信息：取最新分析实际使用的模型与内容库版本 */
+const versionText = computed(() => {
+  const parts = ['Web v0.1.0'];
+  parts.push(`分析模型 ${modelVersion.value || '—'}`);
+  parts.push(`内容库 ${contentLibVersion.value || '—'}`);
+  return parts.join(' · ');
+});
 
 function onNavClick(key: string) {
   if (key === 'logout') {
@@ -191,12 +212,17 @@ async function loadAccount() {
   try {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
-      const { getLatestAnalysis, previewSummary } = await import('@/api');
+      const { getLatestAnalysis, getSummaryStatus } = await import('@/api');
       const analysis = await getLatestAnalysis(episodes[0].id);
-      if (analysis) modelVersion.value = analysis.modelReleaseId;
+      if (analysis) {
+        modelVersion.value = analysis.modelReleaseId;
+        contentLibVersion.value = analysis.retrievalSnapshot?.contentLibVersion ?? '';
+      }
       try {
-        const summary = await previewSummary(episodes[0].id);
-        lastExport.value = '未导出';
+        const status = await getSummaryStatus(episodes[0].id);
+        lastExport.value = status.exported && status.exportedAt
+          ? `上次导出：${status.exportedAt.slice(0, 10)} · ${status.exportFormat ?? '文本'}`
+          : '未导出';
       } catch {
         lastExport.value = '未导出';
       }
@@ -244,7 +270,9 @@ async function onRevoke() {
 const deleteConfirmed = ref(false);
 
 function onApplyExport() {
-  toast('演示环境暂不支持完整数据导出；正式环境将生成可读格式（PDF / JSON），链接 24 小时内有效。');
+  // 申请导出：跳转到复诊准备页导出交接摘要（正式环境将生成可读格式 PDF / JSON）
+  router.push({ name: 'followup' });
+  toast('已为你打开复诊准备，可导出交接摘要；正式环境支持导出全部数据（PDF / JSON）');
 }
 
 function onDelete() {
@@ -307,6 +335,14 @@ onMounted(async () => {
   gap: 24px;
   align-items: start;
 }
+.account-page__content {
+  min-width: 0;
+}
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .account-page__nav {
   display: flex;
   flex-direction: column;
@@ -366,6 +402,7 @@ onMounted(async () => {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  white-space: nowrap;
 }
 .table th {
   text-align: left;
@@ -445,6 +482,23 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--text-2);
   margin: 4px 0 0;
+}
+@media (max-width: 700px) {
+  .account-page__grid {
+    grid-template-columns: 1fr;
+  }
+  .account-page__nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .account-page__nav-item {
+    flex: 1 1 30%;
+    justify-content: center;
+    padding: 0 8px;
+  }
+  .export-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .btn {
   min-height: 36px;

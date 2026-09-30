@@ -19,6 +19,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { Query } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -83,6 +84,12 @@ class CorrectEventDto {
   @IsOptional()
   @IsIn(['已确认', '尚未确认', '有冲突'])
   verifyStatus?: string;
+}
+
+class UpdateSymptomLogDto {
+  @IsOptional()
+  @IsIn(['有', '没有', '尚未确认'])
+  legChange?: string;
 }
 
 class AddSymptomLogDto {
@@ -178,5 +185,16 @@ export class EpisodesController {
   @RequireConsent('健康信息处理')
   addSymptomLog(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: AddSymptomLogDto) {
     return this.episodes.addSymptomLog(user.userId, id, dto);
+  }
+
+  @Put('symptom-logs/:logId')
+  @RequireConsent('健康信息处理')
+  updateSymptomLog(
+    @CurrentUser() user: { userId: string },
+    @Query('episodeId') episodeId: string,
+    @Param('logId') logId: string,
+    @Body() dto: UpdateSymptomLogDto,
+  ) {
+    return this.episodes.updateSymptomLog(user.userId, episodeId, logId, dto);
   }
 }

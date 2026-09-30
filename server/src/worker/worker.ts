@@ -82,10 +82,13 @@ function recommendContent(db: Database.Database, query: string) {
   );
   const items = db
     .prepare(
-      `SELECT id, title, applicable_scope AS applicableScope
-       FROM CONTENT_ITEM WHERE current_status = '已发布' AND offline_switch = 0`,
+      `SELECT i.id, i.title, i.applicable_scope AS applicableScope, v.duration,
+              (SELECT MAX(v2.version) FROM CONTENT_VERSION v2 WHERE v2.item_id = i.id) AS auditVersion
+       FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
+       WHERE i.current_status = '已发布' AND i.offline_switch = 0
+       ORDER BY v.version DESC`,
     )
-    .all() as Array<{ id: string; title: string; applicableScope: string }>;
+    .all() as Array<{ id: string; title: string; applicableScope: string; duration: string | null; auditVersion: number | null }>;
   const scored = items
     .map((item) => {
       let score = 0;
@@ -101,6 +104,8 @@ function recommendContent(db: Database.Database, query: string) {
     title: item.title,
     contentId: item.id,
     reason: '与当前病程关键词匹配',
+    duration: item.duration,
+    auditVersion: item.auditVersion,
   }));
 }
 

@@ -135,7 +135,7 @@ import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import AppChip from '@/components/AppChip.vue';
 import TipBar from '@/components/TipBar.vue';
-import { getAnalysis, createHelpFeedback, createErrorReport, type AnalysisResult } from '@/api';
+import { getAnalysis, createHelpFeedback, createErrorReport, listEpisodes, addEvent, listQaSessions, createQaSession, addFollowupQuestion, type AnalysisResult } from '@/api';
 
 const pages = getCurrentPages();
 const currentPage = pages[pages.length - 1] as { options?: Record<string, string> };
@@ -182,13 +182,52 @@ const introText = computed(() => {
 function goBack() {
   uni.navigateBack();
 }
-function goTimeline() {
+async function goTimeline() {
+  // 保存到病程：记录本次分析生成事件，再跳转时间线
+  if (result.value) {
+    try {
+      const episodes = await listEpisodes();
+      if (episodes.length > 0) {
+        await addEvent(episodes[0].id, {
+          eventType: '行动',
+          occurredAt: new Date().toISOString(),
+          sourceType: '自述',
+          rawText: `已生成一页分析 v${result.value.version}（模型 ${result.value.modelReleaseId}）`,
+          verifyStatus: '已确认',
+        });
+        uni.showToast({ title: '已保存到病程', icon: 'success' });
+      }
+    } catch (e) {
+      uni.showToast({ title: (e as Error).message, icon: 'none' });
+    }
+  }
   uni.switchTab({ url: '/pages/timeline/index' });
 }
 function goSummary() {
   uni.navigateTo({ url: '/pages/summary/index' });
 }
-function goFollowup() {
+async function goFollowup() {
+  // 加入复诊问题清单：把“下一步”条目写入问与解释的复诊问题，再跳转复诊准备
+  if (result.value) {
+    try {
+      const episodes = await listEpisodes();
+      if (episodes.length > 0) {
+        const sessions = await listQaSessions();
+        const session =
+          sessions.find((s) => s.analysisId === result.value!.id) ?? sessions[0];
+        const sessionId = session
+          ? session.id
+          : (await createQaSession(result.value.id, '分析补充问题')).id;
+        const questions = result.value.sections.下一步.map((s) => s.text);
+        for (const q of questions) {
+          await addFollowupQuestion(sessionId, q);
+        }
+        uni.showToast({ title: `已加入 ${questions.length} 条复诊问题`, icon: 'success' });
+      }
+    } catch (e) {
+      uni.showToast({ title: (e as Error).message, icon: 'none' });
+    }
+  }
   uni.switchTab({ url: '/pages/followup/index' });
 }
 function goContents() {

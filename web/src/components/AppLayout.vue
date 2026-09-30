@@ -181,24 +181,34 @@ onMounted(async () => {
     gap: 8px;
     height: auto;
     min-height: 56px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+  }
+  .layout__brand {
+    order: 1;
   }
   .layout__name {
     display: none;
   }
+  .layout__actions {
+    order: 2;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  /* 菜单独占一行，完整宽度横向滚动，不再被品牌与操作区挤压 */
   .layout__menu {
-    flex: 1;
+    order: 3;
+    flex-basis: 100%;
     min-width: 0;
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
   }
   .layout__menu-item {
     white-space: nowrap;
     flex-shrink: 0;
-  }
-  .layout__actions {
-    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 13px;
   }
   .layout__main {
     padding: 16px;

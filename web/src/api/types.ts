@@ -8,12 +8,14 @@ export interface AnalysisResult {
   episodeId: string;
   version: number;
   modelReleaseId: string;
+  modelName?: string | null;
+  contentLibVersion?: string | null;
   sections: {
     已知: AnalysisSection[];
     解释: AnalysisSection[];
     未知: AnalysisSection[];
     下一步: AnalysisSection[];
-    视频: Array<{ title: string; contentId: string; reason: string }>;
+    视频: Array<{ title: string; contentId: string; reason: string; duration?: string | null; auditVersion?: number | null }>;
   };
   retrievalSnapshot: {
     evidenceDocs: string[];

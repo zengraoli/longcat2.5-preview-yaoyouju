@@ -98,7 +98,7 @@ import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
-import { getContentDetail, listEpisodes, getLatestAnalysis, createHelpFeedback, type ContentDetail } from '@/api';
+import { getContentDetail, listEpisodes, getLatestAnalysis, createHelpFeedback, submitRetell, type ContentDetail } from '@/api';
 
 const pages = getCurrentPages();
 const currentPage = pages[pages.length - 1] as { options?: Record<string, string> };
@@ -117,9 +117,14 @@ async function onSubmitRetell() {
     uni.showToast({ title: '请先填写你的理解', icon: 'none' });
     return;
   }
-  // 复述用于检验理解，不写入病程（避免污染待确认项与摘要）
-  uni.showToast({ title: '已提交，感谢检验', icon: 'success' });
-  retell.value = '';
+  try {
+    // 复述用于检验理解：保存到内容复述记录（不写入病程，避免污染待确认项与摘要）
+    await submitRetell(contentId, retell.value);
+    uni.showToast({ title: '已提交，感谢检验', icon: 'success' });
+    retell.value = '';
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
 }
 
 async function onFeedback(opt: string) {

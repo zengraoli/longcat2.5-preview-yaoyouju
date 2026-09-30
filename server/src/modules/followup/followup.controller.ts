@@ -38,6 +38,12 @@ export class FollowupController {
     return this.followup.preview(user.userId, episodeId);
   }
 
+  /** 摘要导出状态（账户页展示上次导出） */
+  @Get('summary-status')
+  exportStatus(@CurrentUser() user: { userId: string }, @Query('episodeId') episodeId: string) {
+    return this.followup.exportStatus(user.userId, episodeId);
+  }
+
   /** 保存/更新摘要 */
   @Post('summary')
   save(@CurrentUser() user: { userId: string }, @Body() dto: SaveSummaryDto) {

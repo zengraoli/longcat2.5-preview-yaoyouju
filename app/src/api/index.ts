@@ -336,6 +336,10 @@ export interface ContentItem {
   applicableScope: string | null;
   notApplicable: string | null;
   reason?: string;
+  /** 视频时长 / 图文阅读时长（如 “2:10” “3分钟阅读”） */
+  duration?: string | null;
+  /** 审核版本号（已审核 vN） */
+  auditVersion?: number | null;
 }
 
 export function listPublishedContents() {
@@ -353,6 +357,10 @@ export interface ContentDetail extends ContentItem {
 
 export function getContentDetail(id: string) {
   return api.get<ContentDetail>(`/contents/published/${id}`);
+}
+
+export function submitRetell(id: string, text: string) {
+  return api.post<{ id: string; saved: boolean }>(`/contents/published/${id}/retell`, { text });
 }
 
 /* ---------- 反馈 ---------- */

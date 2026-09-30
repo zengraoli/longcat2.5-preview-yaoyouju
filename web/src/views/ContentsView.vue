@@ -137,11 +137,12 @@
 <script setup lang="ts">
 import { toast } from "@/utils/toast";
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { api } from '@/api/client';
-import { getContentDetail, listEpisodes, getLatestAnalysis, createHelpFeedback } from '@/api';
+import { getContentDetail, listEpisodes, getLatestAnalysis, createHelpFeedback, submitRetell } from '@/api';
 import type { ContentItem, ContentDetail } from '@/api/types';
 
 const filters = ['全部', '视频', '图文组件'];
@@ -164,10 +165,17 @@ async function onSelect(item: ContentItem) {
 }
 const recommended = ref<ContentItem[]>([]);
 const all = ref<ContentItem[]>([]);
+const route = useRoute();
 
 onMounted(async () => {
   try {
     const items = await api.get<ContentItem[]>('/contents/published');
+    // 从分析页“播放”跳转过来时，自动打开对应内容详情
+    const playId = route.query.id as string | undefined;
+    if (playId) {
+      const target = items.find((i) => i.id === playId);
+      if (target) await onSelect(target);
+    }
     // 为你推荐：基于用户报告术语匹配
     let reportText = '';
     try {
@@ -205,9 +213,14 @@ async function onSubmitRetell() {
     toast('请先填写你的理解');
     return;
   }
-  // 复述用于检验理解，不写入病程
-  toast('已提交，感谢检验');
-  retellText.value = '';
+  try {
+    // 复述用于检验理解：保存到内容复述记录（不写入病程）
+    await submitRetell(selected.value.id, retellText.value);
+    toast('已提交，感谢检验');
+    retellText.value = '';
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 async function onContentFeedback(opt: string) {

@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS CONTENT_VERSION (
   subtitle_text TEXT,
   model_asset_version TEXT,
   based_on TEXT,
+  duration TEXT,
   published_at TEXT
 );
 CREATE TABLE IF NOT EXISTS REVIEW_RECORD (
@@ -252,6 +253,13 @@ CREATE TABLE IF NOT EXISTS FEEDBACK_REPORT (
   resolution TEXT,
   authorized INTEGER NOT NULL DEFAULT 0,
   problem_types TEXT
+);
+CREATE TABLE IF NOT EXISTS CONTENT_RETELL (
+  id TEXT PRIMARY KEY,
+  content_id TEXT NOT NULL,
+  user_id TEXT,
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS EVAL_CASE (
   id TEXT PRIMARY KEY,

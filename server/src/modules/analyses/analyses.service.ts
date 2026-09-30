@@ -102,6 +102,21 @@ export class AnalysesService {
     };
   }
 
+  /** 分析展示信息：模型名称与内容库版本（来自快照与模型表） */
+  private getDisplayInfo(analysis: {
+    modelReleaseId: string;
+    retrievalSnapshot: string;
+  }): { modelName: string | null; contentLibVersion: string | null } {
+    const snapshot = JSON.parse(analysis.retrievalSnapshot ?? '{}') as { contentLibVersion?: string };
+    const release = this.appDb
+      .prepare('SELECT model_name AS modelName FROM MODEL_RELEASE WHERE id = ?')
+      .get(analysis.modelReleaseId) as { modelName: string } | undefined;
+    return {
+      modelName: release?.modelName ?? null,
+      contentLibVersion: snapshot.contentLibVersion ?? null,
+    };
+  }
+
   /** 引用列表（带证据文档标题，供前端显示来源） */
   private getCitations(analysisId: string) {
     return this.appDb
@@ -181,6 +196,7 @@ export class AnalysesService {
         | undefined;
       if (!analysis) throw new NotFoundException('分析结果不存在');
       const citations = this.getCitations(id);
+      const display = this.getDisplayInfo(analysis);
       return {
         taskId: task.id,
         status: '完成',
@@ -189,6 +205,8 @@ export class AnalysesService {
           episodeId: analysis.episodeId,
           version: analysis.version,
           modelReleaseId: analysis.modelReleaseId,
+          modelName: display.modelName,
+          contentLibVersion: display.contentLibVersion,
           sections: JSON.parse(analysis.sections),
           retrievalSnapshot: JSON.parse(analysis.retrievalSnapshot),
           safetyFlag: analysis.safetyFlag,
@@ -245,11 +263,14 @@ export class AnalysesService {
       | undefined;
     if (!analysis) return null;
     const citations = this.getCitations(analysis.id);
+    const display = this.getDisplayInfo(analysis);
     return this.filterOfflineVideos({
       id: analysis.id,
       episodeId: analysis.episodeId,
       version: analysis.version,
       modelReleaseId: analysis.modelReleaseId,
+      modelName: display.modelName,
+      contentLibVersion: display.contentLibVersion,
       sections: JSON.parse(analysis.sections),
       retrievalSnapshot: JSON.parse(analysis.retrievalSnapshot),
       safetyFlag: analysis.safetyFlag,

@@ -4,7 +4,7 @@
       <div class="analysis-page__header">
         <div>
           <h1 class="analysis-page__title">一页分析</h1>
-          <p class="analysis-page__meta">基于 {{ today }} 的信息 · 分析版本 v{{ analysis?.version ?? '-' }} · 模型 {{ analysis?.modelReleaseId ?? '-' }}</p>
+          <p class="analysis-page__meta">基于 {{ today }} 的信息 · 分析版本 v{{ analysis?.version ?? '-' }} · 模型 {{ analysis?.modelName ?? analysis?.modelReleaseId ?? '-' }}<template v-if="analysis?.contentLibVersion"> · 内容库 {{ analysis.contentLibVersion }}</template></p>
         </div>
         <div class="analysis-page__actions">
           <button class="btn btn--secondary" @click="onExport">📄 导出</button>
@@ -84,8 +84,8 @@
               <div class="analysis-video__body">
                 <div class="analysis-video__title">{{ video.title }}</div>
                 <div class="analysis-video__meta">
-                  <StatusTag label="已审核 v2" />
-                  <span>2:10 · 字幕 · 文字替代</span>
+                  <StatusTag :label="`已审核 v${video.auditVersion ?? 1}`" />
+                  <span><template v-if="video.duration">{{ video.duration }} · </template>字幕 · 文字替代</span>
                 </div>
               </div>
               <button class="btn btn--secondary btn--sm" @click="onPlay(video)">播放</button>
@@ -233,8 +233,15 @@ async function onExport() {
   }
 }
 
-function onShare() {
-  toast('演示环境不支持分享；正式环境将生成只读链接');
+async function onShare() {
+  // 分享：复制本页链接到剪贴板（正式环境将生成只读链接）
+  const url = window.location.href;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('已复制分析链接，可分享给医生或家人');
+  } catch {
+    toast(`复制失败，请手动复制：${url}`);
+  }
 }
 
 function onReportError() {
@@ -268,8 +275,8 @@ async function onAddFollowup() {
 }
 
 function onPlay(video: { title: string; contentId: string }) {
-  router.push({ name: 'contents' });
-  toast(`播放：${video.title}（演示视频）`);
+  // 播放：跳转到内容库并打开对应内容详情（含视频、字幕与文字替代）
+  router.push({ name: 'contents', query: { id: video.contentId } });
 }
 
 async function onSaveTimeline() {

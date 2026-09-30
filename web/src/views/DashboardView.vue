@@ -185,7 +185,7 @@ const showReportForm = ref(false);
 const reportText = ref('');
 const reportDate = ref('');
 
-const pendingItems = ref<Array<{ question: string; options: string[]; value: string; eventId?: string }>>([]);
+const pendingItems = ref<Array<{ question: string; options: string[]; value: string; eventId?: string; logId?: string }>>([]);
 const recentRecords = ref<Array<{ date: string; tone: string; text: string }>>([]);
 const followupDate = ref('');
 const daysUntil = ref(0);
@@ -283,11 +283,16 @@ async function onConfirm() {
       toast('请先建立病程');
       return;
     }
-    // 把确认结果写回对应事件（不再新增“工作台确认”事件，避免污染待确认项与摘要）
-    const { correctEvent } = await import('@/api');
+    // 把确认结果写回对应事件 / 症状记录（不再新增“工作台确认”事件，避免污染待确认项与摘要）
+    const { correctEvent, updateSymptomLog } = await import('@/api');
     for (const item of answered) {
       if (item.eventId) {
-        await correctEvent(item.eventId, { verifyStatus: '已确认' });
+        // 事件确认：按选择写“已确认”或“有冲突”
+        const verifyStatus = item.value === '有冲突' ? '有冲突' : '已确认';
+        await correctEvent(item.eventId, { verifyStatus });
+      } else if (item.logId) {
+        // 腿部变化确认：写回症状记录
+        await updateSymptomLog(episodes[0].id, item.logId, { legChange: item.value });
       }
     }
     toast('已确认并更新当前情况');
@@ -330,7 +335,7 @@ async function load() {
       if (latest) analysis.value = latest;
       // 待确认项：来自病程中尚未确认的记录（带 eventId，确认时写回原事件）
       const tl = await timeline(episodes[0].id);
-      const pending: Array<{ question: string; options: string[]; value: string; eventId?: string }> = [];
+      const pending: Array<{ question: string; options: string[]; value: string; eventId?: string; logId?: string }> = [];
       for (const e of tl.events) {
         if (e.verifyStatus === '尚未确认' && e.rawText) {
           pending.push({ question: e.rawText, options: ['已确认', '有冲突'], value: '', eventId: e.id });
@@ -338,7 +343,7 @@ async function load() {
       }
       for (const log of tl.symptomLogs) {
         if (log.legChange === '尚未确认') {
-          pending.push({ question: '今天有腿部麻木或无力吗？', options: ['有', '没有', '尚未确认'], value: '' });
+          pending.push({ question: '今天有腿部麻木或无力吗？', options: ['有', '没有', '尚未确认'], value: '', logId: log.id });
         }
       }
       pendingItems.value = pending;

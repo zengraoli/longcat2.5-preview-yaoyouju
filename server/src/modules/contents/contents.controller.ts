@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ArrayNotEmpty, IsArray, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentAdmin, CurrentAdminInfo } from '../admin/current-admin.decorator';
 
@@ -70,6 +71,13 @@ export class ContentsController {
   @Get('published/:id')
   publishedDetail(@Param('id') id: string) {
     return this.contents.publishedDetail(id);
+  }
+
+  /** 用户端：提交内容复述（检验理解，保存记录） */
+  @Post('published/:id/retell')
+  @UseGuards(AuthGuard)
+  retell(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() body: { text?: string }) {
+    return this.contents.saveRetell(user.userId, id, body.text ?? '');
   }
 
   /** 管理端：全部内容（需 content:read） */
