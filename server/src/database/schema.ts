@@ -48,7 +48,9 @@ CREATE TABLE IF NOT EXISTS SYMPTOM_LOG (
   planned_activity_done TEXT,
   sleep_impact INTEGER,
   top_worry TEXT,
-  leg_change TEXT
+  leg_change TEXT,
+  change_vs_yesterday TEXT,
+  activities_done TEXT
 );
 CREATE TABLE IF NOT EXISTS ANALYSIS (
   id TEXT PRIMARY KEY,

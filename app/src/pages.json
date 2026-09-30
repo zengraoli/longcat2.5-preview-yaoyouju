@@ -18,7 +18,8 @@
     { "path": "pages/contents/index", "style": { "navigationBarTitleText": "审核内容库" } },
     { "path": "pages/content-detail/index", "style": { "navigationBarTitleText": "视频详情" } },
     { "path": "pages/feedback/index", "style": { "navigationBarTitleText": "反馈与举报" } },
-    { "path": "pages/fallback/index", "style": { "navigationBarTitleText": "服务不可用" } }
+    { "path": "pages/fallback/index", "style": { "navigationBarTitleText": "服务不可用" } },
+    { "path": "pages/episode-create/index", "style": { "navigationBarTitleText": "新建病程" } }
   ],
   "globalStyle": {
     "navigationBarBackgroundColor": "#FFFFFF",

@@ -138,7 +138,6 @@
       导出后由你自行决定是否分享给医生；本产品不会主动把你的健康资料发送给任何第三方。
     </TipBar>
 
-    <BottomTab :items="tabItems" current="/pages/followup/index" />
   </view>
 </template>
 
@@ -147,7 +146,6 @@ import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import BottomTab from '@/components/BottomTab.vue';
 import { listEpisodes, previewSummary, exportSummary, saveSummary } from '@/api';
 
 const today = new Date().toISOString().slice(0, 10);
@@ -164,13 +162,6 @@ const questions = ref([
   '手术必要性如何评估？',
 ]);
 
-const tabItems = [
-  { pagePath: 'pages/home/index', text: '当前情况', icon: '🏠' },
-  { pagePath: 'pages/qa/index', text: '问与解释', icon: '💬' },
-  { pagePath: 'pages/timeline/index', text: '病程', icon: '📈' },
-  { pagePath: 'pages/followup/index', text: '复诊准备', icon: '📋' },
-  { pagePath: 'pages/mine/index', text: '我的', icon: '👤' },
-];
 
 async function onExport(format: '文本' | 'PDF' | '图片') {
   try {

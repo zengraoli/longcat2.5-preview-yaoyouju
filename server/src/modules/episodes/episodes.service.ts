@@ -203,6 +203,8 @@ export class EpisodesService {
       sleepImpact?: number | null;
       topWorry?: string | null;
       legChange?: string | null;
+      changeVsYesterday?: string | null;
+      activitiesDone?: string | null;
     },
   ): SymptomLogView {
     this.getEpisode(userId, episodeId);
@@ -218,8 +220,8 @@ export class EpisodesService {
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
-        `INSERT INTO SYMPTOM_LOG (id, care_event_id, sit_minutes, planned_activity_done, sleep_impact, top_worry, leg_change)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO SYMPTOM_LOG (id, care_event_id, sit_minutes, planned_activity_done, sleep_impact, top_worry, leg_change, change_vs_yesterday, activities_done)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -229,6 +231,8 @@ export class EpisodesService {
         input.sleepImpact ?? null,
         input.topWorry ?? null,
         input.legChange ?? null,
+        input.changeVsYesterday ?? null,
+        input.activitiesDone ?? null,
       );
     return {
       id,

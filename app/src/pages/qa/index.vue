@@ -76,7 +76,6 @@
       </view>
     </view>
 
-    <BottomTab :items="tabItems" current="/pages/qa/index" />
   </view>
 </template>
 
@@ -84,7 +83,6 @@
 import { ref, onMounted, nextTick } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import TipBar from '@/components/TipBar.vue';
-import BottomTab from '@/components/BottomTab.vue';
 import {
   getLatestAnalysis,
   createQaSession,
@@ -102,13 +100,6 @@ const explainedCount = ref(0);
 const scrollTop = ref(0);
 const quickQuestions = ['复诊时该怎么描述？', '哪些变化要提前就医？', '保守治疗一般多久？'];
 
-const tabItems = [
-  { pagePath: 'pages/home/index', text: '当前情况', icon: '🏠' },
-  { pagePath: 'pages/qa/index', text: '问与解释', icon: '💬' },
-  { pagePath: 'pages/timeline/index', text: '病程', icon: '📈' },
-  { pagePath: 'pages/followup/index', text: '复诊准备', icon: '📋' },
-  { pagePath: 'pages/mine/index', text: '我的', icon: '👤' },
-];
 
 async function onAsk(q: string) {
   if (!q.trim() || !sessionId.value) return;

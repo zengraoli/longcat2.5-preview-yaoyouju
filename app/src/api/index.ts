@@ -87,6 +87,14 @@ export function listEpisodes() {
   return api.get<Episode[]>('/episodes');
 }
 
+export function createEpisode(title: string, onsetDate?: string, onsetCertainty?: string) {
+  return api.post<{ id: string }>('/episodes', {
+    title,
+    onsetDate,
+    onsetCertainty: onsetCertainty ?? '尚未确认',
+  });
+}
+
 export function addEvent(episodeId: string, input: {
   eventType: string;
   occurredAt: string;

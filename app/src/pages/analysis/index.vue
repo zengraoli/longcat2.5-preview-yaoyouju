@@ -123,7 +123,6 @@
       </TipBar>
     </template>
 
-    <BottomTab :items="tabItems" current="/pages/home/index" />
   </view>
 </template>
 
@@ -133,7 +132,6 @@ import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import AppChip from '@/components/AppChip.vue';
 import TipBar from '@/components/TipBar.vue';
-import BottomTab from '@/components/BottomTab.vue';
 import { getAnalysis, createHelpFeedback, createErrorReport, type AnalysisResult } from '@/api';
 
 const pages = getCurrentPages();
@@ -145,13 +143,6 @@ const reason = ref('');
 const result = ref<AnalysisResult | null>(null);
 const feedbackOptions = ['看懂了', '知道下一步', '都不好，问题没解决'];
 
-const tabItems = [
-  { pagePath: 'pages/home/index', text: '当前情况', icon: '🏠' },
-  { pagePath: 'pages/qa/index', text: '问与解释', icon: '💬' },
-  { pagePath: 'pages/timeline/index', text: '病程', icon: '📈' },
-  { pagePath: 'pages/followup/index', text: '复诊准备', icon: '📋' },
-  { pagePath: 'pages/mine/index', text: '我的', icon: '👤' },
-];
 
 let pollTimer: number | null = null;
 

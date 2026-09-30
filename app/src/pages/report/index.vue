@@ -115,7 +115,7 @@ import StatusTag from '@/components/StatusTag.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, addEvent, createReport } from '@/api';
+import { listEpisodes, addEvent, createReport, createEpisode } from '@/api';
 
 const tabs = [
   { key: 'paste', label: '粘贴文字（推荐）' },
@@ -172,10 +172,11 @@ function goBack() {
 
 async function onNext() {
   try {
-    const episodes = await listEpisodes();
+    let episodes = await listEpisodes();
     if (episodes.length === 0) {
-      uni.showToast({ title: '请先创建病程', icon: 'none' });
-      return;
+      // 自动创建病程
+      const ep = await createEpisode('腰痛', reportDate.value || undefined, '尚未确认');
+      episodes = [{ id: ep.id, title: '腰痛', onsetDate: reportDate.value || null, onsetCertainty: '尚未确认', status: 'active' }];
     }
     const episodeId = episodes[0].id;
     // 录入报告
@@ -270,7 +271,7 @@ function onSkip() {
   margin-bottom: 12px;
 }
 .report__textarea {
-  width: 100%;
+  width: 100%; box-sizing: border-box;
   min-height: 120px;
   background: var(--bg);
   border: 1px solid var(--border);

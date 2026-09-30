@@ -83,14 +83,12 @@
       </view>
     </view>
 
-    <BottomTab :items="tabItems" current="/pages/timeline/index" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
-import BottomTab from '@/components/BottomTab.vue';
 import { listEpisodes, timeline } from '@/api';
 
 const stats = ref({ records: 12, reports: 1, analyses: 3, questions: 4 });
@@ -114,13 +112,6 @@ const events = ref<Array<{
   { date: '约 2026-08-15', type: '症状开始', tone: 'warn', text: '腰痛开始，起初以久坐后酸痛为主。', tags: ['自述', '日期尚未确认'] },
 ]);
 
-const tabItems = [
-  { pagePath: 'pages/home/index', text: '当前情况', icon: '🏠' },
-  { pagePath: 'pages/qa/index', text: '问与解释', icon: '💬' },
-  { pagePath: 'pages/timeline/index', text: '病程', icon: '📈' },
-  { pagePath: 'pages/followup/index', text: '复诊准备', icon: '📋' },
-  { pagePath: 'pages/mine/index', text: '我的', icon: '👤' },
-];
 
 onMounted(async () => {
   try {

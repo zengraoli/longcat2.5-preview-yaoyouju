@@ -122,7 +122,6 @@
       </view>
     </view>
 
-    <BottomTab :items="tabItems" current="/pages/mine/index" />
   </view>
 </template>
 
@@ -130,7 +129,6 @@
 import { ref, onMounted } from 'vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import BottomTab from '@/components/BottomTab.vue';
 import { getSafetyTips, setAuthToken, getAuthToken } from '@/api';
 
 const maskedPhone = ref('138****1234');
@@ -138,13 +136,6 @@ const anonymousId = ref('U-8F3K…');
 const showEmergency = ref(false);
 const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
 
-const tabItems = [
-  { pagePath: 'pages/home/index', text: '当前情况', icon: '🏠' },
-  { pagePath: 'pages/qa/index', text: '问与解释', icon: '💬' },
-  { pagePath: 'pages/timeline/index', text: '病程', icon: '📈' },
-  { pagePath: 'pages/followup/index', text: '复诊准备', icon: '📋' },
-  { pagePath: 'pages/mine/index', text: '我的', icon: '👤' },
-];
 
 function goConsents() {
   uni.showToast({ title: '同意记录可在数据与授权中查看', icon: 'none' });

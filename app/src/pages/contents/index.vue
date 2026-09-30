@@ -70,7 +70,6 @@
       本库不包含实时生成的个性化查体或训练处方；康复动作内容待专业设计与审定后再加入。
     </TipBar>
 
-    <BottomTab :items="tabItems" current="/pages/home/index" />
   </view>
 </template>
 
@@ -78,7 +77,6 @@
 import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import BottomTab from '@/components/BottomTab.vue';
 import { listPublishedContents, type ContentItem } from '@/api';
 
 const filters = ['全部', '报告术语', '节段位置', '医生会观察什么', '信息来源怎么看', '生活影响'];
@@ -86,13 +84,6 @@ const activeFilter = ref('全部');
 const recommended = ref<ContentItem[]>([]);
 const all = ref<Array<ContentItem & { offline?: boolean }>>([]);
 
-const tabItems = [
-  { pagePath: 'pages/home/index', text: '当前情况', icon: '🏠' },
-  { pagePath: 'pages/qa/index', text: '问与解释', icon: '💬' },
-  { pagePath: 'pages/timeline/index', text: '病程', icon: '📈' },
-  { pagePath: 'pages/followup/index', text: '复诊准备', icon: '📋' },
-  { pagePath: 'pages/mine/index', text: '我的', icon: '👤' },
-];
 
 function goBack() {
   uni.navigateBack();
