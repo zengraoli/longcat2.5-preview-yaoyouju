@@ -248,6 +248,7 @@ onMounted(async () => {
 }
 .feedback__textarea {
   width: 100%;
+  box-sizing: border-box;
   min-height: 100px;
   background: var(--bg);
   border: 1px solid var(--border);

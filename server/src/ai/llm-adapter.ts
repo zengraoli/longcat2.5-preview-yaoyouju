@@ -97,20 +97,14 @@ export class LocalMockLlmAdapter implements LlmAdapter {
       }
     }
 
-    // 下一步：来自医嘱与证据
+    // 下一步：只来自用户的医嘱与通用就医建议；不把证据库中的病名表述写入下一步，
+    // 避免对尚未确诊的用户造成病名暗示（产品红线：不作诊断）
     for (const event of context.events) {
       if (event.eventType === '医嘱' && event.rawText) {
         nextSteps.push({ text: event.rawText, source: '医嘱' });
       }
     }
-    for (const chunk of evidence) {
-      if (chunk.content.includes('就医') || chunk.content.includes('训练') || chunk.content.includes('保守')) {
-        nextSteps.push({ text: chunk.content, source: chunk.docId });
-      }
-    }
-    if (nextSteps.length === 0) {
-      nextSteps.push({ text: '如症状持续或加重，请前往正规医疗机构就诊。', source: null });
-    }
+    nextSteps.push({ text: '如症状持续或加重，请前往正规医疗机构就诊。', source: null });
 
     return {
       已知: known.slice(0, 8),

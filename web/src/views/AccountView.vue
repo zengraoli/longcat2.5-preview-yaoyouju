@@ -188,8 +188,15 @@ async function onRevoke() {
   }
 }
 
+const deleteConfirmed = ref(false);
+
 function onDelete() {
-  if (!confirm('确定删除账户与数据吗？此操作不可恢复。')) return;
+  // 两步确认：先弹确认提示，再执行删除
+  if (!deleteConfirmed.value) {
+    deleteConfirmed.value = true;
+    toast('再次点击"删除账户"以确认操作（不可恢复）');
+    return;
+  }
   deleteAccount()
     .then(() => {
       auth.logout();

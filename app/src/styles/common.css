@@ -5,6 +5,11 @@ page {
   background-color: var(--bg);
 }
 
+/* 全局 border-box，避免输入框/文本框溢出卡片 */
+view, text, input, textarea, scroll-view {
+  box-sizing: border-box;
+}
+
 .container {
   padding: var(--page-margin);
   padding-bottom: calc(var(--page-margin) + 80px);

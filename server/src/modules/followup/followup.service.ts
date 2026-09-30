@@ -197,6 +197,8 @@ export class FollowupService {
     for (const s of content.下一步) lines.push(`- ${s.text}${s.source ? `（${s.source}）` : ''}`);
     lines.push('【复诊问题】');
     for (const q of content.复诊问题) lines.push(`- ${q}`);
+    lines.push('');
+    lines.push('未经医生核实 · 不含诊断结论 · 本摘要仅整理你已录入的信息，供复诊时参考。');
     return lines.join('\n');
   }
 

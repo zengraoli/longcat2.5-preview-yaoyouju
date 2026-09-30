@@ -170,10 +170,11 @@ onShow(loadSession);
 
 <style scoped>
 .qa {
-  min-height: 100vh;
-  padding: 16px 16px 100px;
+  height: 100vh;
+  padding: 16px 16px 76px;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 .qa__header {
   display: flex;
@@ -203,7 +204,8 @@ onShow(loadSession);
 }
 .qa__messages {
   flex: 1;
-  min-height: 200px;
+  min-height: 120px;
+  overflow-y: auto;
   margin-bottom: 12px;
 }
 .qa__message-row {
@@ -276,14 +278,8 @@ onShow(loadSession);
   display: flex;
   align-items: center;
   gap: 10px;
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 56px;
-  padding: 8px 16px;
+  padding: 8px 0 0;
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 .qa__input {
   flex: 1;

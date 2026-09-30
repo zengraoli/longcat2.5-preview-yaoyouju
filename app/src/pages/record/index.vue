@@ -265,6 +265,7 @@ async function onSave(updateCurrent = false) {
 }
 .record__textarea {
   width: 100%;
+  box-sizing: border-box;
   min-height: 80px;
   background: var(--bg);
   border: 1px solid var(--border);
