@@ -158,26 +158,33 @@ export class ModelsService {
     return { id: releaseId, status: '生效' };
   }
 
-  /** 回滚：当前版本标记已回滚，恢复上一个生效版本 */
+  /** 回滚：当前版本标记已回滚，恢复上一个已通过评测的版本为生效 */
   rollback(actorId: string, releaseId: string) {
     const release = this.appDb
       .prepare('SELECT id FROM MODEL_RELEASE WHERE id = ?')
       .get(releaseId) as { id: string } | undefined;
     if (!release) throw new NotFoundException('发布组合不存在');
-    this.appDb
-      .prepare("UPDATE MODEL_RELEASE SET status = '已回滚' WHERE id = ?")
-      .run(releaseId);
-    // 恢复上一个候选版本为生效（演示：取最新的非当前版本）
+    // 找上一个已通过评测的版本（不能是未评测的候选）
     const prev = this.appDb
-      .prepare("SELECT id FROM MODEL_RELEASE WHERE id != ? ORDER BY created_at DESC LIMIT 1")
+      .prepare(
+        `SELECT mr.id FROM MODEL_RELEASE mr
+         WHERE mr.id != ? AND mr.status != '候选'
+           AND NOT EXISTS (
+             SELECT 1 FROM EVAL_RUN er WHERE er.model_release_id = mr.id AND er.result != '通过'
+           )
+         ORDER BY mr.created_at DESC LIMIT 1`,
+      )
       .get(releaseId) as { id: string } | undefined;
-    if (prev) {
-      this.appDb
-        .prepare("UPDATE MODEL_RELEASE SET status = '生效' WHERE id = ?")
-        .run(prev.id);
+    if (!prev) {
+      throw new ConflictException('没有可回滚的已通过评测版本');
     }
-    this.audit.record({ actorId, action: 'model:rollback', target: releaseId });
-    return { id: releaseId, status: '已回滚' };
+    const tx = this.appDb.transaction(() => {
+      this.appDb.prepare("UPDATE MODEL_RELEASE SET status = '已回滚' WHERE id = ?").run(releaseId);
+      this.appDb.prepare("UPDATE MODEL_RELEASE SET status = '生效' WHERE id = ?").run(prev.id);
+    });
+    tx();
+    this.audit.record({ actorId, action: 'model:rollback', target: releaseId, diff: { restored: prev.id } });
+    return { id: releaseId, status: '已回滚', restored: prev.id };
   }
 
   /** 本地模拟的通过率（演示用）：基于评测集名称生成确定性的指标，均高于 0.8 门禁线 */

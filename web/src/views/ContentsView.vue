@@ -33,7 +33,7 @@
               v-for="item in recommended"
               :key="item.id"
               class="content-card"
-              @click="selected = item"
+              @click="onSelect(item)"
             >
               <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
               <div class="content-card__body">
@@ -53,7 +53,7 @@
               v-for="item in all"
               :key="item.id"
               class="content-card"
-              @click="selected = item"
+              @click="onSelect(item)"
             >
               <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
               <div class="content-card__body">
@@ -86,27 +86,22 @@
             <div class="drawer__body">
               <div class="drawer__item-title">{{ selected.title }}</div>
               <div class="drawer__meta">
-                <StatusTag label="已审核 v2" />
-                <span>临床审定 · 2026-08</span>
-              </div>
-              <div class="drawer__meta">
-                <span class="drawer__meta-tag">依据：指南 G-03 · 科普 #12</span>
+                <StatusTag label="已审核" />
+                <span v-if="selected.publishedAt">发布于 {{ selected.publishedAt.slice(0, 10) }}</span>
               </div>
               <div class="drawer__scope">
                 <div class="drawer__scope-row">
                   <span class="drawer__scope-label">适用</span>
-                  <span class="drawer__scope-text">{{ selected.applicableScope }}</span>
+                  <span class="drawer__scope-text">{{ selected.applicableScope || '所有用户' }}</span>
                 </div>
                 <div class="drawer__scope-row">
                   <span class="drawer__scope-label">不适用</span>
-                  <span class="drawer__scope-text">{{ selected.notApplicable }}</span>
+                  <span class="drawer__scope-text">{{ selected.notApplicable || '无' }}</span>
                 </div>
               </div>
               <div class="drawer__transcript">
                 <div class="drawer__transcript-title">文字替代（全文）</div>
-                <p class="drawer__transcript-text">
-                  脊柱由一节节椎骨组成，腰椎有 5 节，从上到下叫 L1 到 L5；L5 下面是骶骨 S1。两节骨头之间的软垫叫椎间盘，“L5/S1”就是第 5 腰椎和第 1 骶椎之间的那个椎间盘……
-                </p>
+                <p class="drawer__transcript-text">{{ selected.subtitleText || selected.script || '暂无文字替代' }}</p>
               </div>
               <div class="drawer__retell">
                 <div class="drawer__retell-title">看完后，用一句话说说你理解了什么（可选）</div>
@@ -140,11 +135,20 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { api } from '@/api/client';
-import type { ContentItem } from '@/api/types';
+import { getContentDetail } from '@/api';
+import type { ContentItem, ContentDetail } from '@/api/types';
 
 const filters = ['全部', '报告术语', '节段位置', '医生会观察什么', '信息来源怎么看', '生活影响'];
 const activeFilter = ref('全部');
-const selected = ref<ContentItem | null>(null);
+const selected = ref<ContentDetail | null>(null);
+
+async function onSelect(item: ContentItem) {
+  try {
+    selected.value = await getContentDetail(item.id);
+  } catch {
+    selected.value = { ...item, script: null, subtitleText: null, modelAssetVersion: null, publishedAt: null, reviews: [], versions: [] };
+  }
+}
 const recommended = ref<ContentItem[]>([]);
 const all = ref<ContentItem[]>([]);
 

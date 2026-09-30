@@ -158,16 +158,24 @@ onMounted(async () => {
 }
 @media (max-width: 700px) {
   .layout__nav {
-    padding: 0 16px;
-    gap: 12px;
-    flex-wrap: wrap;
+    padding: 8px 16px;
+    gap: 8px;
     height: auto;
     min-height: 56px;
+    flex-wrap: nowrap;
+  }
+  .layout__brand-name {
+    display: none;
   }
   .layout__menu {
-    order: 3;
-    width: 100%;
+    flex: 1;
     overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .layout__menu-item {
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .layout__main {
     padding: 16px;

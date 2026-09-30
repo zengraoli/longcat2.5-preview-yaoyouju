@@ -47,12 +47,11 @@ export class AdminController {
     return this.auth.login(dto.name, dto.password, dto.totp);
   }
 
-  /** 后台退出登录 */
+  /** 后台退出登录（服务端销毁会话，令牌立即失效） */
   @Post('logout')
   @UseGuards(AdminGuard)
   logout(@Req() req: { headers: Record<string, string> }) {
-    const header = req.headers['x-admin-token'] ?? '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const token = req.headers['x-admin-token'] ?? '';
     if (token) this.auth.logout(token);
     return { loggedOut: true };
   }

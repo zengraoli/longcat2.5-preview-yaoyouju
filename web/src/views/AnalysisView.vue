@@ -7,9 +7,9 @@
           <p class="analysis-page__meta">基于 {{ today }} 的信息 · 分析版本 v{{ analysis?.version ?? '-' }} · 模型 {{ analysis?.modelReleaseId ?? '-' }}</p>
         </div>
         <div class="analysis-page__actions">
-          <button class="btn btn--secondary">📄 导出</button>
-          <button class="btn btn--secondary">⬆ 分享</button>
-          <button class="btn btn--secondary">⚑ 报告错误</button>
+          <button class="btn btn--secondary" @click="onExport">📄 导出</button>
+          <button class="btn btn--secondary" @click="onShare">⬆ 分享</button>
+          <button class="btn btn--secondary" @click="onReportError">⚑ 报告错误</button>
         </div>
       </div>
 
@@ -19,9 +19,8 @@
         <StatusTag label="缺失即未知" />
       </div>
 
-      <p class="analysis-page__intro">
-        你上传的报告中提到了 L5/S1；你描述目前腰痛持续约 1 个月且最近加重。报告日期已确认，症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。
-      </p>
+      <p class="analysis-page__intro" v-if="analysis">{{ introText }}</p>
+      <p class="analysis-page__intro" v-else>尚未生成分析。请先在“当前情况”录入报告或记录今天。</p>
 
       <div class="analysis-page__grid">
         <div class="analysis-page__main">
@@ -33,7 +32,7 @@
             <div v-for="(item, i) in analysis?.sections.已知 ?? []" :key="i" class="analysis-item">
               <span class="analysis-item__dot">•</span>
               <span class="analysis-item__text">{{ item.text }}</span>
-              <span class="analysis-item__source">报告原文 · 第 3 行</span>
+              <span class="analysis-item__source">{{ sourceLabel(item.source) }}</span>
             </div>
             <div v-if="!analysis || analysis.sections.已知.length === 0" class="analysis-empty">
               已确认的信息为空，请先录入报告或记录今天。
@@ -72,7 +71,7 @@
               <span class="analysis-question__icon">■</span>
               <span class="analysis-question__text">{{ item.text }}</span>
             </div>
-            <button class="btn btn--soft">加入复诊问题清单（已选 {{ analysis?.sections.下一步.length ?? 0 }} 条）</button>
+            <button class="btn btn--soft" @click="onAddFollowup">加入复诊问题清单（已选 {{ analysis?.sections.下一步.length ?? 0 }} 条）</button>
           </div>
 
           <div class="card">
@@ -89,11 +88,11 @@
                   <span>2:10 · 字幕 · 文字替代</span>
                 </div>
               </div>
-              <button class="btn btn--secondary btn--sm">播放</button>
+              <button class="btn btn--secondary btn--sm" @click="onPlay(video)">播放</button>
             </div>
             <div class="card__actions">
-              <button class="btn btn--secondary">保存到病程</button>
-              <button class="btn btn--primary">生成复诊摘要</button>
+              <button class="btn btn--secondary" @click="onSaveTimeline">保存到病程</button>
+              <button class="btn btn--primary" @click="onGenSummary">生成复诊摘要</button>
             </div>
           </div>
 
@@ -155,7 +154,7 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, getLatestAnalysis, createHelpFeedback, timeline } from '@/api';
+import { listEpisodes, getLatestAnalysis, createHelpFeedback, createErrorReport, timeline } from '@/api';
 import type { AnalysisResult } from '@/api/types';
 
 const router = useRouter();
@@ -182,10 +181,52 @@ function evidenceTitle(source: string | null) {
   return `审核科普 #${source.slice(-2)}`;
 }
 
+/** 已知段来源标签 */
+function sourceLabel(source: string | null) {
+  if (!source) return '自述';
+  if (source === '报告' || source === '报告原文') return '报告原文';
+  if (source === '医嘱') return '医嘱';
+  return '自述';
+}
+
 function onFeedback(opt: string) {
   if (!analysis.value) return;
   createHelpFeedback(analysis.value.id, opt);
   toast('感谢反馈');
+}
+
+function onExport() {
+  toast('PDF 通过浏览器打印生成，可在摘要页导出文本');
+}
+
+function onShare() {
+  toast('演示环境不支持分享');
+}
+
+function onReportError() {
+  if (!analysis.value) return;
+  const desc = prompt('请描述错误（会自动附带分析/模型/内容版本）');
+  if (!desc) return;
+  createErrorReport(analysis.value.id, desc, '中')
+    .then(() => toast('已提交举报'))
+    .catch((e) => toast((e as Error).message));
+}
+
+function onAddFollowup() {
+  if (!analysis.value) return;
+  toast('已加入复诊问题清单（演示）');
+}
+
+function onPlay(video: { title: string }) {
+  toast(`播放：${video.title}（演示）`);
+}
+
+function onSaveTimeline() {
+  toast('已保存到病程（演示）');
+}
+
+function onGenSummary() {
+  router.push({ name: 'followup' });
 }
 
 function formatDate(iso: string) {

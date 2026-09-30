@@ -60,7 +60,7 @@ describe('反馈与错误举报', () => {
     expect(versions.analysisVersion).toBe(1);
     expect(versions.modelVersion).toContain('local-mock-v1');
     expect(versions.contentVersion).toBe('content-c1');
-    expect(versions.rulesetVersion).toBe('RF-v2');
+    expect(versions.rulesetVersion).toBe('RF-v3');
   });
 
   it('单条授权查看与处置动作', async () => {
@@ -93,6 +93,6 @@ describe('反馈与错误举报', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(detail.body.data.versions).toBeTruthy();
-    expect(detail.body.data.versions.rulesetVersion).toBe('RF-v2');
+    expect(detail.body.data.versions.rulesetVersion).toBe('RF-v3');
   });
 });

@@ -182,8 +182,39 @@ export class AuthService {
         .prepare(`SELECT id FROM CARE_EVENT WHERE episode_id IN (${episodeIds.map(() => '?').join(',') || "''"})`)
         .all(...episodeIds) as Array<{ id: string }>
     ).map((r) => r.id);
+    const analysisIds = (
+      this.appDb
+        .prepare(`SELECT id FROM ANALYSIS WHERE episode_id IN (${episodeIds.map(() => '?').join(',') || "''"})`)
+        .all(...episodeIds) as Array<{ id: string }>
+    ).map((r) => r.id);
+    const feedbackIds = (
+      this.appDb.prepare('SELECT id FROM FEEDBACK WHERE user_id = ?').all(userId) as Array<{ id: string }>
+    ).map((r) => r.id);
     const tx = this.appDb.transaction(() => {
-      // 先删依赖病程的数据，再删病程本身
+      // 按外键依赖顺序删除：先删引用方，再删被引用方
+      for (const fid of feedbackIds) {
+        this.appDb.prepare('DELETE FROM FEEDBACK_REPORT WHERE feedback_id = ?').run(fid);
+      }
+      if (feedbackIds.length > 0) {
+        this.appDb.prepare(`DELETE FROM FEEDBACK WHERE id IN (${feedbackIds.map(() => '?').join(',')})`).run(...feedbackIds);
+      }
+      // 问答会话（引用 ANALYSIS）
+      const sessionIds = (
+        this.appDb
+          .prepare(`SELECT id FROM QA_SESSION WHERE analysis_id IN (${analysisIds.map(() => '?').join(',') || "''"})`)
+          .all(...analysisIds) as Array<{ id: string }>
+      ).map((r) => r.id);
+      for (const sid of sessionIds) {
+        this.appDb.prepare('DELETE FROM QA_MESSAGE WHERE session_id = ?').run(sid);
+        this.appDb.prepare('DELETE FROM QA_FOLLOWUP_QUESTION WHERE session_id = ?').run(sid);
+      }
+      if (sessionIds.length > 0) {
+        this.appDb.prepare(`DELETE FROM QA_SESSION WHERE id IN (${sessionIds.map(() => '?').join(',')})`).run(...sessionIds);
+      }
+      // 分析引用
+      if (analysisIds.length > 0) {
+        this.appDb.prepare(`DELETE FROM ANALYSIS_CITATION WHERE analysis_id IN (${analysisIds.map(() => '?').join(',')})`).run(...analysisIds);
+      }
       this.appDb.prepare('DELETE FROM ANALYSIS_TASK WHERE episode_id IN (SELECT id FROM EPISODE WHERE user_id = ?)').run(userId);
       this.appDb.prepare('DELETE FROM ANALYSIS WHERE episode_id IN (SELECT id FROM EPISODE WHERE user_id = ?)').run(userId);
       this.appDb.prepare('DELETE FROM FOLLOWUP_SUMMARY WHERE episode_id IN (SELECT id FROM EPISODE WHERE user_id = ?)').run(userId);
@@ -192,16 +223,11 @@ export class AuthService {
         this.appDb.prepare('DELETE FROM SYMPTOM_LOG WHERE care_event_id = ?').run(eid);
       }
       if (eventIds.length > 0) {
-        this.appDb
-          .prepare(`DELETE FROM CARE_EVENT WHERE id IN (${eventIds.map(() => '?').join(',')})`)
-          .run(...eventIds);
+        this.appDb.prepare(`DELETE FROM CARE_EVENT WHERE id IN (${eventIds.map(() => '?').join(',')})`).run(...eventIds);
       }
       if (episodeIds.length > 0) {
-        this.appDb
-          .prepare(`DELETE FROM EPISODE WHERE id IN (${episodeIds.map(() => '?').join(',')})`)
-          .run(...episodeIds);
+        this.appDb.prepare(`DELETE FROM EPISODE WHERE id IN (${episodeIds.map(() => '?').join(',')})`).run(...episodeIds);
       }
-      this.appDb.prepare('DELETE FROM FEEDBACK WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM CONSENT WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM SESSION WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM USER WHERE id = ?').run(userId);

@@ -90,7 +90,7 @@ function recommendContent(db: Database.Database, query: string) {
     .map((item) => {
       let score = 0;
       for (const token of tokens) {
-        if (item.title.includes(token) || item.applicableScope.includes(token)) score += 1;
+        if (item.title.includes(token) || (item.applicableScope ?? '').includes(token)) score += 1;
       }
       return { item, score };
     })

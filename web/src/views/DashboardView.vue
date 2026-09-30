@@ -8,12 +8,31 @@
         </div>
         <div class="dashboard__header-actions">
           <button class="btn btn--primary" @click="goRecord">✎ 记录今天</button>
-          <button class="btn btn--secondary" @click="goReport">⬆ 录入报告</button>
+          <button class="btn btn--secondary" @click="showReportForm = !showReportForm">⬆ 录入报告</button>
         </div>
       </div>
 
       <div class="dashboard__grid">
         <div class="dashboard__col">
+          <!-- 录入报告 -->
+          <div class="card" v-if="showReportForm">
+            <div class="card__header">
+              <div class="card__title">录入检查报告</div>
+              <StatusTag label="报告原文" />
+            </div>
+            <textarea
+              v-model="reportText"
+              class="report-form__textarea"
+              placeholder="粘贴报告原文（如：腰椎 MRI：L5/S1 椎间盘向后突出…）"
+              :maxlength="20000"
+            />
+            <div class="report-form__row">
+              <input v-model="reportDate" type="date" class="report-form__date" />
+              <button class="btn btn--primary" @click="onSubmitReport">保存报告</button>
+            </div>
+            <p class="report-form__hint">保存后可在“病程”页核对，并生成一页分析。</p>
+          </div>
+
           <!-- 待确认项 -->
           <div class="card" v-if="pendingItems.length > 0">
             <div class="card__pending-title">
@@ -156,12 +175,15 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, getLatestAnalysis, timeline, addEvent, listPublishedContents } from '@/api';
+import { listEpisodes, getLatestAnalysis, timeline, addEvent, listPublishedContents, createEpisode, createReport } from '@/api';
 import type { AnalysisResult, Episode, ContentItem } from '@/api/types';
 
 const router = useRouter();
 const episode = ref<Episode | null>(null);
 const analysis = ref<AnalysisResult | null>(null);
+const showReportForm = ref(false);
+const reportText = ref('');
+const reportDate = ref('');
 
 const pendingItems = ref<Array<{ question: string; options: string[]; value: string }>>([]);
 const recentRecords = ref<Array<{ date: string; tone: string; text: string }>>([]);
@@ -174,7 +196,35 @@ function goRecord() {
   router.push({ name: 'timeline' });
 }
 function goReport() {
-  router.push({ name: 'timeline' });
+  showReportForm.value = true;
+}
+
+async function onSubmitReport() {
+  if (!reportText.value.trim()) {
+    toast('请填写报告原文');
+    return;
+  }
+  try {
+    let episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      // 自动创建病程
+      await createEpisode('腰痛', reportDate.value || undefined, '尚未确认');
+      episodes = await listEpisodes();
+    }
+    const event = await addEvent(episodes[0].id, {
+      eventType: '报告',
+      occurredAt: new Date().toISOString(),
+      sourceType: '报告原文',
+      rawText: reportText.value,
+    });
+    await createReport({ careEventId: event.id, reportDate: reportDate.value || undefined, sourceType: '报告原文', rawText: reportText.value });
+    reportText.value = '';
+    showReportForm.value = false;
+    toast('报告已保存');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 function goAnalysis() {
   if (analysis.value) {
@@ -293,6 +343,34 @@ onMounted(load);
   background: var(--surface);
   border-radius: 12px;
   padding: 20px;
+}
+.report-form__textarea {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+}
+.report-form__row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.report-form__date {
+  flex: 1;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+.report-form__hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 8px 0 0;
 }
 .card__pending-title {
   display: flex;
