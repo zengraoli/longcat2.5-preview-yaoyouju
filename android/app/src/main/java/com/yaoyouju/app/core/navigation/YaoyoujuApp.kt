@@ -22,9 +22,12 @@ import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.TabDestination
 import com.yaoyouju.app.core.design.AppColors
 import com.yaoyouju.app.feature.confirm.ConfirmRoute
+import com.yaoyouju.app.feature.confusion.ConfusionRoute
 import com.yaoyouju.app.feature.home.HomeRoute
 import com.yaoyouju.app.feature.login.LoginRoute
 import com.yaoyouju.app.feature.redflag.RedFlagRoute
+import com.yaoyouju.app.feature.report.ReportRoute
+import com.yaoyouju.app.feature.verify.VerifyRoute
 
 /**
  * 单 Activity 的 Compose 导航图。
@@ -119,9 +122,25 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
                     onContents = { navController.navigate(Routes.Contents) },
                 )
             }
-            composable(Routes.Confusion) { PlaceholderScreen(Routes.Confusion, back) }
-            composable(Routes.Report) { PlaceholderScreen(Routes.Report, back) }
-            composable(Routes.Verify) { PlaceholderScreen(Routes.Verify, back) }
+            composable(Routes.Confusion) {
+                ConfusionRoute(
+                    onBack = back,
+                    onNext = { navController.navigate(Routes.Report) },
+                )
+            }
+            composable(Routes.Report) {
+                ReportRoute(
+                    onBack = back,
+                    onDone = { navController.navigate(Routes.Verify) },
+                )
+            }
+            composable(Routes.Verify) {
+                VerifyRoute(
+                    onBack = back,
+                    onTask = { id -> navController.navigate(Routes.analysis(id)) },
+                    onRedFlag = { navController.navigate(Routes.RedFlag) },
+                )
+            }
             composable(
                 route = "${Routes.Analysis}?${Routes.AnalysisArg}={${Routes.AnalysisArg}}",
                 arguments = listOf(navArgument(Routes.AnalysisArg) { type = NavType.StringType; defaultValue = "" }),

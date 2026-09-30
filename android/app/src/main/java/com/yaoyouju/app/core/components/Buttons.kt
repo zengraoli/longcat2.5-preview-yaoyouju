@@ -89,10 +89,10 @@ fun AppChip(
             .defaultMinSize(minHeight = AppDimens.MinTouch)
             .background(bg, RoundedCornerShape(AppDimens.RadiusChip))
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, color = fg, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+        Text(text = text, color = fg, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
     }
 }
 

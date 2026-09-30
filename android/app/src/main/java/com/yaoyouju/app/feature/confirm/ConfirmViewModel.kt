@@ -141,6 +141,8 @@ class ConfirmViewModel : ViewModel() {
                 if (state.onsetDate.isNotBlank()) add("开始日期：${state.onsetDate}")
                 if (state.onset == "记不清") add("开始日期记不清")
                 if (state.onset.isNotBlank() && state.onset != "记不清") add("开始时间：${state.onset}")
+                if (state.noneSelected) add("红旗项：以上都没有")
+                else if (state.redFlags.isNotEmpty()) add("红旗项：${state.redFlags.joinToString("、")}")
             }.joinToString("；")
             if (parts.isBlank()) return@runCatching
             val episodeId = currentEpisodeId() ?: return@runCatching
