@@ -189,6 +189,7 @@ import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { listEpisodes, timeline, addSymptomLog, createEpisode, updateEpisode, checkSafety } from '@/api';
+import { showRedFlag } from '@/utils/redflag';
 import type { Episode } from '@/api/types';
 
 const episode = ref<Episode | null>(null);
@@ -266,17 +267,7 @@ async function onSave(updateCurrent = false) {
       await createEpisode('腰痛', undefined, '尚未确认');
       episodes = await listEpisodes();
     }
-    // 红旗预检：最担心什么含红旗时提示就医（不阻断保存）
-    if (worry.value.trim()) {
-      try {
-        const safety = await checkSafety(worry.value, 'record');
-        if (!safety.passed && safety.redFlags.length > 0) {
-          toast(safety.redFlags.map((r) => r.message).join(''));
-        }
-      } catch {
-        // 预检失败不阻断
-      }
-    }
+    const worryText = worry.value.trim();
     await addSymptomLog(episodes[0].id, {
       occurredAt: new Date().toISOString(),
       sitMinutes: sitMinutes.value ?? undefined,
@@ -288,6 +279,17 @@ async function onSave(updateCurrent = false) {
       topWorry: worry.value || undefined,
     });
     toast('已保存');
+    // 红旗预检：最担心什么含红旗时弹出就医提示（不阻断保存）
+    if (worryText) {
+      try {
+        const safety = await checkSafety(worryText, 'record');
+        if (!safety.passed && safety.redFlags.length > 0) {
+          showRedFlag({ messages: safety.redFlags.map((r) => r.message) });
+        }
+      } catch {
+        // 预检失败不阻断
+      }
+    }
     // 保存并更新当前情况：同步更新病程的开始日期（若未设置）
     if (updateCurrent) {
       const ep = episodes[0];
@@ -318,15 +320,6 @@ async function addEvent() {
       await createEpisode('腰痛', undefined, '尚未确认');
       episodes = await listEpisodes();
     }
-    // 红旗预检
-    try {
-      const safety = await checkSafety(text, 'event');
-      if (!safety.passed && safety.redFlags.length > 0) {
-        toast(safety.redFlags.map((r) => r.message).join(''));
-      }
-    } catch {
-      // 预检失败不阻断
-    }
     const { addEvent: createEvent } = await import('@/api');
     await createEvent(episodes[0].id, {
       eventType: '症状',
@@ -337,6 +330,15 @@ async function addEvent() {
     showAdd.value = false;
     addText.value = '';
     toast('已保存');
+    // 红旗预检：命中红旗时弹出就医提示（不阻断保存）
+    try {
+      const safety = await checkSafety(text, 'event');
+      if (!safety.passed && safety.redFlags.length > 0) {
+        showRedFlag({ messages: safety.redFlags.map((r) => r.message) });
+      }
+    } catch {
+      // 预检失败不阻断
+    }
     await load();
   } catch (e) {
     toast((e as Error).message);

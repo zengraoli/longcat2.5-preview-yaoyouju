@@ -41,13 +41,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
+import { REDFLAG_EVENT, type RedFlagPayload } from '@/utils/redflag';
 
 const route = useRoute();
 const showEmergency = ref(false);
 const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
+
+/** 各页面命中红旗时弹出就医提示（统一入口，避免与“已保存”提示互相遮挡） */
+function onRedFlag(e: Event) {
+  const payload = (e as CustomEvent<RedFlagPayload>).detail;
+  emergency.value = {
+    title: payload.title || '需要及时寻求专业帮助',
+    redFlags: payload.messages,
+    note: payload.note || '你录入的内容包含需及时就医的信号；记录已保存，本轮不会生成个性化分析。',
+  };
+  showEmergency.value = true;
+}
+
+onMounted(() => {
+  window.addEventListener(REDFLAG_EVENT, onRedFlag);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener(REDFLAG_EVENT, onRedFlag);
+});
 
 const menu = [
   { to: '/dashboard', label: '当前情况' },

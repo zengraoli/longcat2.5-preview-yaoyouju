@@ -42,20 +42,28 @@ export class AnalysesService {
       throw ERR.PARAM_INVALID('病程中还没有可分析的内容，请先录入报告或记录今天');
     }
     // 安全规则引擎：红旗与服务范围校验（提交文字 + 病程中用户自述与报告原文的事件；
-    // 医嘱等医生记录中的红旗关键词是条件性建议，不作为用户症状）
+    // 医嘱等医生记录中的红旗关键词是条件性建议，不作为用户症状；
+    // 问与解释中的提问不纳入分析校验：提问本身已被问答安全规则即时处理，
+    // 不应阻断后续分析（否则问过一次越界问题就永远无法生成分析）
+    // 病程中的用户自述与报告原文事件，以及“记录今天”的症状文字（最担心/变化/活动）
     const episodeEvents = this.appDb
-      .prepare("SELECT raw_text AS rawText FROM CARE_EVENT WHERE episode_id = ? AND raw_text IS NOT NULL AND source_type IN ('自述', '报告原文')")
-      .all(episodeId) as Array<{ rawText: string }>;
-    // 用户在问与解释中的提问也纳入安全校验（命中红旗时阻断分析）
-    const qaQuestions = this.appDb
       .prepare(
-        `SELECT m.content AS content FROM QA_MESSAGE m
-         JOIN QA_SESSION s ON s.id = m.session_id
-         WHERE s.user_id = ? AND m.role = 'user'
-         ORDER BY m.created_at DESC, m.rowid DESC LIMIT 20`,
+        `SELECT raw_text AS rawText FROM CARE_EVENT WHERE episode_id = ? AND raw_text IS NOT NULL AND source_type IN ('自述', '报告原文')
+         UNION ALL
+         SELECT s.top_worry FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
+         WHERE e.episode_id = ? AND s.top_worry IS NOT NULL
+         UNION ALL
+         SELECT s.change_vs_yesterday FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
+         WHERE e.episode_id = ? AND s.change_vs_yesterday IS NOT NULL
+         UNION ALL
+         SELECT s.activities_done FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
+         WHERE e.episode_id = ? AND s.activities_done IS NOT NULL
+         UNION ALL
+         SELECT s.planned_activity_done FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
+         WHERE e.episode_id = ? AND s.planned_activity_done IS NOT NULL`,
       )
-      .all(userId) as Array<{ content: string }>;
-    const combinedText = [safetyText ?? '', ...episodeEvents.map((e) => e.rawText), ...qaQuestions.map((q) => q.content)].join('\n');
+      .all(episodeId, episodeId, episodeId, episodeId, episodeId) as Array<{ rawText: string }>;
+    const combinedText = [safetyText ?? '', ...episodeEvents.map((e) => e.rawText)].join('\n');
     const safetyResult = this.safety.checkAndRecord(userId, 'analysis-submit', combinedText);
 
     // 命中红旗或越界：不创建分析任务，停止个性化分析

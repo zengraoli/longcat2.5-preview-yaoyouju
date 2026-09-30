@@ -82,7 +82,8 @@ async function onNext() {
   try {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
-      const parts = [`主要困惑：${selected.value}`];
+      const selectedTitle = options.find((o) => o.key === selected.value)?.title ?? selected.value;
+      const parts = [`主要困惑：${selectedTitle}`];
       if (format.value.length > 0) parts.push(`解释方式：${format.value.join('、')}`);
       await addEvent(episodes[0].id, {
         eventType: '行动',

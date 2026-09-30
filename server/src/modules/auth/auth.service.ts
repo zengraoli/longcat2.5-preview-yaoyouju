@@ -158,28 +158,21 @@ export class AuthService {
     return !!row;
   }
 
-  /** 校验会话，返回 userId；无效或过期返回 null（令牌以哈希比对，兼容旧明文令牌） */
+  /** 校验会话，返回 userId；无效或过期返回 null（只接受哈希后的令牌，不接受库中哈希值本身） */
   resolveSession(token: string): string | null {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const session = this.appDb
       .prepare('SELECT user_id AS userId, expires_at AS expiresAt FROM SESSION WHERE token = ?')
       .get(tokenHash) as { userId: string; expiresAt: string } | undefined;
-    if (session) {
-      if (new Date(session.expiresAt).getTime() < Date.now()) return null;
-      return session.userId;
-    }
-    // 兼容旧库中明文存储的令牌
-    const legacy = this.appDb
-      .prepare('SELECT user_id AS userId, expires_at AS expiresAt FROM SESSION WHERE token = ?')
-      .get(token) as { userId: string; expiresAt: string } | undefined;
-    if (!legacy) return null;
-    if (new Date(legacy.expiresAt).getTime() < Date.now()) return null;
-    return legacy.userId;
+    if (!session) return null;
+    if (new Date(session.expiresAt).getTime() < Date.now()) return null;
+    return session.userId;
   }
 
-  /** 退出登录：服务端销毁会话 */
+  /** 退出登录：服务端销毁会话（按令牌哈希删除） */
   logout(token: string): void {
-    this.appDb.prepare('DELETE FROM SESSION WHERE token = ?').run(token);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    this.appDb.prepare('DELETE FROM SESSION WHERE token = ?').run(tokenHash);
   }
 
   /** 注销账户与数据：删除用户的所有数据（病程、事件、报告、分析、反馈、同意、会话） */

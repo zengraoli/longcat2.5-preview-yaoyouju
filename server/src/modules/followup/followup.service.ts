@@ -97,29 +97,73 @@ export class FollowupService {
       }
     }
     content.下一步.push({ text: '如症状持续或加重，请前往正规医疗机构就诊。' });
-    // 复诊问题：来自问与解释中加入的问题
+    // 复诊问题：来自问与解释中加入的问题（含自由提问会话与本会话关联本病程分析的问题）
     const questions = this.appDb
       .prepare(
         `SELECT q.question FROM QA_FOLLOWUP_QUESTION q
          JOIN QA_SESSION s ON s.id = q.session_id
-         JOIN ANALYSIS a ON a.id = s.analysis_id
-         WHERE a.episode_id = ? ORDER BY q.created_at ASC, q.rowid ASC`,
+         WHERE s.user_id = ?
+           AND (s.analysis_id IS NULL OR s.analysis_id IN (SELECT id FROM ANALYSIS WHERE episode_id = ?))
+         ORDER BY q.created_at ASC, q.rowid ASC`,
       )
-      .all(episodeId) as Array<{ question: string }>;
+      .all(userId, episodeId) as Array<{ question: string }>;
     content.复诊问题 = questions.map((q) => q.question);
     return content;
   }
 
-  /** 预览（不保存）：若已有保存的摘要（含用户纠正），返回保存的内容；否则实时生成 */
+  /** 把保存的用户纠正合并到实时内容上：同位置以保存为准，新增内容追加 */
+  private mergeWithCorrections(live: SummaryContent, saved: SummaryContent): SummaryContent {
+    const mergeSection = (
+      liveItems: Array<{ text: string; source?: string; mark?: string }>,
+      savedItems: unknown,
+    ): Array<{ text: string; source?: string; mark?: string }> => {
+      const savedArr = (Array.isArray(savedItems) ? savedItems : []).filter(
+        (i): i is { text: string; source?: string; mark?: string } =>
+          typeof i === 'object' && i !== null && typeof (i as { text?: unknown }).text === 'string',
+      );
+      const max = Math.max(liveItems.length, savedArr.length);
+      const out: Array<{ text: string; source?: string; mark?: string }> = [];
+      for (let i = 0; i < max; i++) {
+        if (i < savedArr.length) {
+          const s = savedArr[i];
+          out.push({
+            text: s.text,
+            ...(s.source !== undefined ? { source: String(s.source) } : {}),
+            ...(s.mark !== undefined ? { mark: String(s.mark) } : {}),
+          });
+        } else if (i < liveItems.length) {
+          out.push(liveItems[i]);
+        }
+      }
+      return out;
+    };
+    // 复诊问题：保存的顺序优先，新增问题追加在后面
+    const savedQuestions = Array.isArray(saved.复诊问题)
+      ? saved.复诊问题.filter((q): q is string => typeof q === 'string')
+      : [];
+    const mergedQuestions = [...savedQuestions];
+    for (const q of live.复诊问题) {
+      if (!mergedQuestions.includes(q)) mergedQuestions.push(q);
+    }
+    return {
+      当前情况: mergeSection(live.当前情况, saved.当前情况),
+      报告要点: mergeSection(live.报告要点, saved.报告要点),
+      医嘱要点: mergeSection(live.医嘱要点, saved.医嘱要点),
+      尚未确认: mergeSection(live.尚未确认, saved.尚未确认),
+      下一步: mergeSection(live.下一步, saved.下一步),
+      复诊问题: mergedQuestions,
+    };
+  }
+
+  /** 预览（不保存）：实时生成，并合并已保存的用户纠正（新增记录/医嘱/问题会实时反映） */
   preview(userId: string, episodeId: string) {
     this.getEpisode(userId, episodeId);
+    const live = this.generate(userId, episodeId);
     const existing = this.appDb
       .prepare('SELECT content FROM FOLLOWUP_SUMMARY WHERE episode_id = ?')
       .get(episodeId) as { content: string } | undefined;
-    if (existing) {
-      return JSON.parse(existing.content) as SummaryContent;
-    }
-    return this.generate(userId, episodeId);
+    if (!existing) return live;
+    return this.mergeWithCorrections(live, JSON.parse(existing.content) as SummaryContent);
   }
 
   /** 校验并清洗摘要内容：各段元素与复诊问题只接受字符串，避免非字符串原样写入 */
@@ -168,10 +212,10 @@ export class FollowupService {
       .get(episodeId) as { id: string } | undefined;
     if (existing) {
       this.appDb.prepare('UPDATE FOLLOWUP_SUMMARY SET content = ? WHERE id = ?').run(
-        JSON.stringify(content),
+        JSON.stringify(sanitized),
         existing.id,
       );
-      return { id: existing.id, episodeId, content };
+      return { id: existing.id, episodeId, content: sanitized };
     }
     const id = crypto.randomUUID();
     this.appDb
@@ -208,10 +252,12 @@ export class FollowupService {
     return { id: summaryId, episodeId: summary.episodeId, content };
   }
 
-  /** 导出：记录导出时间与格式；文本复制必做，PDF 由前端打印生成 */
+  /** 导出：记录导出时间与格式；内容实时生成并合并用户纠正；文本复制必做，PDF 由前端打印生成 */
   export(userId: string, summaryId: string, format: '文本' | 'PDF' | '图片') {
     const summary = this.getSummary(userId, summaryId);
-    const content = JSON.parse(summary.content) as SummaryContent;
+    // 导出内容 = 实时生成 + 已保存纠正（新增记录/医嘱/问题都会反映）
+    const content = this.preview(userId, summary.episodeId);
+    void summary;
     const text = this.renderText(content);
     this.appDb
       .prepare('UPDATE FOLLOWUP_SUMMARY SET export_format = ?, exported_at = ? WHERE id = ?')

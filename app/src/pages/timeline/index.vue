@@ -131,7 +131,7 @@ import { onShow } from '@dcloudio/uni-app';
 import StatusTag from '@/components/StatusTag.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
-import { listEpisodes, timeline, addEvent, getLatestAnalysis, type CareEvent } from '@/api';
+import { listEpisodes, timeline, addEvent, getLatestAnalysis, checkSafety, type CareEvent } from '@/api';
 
 const episode = ref<{ id: string; title: string; onsetDate: string | null; onsetCertainty: string; status: string } | null>(null);
 const events = ref<CareEvent[]>([]);
@@ -227,9 +227,29 @@ async function onAddEvent() {
       rawText: addText.value,
     });
     showAdd.value = false;
+    const savedText = addText.value;
     addText.value = '';
     uni.showToast({ title: '已保存', icon: 'success' });
     await load();
+    // 红旗预检：命中红旗时立即提示就医（记录已保存，不阻断）
+    const text = savedText.trim();
+    if (text) {
+      try {
+        const safety = await checkSafety(text, 'event');
+        if (!safety.passed && safety.redFlags.length > 0) {
+          uni.showModal({
+            title: '需要及时寻求专业帮助',
+            content: safety.redFlags.map((r) => r.message).join(''),
+            showCancel: false,
+            success: () => {
+              uni.navigateTo({ url: '/pages/redflag/index' });
+            },
+          });
+        }
+      } catch {
+        // 预检失败不阻断
+      }
+    }
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' });
   }

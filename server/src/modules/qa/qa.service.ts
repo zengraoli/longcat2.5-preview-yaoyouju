@@ -20,7 +20,14 @@ const REASSURANCE_PATTERN = /确定吗|真的吗|一定|保证|没事吧|会不�
 const SEVERITY_PATTERN = /是不是很严重|严重吗|厉害吗|要紧吗|有多严重|是不是很厉害|严重不严重|是不是很要紧|会不会很严重/;
 
 const STABLE_EXPLANATION =
-  '我们理解你的担心，同样的回答再说明一次：我们不作诊断，也不能保证症状的具体原因；影像上的表现与症状严重程度并不完全一致。这个问题建议带给医生，由医生面诊判断。';
+  '我们理解你的担心，同样的回答再说明一次：我们不作诊断，也不能保证症状的具体原因；影像上的表现与症状严重程度并不完全一致。这个问题建议带给医生，由医生面诊判断。'
+
+/** 询问“哪些变化要提前就医 / 红旗信号”类问题：直接列出需及时就医的信号 */
+const RED_FLAG_INFO_PATTERN = /哪些.*就医|什么.*就医|提前就医|要就医|需就医|红旗|危险信号|警示信号|哪些.*信号|什么情况.*就医|哪些症状|严重表现|要立即就医|尽快就医/;
+
+const RED_FLAG_INFO_ANSWER =
+  '出现以下变化请及时就医：1）大小便控制不了、失禁或解不出，会阴、肛门、臀部麻木或没知觉；2）腿部或脚越来越无力、发软、抬不起来、走路绊倒；3）夜里疼得睡不着，或体重明显下降；4）摔倒、跌伤、撞伤后腰部剧痛；5）发烧、发冷、怕冷伴腰痛；6）疼痛剧烈、止痛药压不住；7）有肿瘤病史又出现新发腰痛。';
+
 
 @Injectable()
 export class QaService {
@@ -144,6 +151,20 @@ export class QaService {
       return {
         message: { id: msgId, role: 'assistant', content, citations: [], createdAt: now },
         outOfScope,
+        roundEnded: false,
+        followupQuestionAdded: false,
+      };
+    }
+
+    // 询问“哪些变化要提前就医”类问题：直接列出需及时就医的信号
+    if (RED_FLAG_INFO_PATTERN.test(question)) {
+      const msgId = crypto.randomUUID();
+      this.appDb
+        .prepare('INSERT INTO QA_MESSAGE (id, session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, NULL, ?)')
+        .run(msgId, sessionId, 'assistant', RED_FLAG_INFO_ANSWER, now);
+      return {
+        message: { id: msgId, role: 'assistant', content: RED_FLAG_INFO_ANSWER, citations: [], createdAt: now },
+        outOfScope: [],
         roundEnded: false,
         followupQuestionAdded: false,
       };

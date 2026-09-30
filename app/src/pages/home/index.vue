@@ -145,7 +145,17 @@ function goConfirm() {
 function goRecord() {
   uni.navigateTo({ url: '/pages/record/index' });
 }
-function goReport() {
+async function goReport() {
+  // 新用户（还没有病程）先走第 1 步“当前关键变化确认”（含红旗问题），再进入报告录入
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      uni.navigateTo({ url: '/pages/confirm/index' });
+      return;
+    }
+  } catch {
+    // 查询失败不阻断，按老用户处理
+  }
   uni.navigateTo({ url: '/pages/report/index' });
 }
 function goQa() {

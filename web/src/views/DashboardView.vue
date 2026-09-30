@@ -175,6 +175,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listEpisodes, getLatestAnalysis, timeline, addEvent, listPublishedContents, createEpisode, createReport } from '@/api';
+import { showRedFlag } from '@/utils/redflag';
 import type { AnalysisResult, Episode, ContentItem } from '@/api/types';
 
 const router = useRouter();
@@ -207,12 +208,12 @@ async function onGenerateAnalysis() {
     }
     const { createAnalysis } = await import('@/api');
     const result = await createAnalysis(episodes[0].id);
-    if (result.safety.redFlags.length > 0) {
-      toast(result.safety.redFlags.map((r) => r.message).join(''));
-      return;
-    }
-    if (result.status === 'blocked') {
-      toast('分析已被安全规则阻断，请先处理就医提示');
+    if (result.safety.redFlags.length > 0 || result.status === 'blocked') {
+      showRedFlag({
+        messages: result.safety.redFlags.length > 0
+          ? result.safety.redFlags.map((r) => r.message)
+          : ['分析已被安全规则阻断，请先处理就医提示'],
+      });
       return;
     }
     router.push({ name: 'analysis', params: { id: result.taskId } });
@@ -226,12 +227,12 @@ async function onSubmitReport() {
     toast('请填写报告原文');
     return;
   }
-  // 红旗预检：报告原文含红旗信号时提示就医（不阻断保存）
+  // 红旗预检：报告原文含红旗信号时弹出就医提示（不阻断保存）
   try {
     const { checkSafety } = await import('@/api');
     const safety = await checkSafety(reportText.value, 'report');
     if (!safety.passed && safety.redFlags.length > 0) {
-      toast(safety.redFlags.map((r) => r.message).join(''));
+      showRedFlag({ messages: safety.redFlags.map((r) => r.message) });
     }
   } catch {
     // 预检失败不阻断

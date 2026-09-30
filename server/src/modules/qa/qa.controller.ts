@@ -1,13 +1,15 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
 import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { QaService } from './qa.service';
 
 class CreateSessionDto {
+  /** 可空：没有分析时创建自由提问会话 */
+  @IsOptional()
   @IsString()
-  analysisId!: string;
+  analysisId?: string | null;
 
   @IsString()
   title!: string;
@@ -33,7 +35,7 @@ export class QaController {
   @Post('sessions')
   @RequireConsent('健康信息处理')
   createSession(@CurrentUser() user: { userId: string }, @Body() dto: CreateSessionDto) {
-    return this.qa.createSession(user.userId, dto.analysisId, dto.title);
+    return this.qa.createSession(user.userId, dto.analysisId ?? null, dto.title);
   }
 
   @Get('sessions')
