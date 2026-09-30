@@ -12,6 +12,7 @@ import {
   IsIn,
   IsISO8601,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
@@ -25,6 +26,7 @@ import { EpisodesService } from './episodes.service';
 
 class CreateEpisodeDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   title!: string;
 
