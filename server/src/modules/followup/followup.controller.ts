@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { IsArray, IsIn, IsObject, IsString } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FollowupService, SummaryContent } from './followup.service';
 
@@ -28,7 +29,7 @@ class ExportDto {
 }
 
 @Controller('followup')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, ConsentGuard)
 export class FollowupController {
   constructor(private readonly followup: FollowupService) {}
 
@@ -46,24 +47,28 @@ export class FollowupController {
 
   /** 保存/更新摘要 */
   @Post('summary')
+  @RequireConsent('健康信息处理')
   save(@CurrentUser() user: { userId: string }, @Body() dto: SaveSummaryDto) {
     return this.followup.save(user.userId, dto.episodeId, dto.content);
   }
 
   /** 纠正摘要 */
   @Put('summary/:id')
+  @RequireConsent('健康信息处理')
   correct(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: CorrectSummaryDto) {
     return this.followup.correct(user.userId, id, dto.content);
   }
 
   /** 问题清单排序 */
   @Put('summary/:id/questions')
+  @RequireConsent('健康信息处理')
   reorder(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: ReorderDto) {
     return this.followup.reorderQuestions(user.userId, id, dto.questions);
   }
 
   /** 导出（记录导出时间与格式） */
   @Post('summary/:id/export')
+  @RequireConsent('健康信息处理')
   export(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: ExportDto) {
     return this.followup.export(user.userId, id, dto.format);
   }

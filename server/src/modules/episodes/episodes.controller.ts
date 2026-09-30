@@ -119,6 +119,16 @@ class AddSymptomLogDto {
   @IsOptional()
   @IsIn(['有', '没有', '尚未确认'])
   legChange?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  changeVsYesterday?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  activitiesDone?: string;
 }
 
 @Controller('episodes')

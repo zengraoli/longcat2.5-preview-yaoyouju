@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { SafetyService } from '../safety/safety.service';
+import { ruleHitByCode } from '../safety/rules';
 import { ERR } from '../../common/utils/business-exception';
 
 /** 分析编排：安全校验、任务入队、结果查询与回退（Worker 见 src/worker/worker.ts） */
@@ -65,6 +66,28 @@ export class AnalysesService {
       .all(episodeId, episodeId, episodeId, episodeId, episodeId) as Array<{ rawText: string }>;
     const combinedText = [safetyText ?? '', ...episodeEvents.map((e) => e.rawText)].join('\n');
     const safetyResult = this.safety.checkAndRecord(userId, 'analysis-submit', combinedText);
+
+    // 问答中已命中红旗：停止个性化分析，保持“回复内容与实际行为”一致
+    const qaRedFlag = this.appDb
+      .prepare(
+        "SELECT rule_code AS ruleCode FROM SAFETY_EVENT WHERE user_id = ? AND source = 'qa-ask' AND severity = '高' ORDER BY created_at DESC LIMIT 1",
+      )
+      .get(userId) as { ruleCode: string } | undefined;
+    if (qaRedFlag) {
+      const hit = ruleHitByCode(qaRedFlag.ruleCode);
+      const redFlags = hit ? [hit] : [];
+      return {
+        taskId: null,
+        status: 'blocked',
+        safety: {
+          passed: false,
+          rulesetVersion: safetyResult.rulesetVersion,
+          redFlags,
+          outOfScope: [],
+          safetyTips: redFlags.map((h) => h.message),
+        },
+      };
+    }
 
     // 命中红旗或越界：不创建分析任务，停止个性化分析
     if (!safetyResult.passed) {
@@ -148,7 +171,14 @@ export class AnalysesService {
       )
       .all(...videos.map((v) => v.contentId)) as Array<{ id: string }>;
     const offlineIds = new Set(offline.map((r) => r.id));
-    const filtered = videos.filter((v) => !offlineIds.has(v.contentId));
+    // 去重：同一内容有多个版本时，视频推荐里只出现一次
+    const seen = new Set<string>();
+    const filtered = videos.filter((v) => {
+      if (offlineIds.has(v.contentId)) return false;
+      if (seen.has(v.contentId)) return false;
+      seen.add(v.contentId);
+      return true;
+    });
     if (withSections.sections) {
       return { ...analysis, sections: { ...withSections.sections, 视频: filtered } } as T;
     }

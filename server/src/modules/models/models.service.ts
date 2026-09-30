@@ -70,7 +70,12 @@ export class ModelsService {
 
   listEvalSets() {
     return this.appDb
-      .prepare('SELECT id, name, case_count AS caseCount, deidentified FROM EVAL_SET ORDER BY rowid ASC')
+      .prepare(
+        `SELECT s.id, s.name,
+                (SELECT COUNT(*) FROM EVAL_CASE c WHERE c.eval_set_id = s.id) AS caseCount,
+                s.deidentified
+         FROM EVAL_SET s ORDER BY s.rowid ASC`,
+      )
       .all();
   }
 
@@ -160,12 +165,15 @@ export class ModelsService {
       .all(evalSetId) as Array<{ id: string; caseKey: string; input: string; expected: string; actual: string; result: string; source: string }>;
   }
 
-  /** 标记用例已修复并重跑该评测集 */
+  /** 标记用例已修复并重跑该评测集（用例结果改为通过，重新计算门禁） */
   fixCase(actorId: string, caseId: string) {
     const row = this.appDb
       .prepare('SELECT id, eval_set_id AS evalSetId FROM EVAL_CASE WHERE id = ?')
       .get(caseId) as { id: string; evalSetId: string } | undefined;
     if (!row) throw new NotFoundException('用例不存在');
+    this.appDb
+      .prepare("UPDATE EVAL_CASE SET result = '通过', actual = COALESCE(actual, '已修复') WHERE id = ?")
+      .run(caseId);
     // 重跑该评测集对应的发布组合（取最近运行过的组合）
     const run = this.appDb
       .prepare(
@@ -177,7 +185,7 @@ export class ModelsService {
       this.runEval(actorId, run.modelReleaseId, '标记已修复并重跑');
     }
     this.audit.record({ actorId, action: 'model:eval-case-fix', target: caseId });
-    return { id: caseId, fixed: true };
+    return { id: caseId, fixed: true, result: '通过' };
   }
 
   /** 运行评测（本地模拟实现）：对每个评测集生成指标与结果；trigger 为触发原因 */
@@ -191,17 +199,23 @@ export class ModelsService {
       .all() as Array<{ id: string; name: string }>;
     const runs: EvalRunView[] = [];
     for (const set of evalSets) {
-      // 本地模拟：根据发布组合的提示词与检索策略生成确定性指标（演示用，不调用外部服务）
-      const passRate = this.mockPassRate(release.promptVersion, release.retrievalStrategy, set.name);
-      const failedCases = this.appDb
-        .prepare("SELECT case_key AS caseKey, input, expected, actual FROM EVAL_CASE WHERE eval_set_id = ? AND result = '不通过'")
-        .all(set.id) as Array<{ caseKey: string; input: string; expected: string; actual: string }>;
-      // 结果判定：通过率达标且评测集内没有未修复的不通过用例才算通过
-      const passed = passRate >= 0.8 && failedCases.length === 0;
-      const caseCount = 12;
+      // 评测集内用例（用例数取自实际用例，不再写死 12）
+      const caseRows = this.appDb
+        .prepare("SELECT case_key AS caseKey, input, expected, actual, result FROM EVAL_CASE WHERE eval_set_id = ?")
+        .all(set.id) as Array<{ caseKey: string; input: string; expected: string; actual: string | null; result: string }>;
+      const caseCount = caseRows.length;
+      const failedCases = caseRows.filter((c) => c.result === '不通过');
+      const mockRate = this.mockPassRate(release.promptVersion, release.retrievalStrategy, set.name);
+      // 有真实用例时以用例结果为准；没有用例时回退到本地模拟通过率
+      const passRate =
+        caseCount > 0
+          ? Math.round(((caseCount - failedCases.length) / caseCount) * 100) / 100
+          : mockRate;
+      // 结果判定：评测集内没有未修复的不通过用例才算通过
+      const passed = caseCount > 0 ? failedCases.length === 0 : mockRate >= 0.8;
       const metrics = {
         用例数: caseCount,
-        通过数: Math.round(caseCount * passRate),
+        通过数: caseCount - failedCases.length,
         通过率: passRate,
         失败用例: failedCases.map((c) => ({ 用例: c.caseKey, 输入: c.input, 期望: c.expected, 实际: c.actual, 判定: '不通过' })),
       };
@@ -249,9 +263,16 @@ export class ModelsService {
     if (release.status === '生效') {
       throw new ConflictException('该发布组合已生效');
     }
-    // 评测门禁：所有评测集都必须通过
+    // 评测门禁：只看每个评测集的最新一次运行（修复用例后重跑即可通过）
     const runs = this.appDb
-      .prepare('SELECT result FROM EVAL_RUN WHERE model_release_id = ?')
+      .prepare(
+        `SELECT r.result FROM EVAL_RUN r
+         WHERE r.model_release_id = ?
+           AND r.rowid = (
+             SELECT MAX(r2.rowid) FROM EVAL_RUN r2
+             WHERE r2.model_release_id = r.model_release_id AND r2.eval_set_id = r.eval_set_id
+           )`,
+      )
       .all(releaseId) as Array<{ result: string | null }>;
     if (runs.length === 0) {
       throw ERR.EVAL_BLOCKED('评测门禁未通过：请先运行评测');
@@ -264,7 +285,7 @@ export class ModelsService {
     const pending = this.appDb
       .prepare(
         `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
-         WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型发布-发起'
+         WHERE target_id = ? AND target_type = 'MODEL_RELEASE' AND decision = '模型发布-发起' AND consumed = 0
          ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
       )
       .get(releaseId) as { reviewerId: string } | undefined;

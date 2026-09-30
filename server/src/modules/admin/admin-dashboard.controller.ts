@@ -76,7 +76,7 @@ export class AdminDashboardController {
       .prepare(
         `SELECT r.id, r.model_release_id AS modelReleaseId, s.name AS evalSetName, r.result, r.created_at AS createdAt
          FROM EVAL_RUN r JOIN EVAL_SET s ON s.id = r.eval_set_id
-         ORDER BY r.created_at DESC, rowid DESC LIMIT 10`,
+         ORDER BY r.created_at DESC, r.rowid DESC LIMIT 10`,
       )
       .all();
     return {

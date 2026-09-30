@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentAdmin, CurrentAdminInfo } from '../admin/current-admin.decorator';
@@ -55,14 +56,16 @@ export class FeedbackController {
 
   /** 帮助类型反馈（不自动进入训练或内容库） */
   @Post()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, ConsentGuard)
+  @RequireConsent('健康信息处理')
   createHelp(@CurrentUser() user: { userId: string }, @Body() dto: HelpFeedbackDto) {
     return this.feedback.createHelpFeedback(user.userId, dto);
   }
 
   /** 错误举报（自动附带四类版本） */
   @Post('reports')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, ConsentGuard)
+  @RequireConsent('健康信息处理')
   createReport(@CurrentUser() user: { userId: string }, @Body() dto: ErrorReportDto) {
     return this.feedback.createErrorReport(user.userId, dto);
   }
@@ -103,6 +106,14 @@ export class FeedbackController {
   @RequirePermission('user:read:authorized')
   revokeAuthorization(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
     return this.feedback.revokeAuthorization(admin.adminId, id);
+  }
+
+  /** 管理端：超管审批单条授权 */
+  @Post('authorizations/:id/approve')
+  @UseGuards(AdminGuard)
+  @RequirePermission('authorization:approve')
+  approveAuthorization(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.feedback.approveAuthorization(admin.adminId, id);
   }
 
   /** 管理端：处置动作与处理记录（运营初筛或临床复核） */

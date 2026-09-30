@@ -42,6 +42,9 @@ export function initDatabase(
   if (!authCols.includes('revoked_at')) {
     appDb.exec('ALTER TABLE ADMIN_AUTHORIZATION ADD COLUMN revoked_at TEXT');
   }
+  if (!authCols.includes('status')) {
+    appDb.exec("ALTER TABLE ADMIN_AUTHORIZATION ADD COLUMN status TEXT NOT NULL DEFAULT '待审批'");
+  }
   // 迁移：为旧库补充 FEEDBACK.user_id 列
   const fbCols = (appDb.prepare('PRAGMA table_info(FEEDBACK)').all() as Array<{ name: string }>).map((c) => c.name);
   if (!fbCols.includes('user_id')) {
@@ -64,6 +67,11 @@ export function initDatabase(
   const frCols = (appDb.prepare('PRAGMA table_info(FEEDBACK_REPORT)').all() as Array<{ name: string }>).map((c) => c.name);
   if (!frCols.includes('problem_types')) {
     appDb.exec('ALTER TABLE FEEDBACK_REPORT ADD COLUMN problem_types TEXT');
+  }
+  // 迁移：QA_SESSION.episode_id（自由提问会话归属病程，避免复诊问题串到所有病程）
+  const qsCols = (appDb.prepare('PRAGMA table_info(QA_SESSION)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!qsCols.includes('episode_id')) {
+    appDb.exec('ALTER TABLE QA_SESSION ADD COLUMN episode_id TEXT');
   }
   // 迁移：ADMIN_USER.email
   const auCols = (appDb.prepare('PRAGMA table_info(ADMIN_USER)').all() as Array<{ name: string }>).map((c) => c.name);
@@ -106,7 +114,8 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
         'content:read', 'content:edit', 'content:publish:initiate', 'content:publish:confirm',
         'content:offline', 'content:correct:initiate', 'content:correct:confirm',
         'evidence:create', 'evidence:review', 'feedback:triage', 'feedback:review',
-        'user:read:masked', 'user:read:authorized', 'model:release', 'model:confirm',
+        'user:read:masked', 'user:read:authorized', 'authorization:approve',
+        'model:release', 'model:confirm',
         'eval:run', 'eval:read', 'model:read', 'switch:write', 'switch:confirm',
         'audit:read', 'audit:export', 'member:read', 'member:write', 'case:review',
       ]],

@@ -71,7 +71,6 @@ export class SwitchesService {
         action: 'switch:update',
         target: key,
         diff: { before: !!existing.enabled, after: enabled, reason },
-        requestId: crypto.randomUUID(),
       });
       return { status: '已生效', switches: this.list() };
     }
@@ -134,7 +133,6 @@ export class SwitchesService {
       action: 'switch:update',
       target: key,
       diff: { before: !!existing.enabled, after: enabled, reason },
-      requestId: crypto.randomUUID(),
     });
     return { status: '已生效', switches: this.list() };
   }

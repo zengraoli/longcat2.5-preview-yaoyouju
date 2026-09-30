@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -66,7 +67,8 @@ export class FeedbackService {
       )
       .run(id, input.severity, input.authorized ? 1 : 0, input.problemTypes ? JSON.stringify(input.problemTypes) : null);
     this.audit.record({
-      actorId: userId,
+      // 不写入用户 id：删除账户后审计中不残留可关联的用户标识
+      actorId: null,
       action: 'feedback:report',
       target: id,
       diff: { severity: input.severity, versions },
@@ -122,7 +124,7 @@ export class FeedbackService {
     });
   }
 
-  /** 管理端列表（按管理员是否已授权返回原文；未授权时脱敏） */
+  /** 管理端列表（按管理员是否已授权返回原文；未授权时脱敏，逐条记审计） */
   listForAdmin(adminId: string, permissions: string[] = []) {
     const rows = this.list() as Array<{
       id: string;
@@ -138,10 +140,14 @@ export class FeedbackService {
       authorized: number | null;
       problemTypes: string | null;
     }>;
-    // 拥有 user:read:authorized 权限的角色（临床/超管）默认可看原文；其他角色需单条授权
-    const canReadPlain = permissions.includes('user:read:authorized');
+    void permissions;
     return rows.map((row) => {
-      const authorized = canReadPlain || this.isAuthorized(row.id, row.authorized, adminId);
+      // 管理端查看原文必须逐条授权：用户提交时的授权标记不能代替管理端的单条授权
+      const authorized = this.isAuthorized(row.id, 0, adminId);
+      if (authorized) {
+        // 记录具体查看了哪一条原文，便于审计追溯
+        this.audit.record({ actorId: adminId, action: 'feedback:view-plain', target: row.id });
+      }
       return {
         ...row,
         authorized,
@@ -159,16 +165,17 @@ export class FeedbackService {
     if (!adminId) return false;
     const row = this.appDb
       .prepare(
-        `SELECT id, admin_id AS adminId, expires_at AS expiresAt, revoked_at AS revokedAt
+        `SELECT id, admin_id AS adminId, status, expires_at AS expiresAt, revoked_at AS revokedAt
          FROM ADMIN_AUTHORIZATION
          WHERE target_type = 'FEEDBACK' AND target_id = ? AND admin_id = ?
          ORDER BY created_at DESC, rowid DESC LIMIT 1`,
       )
       .get(feedbackId, adminId) as
-      | { id: string; adminId: string; expiresAt: string | null; revokedAt: string | null }
+      | { id: string; adminId: string; status: string; expiresAt: string | null; revokedAt: string | null }
       | undefined;
     if (!row) return false;
     if (row.revokedAt) return false;
+    if (row.status !== '已批准') return false;
     if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) return false;
     return true;
   }
@@ -232,7 +239,7 @@ export class FeedbackService {
     };
   }
 
-  /** 单条授权查看用户原始内容（仅管理端）：写入授权表（默认 7 天有效）并记审计 */
+  /** 单条授权查看用户原始内容（仅管理端）：提交授权申请，需超管审批后生效（默认 7 天） */
   authorize(actorId: string, id: string) {
     const row = this.appDb
       .prepare('SELECT id, is_error_report AS isErrorReport FROM FEEDBACK WHERE id = ?')
@@ -240,16 +247,28 @@ export class FeedbackService {
     if (!row) throw ERR.NOT_FOUND('反馈不存在');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
-    // 写入单条授权表（每次授权写审计，授权 7 天有效，仅授权人本人可查看原文）
-    // 注意：不修改 FEEDBACK_REPORT.authorized（那是用户勾选的全局授权，与单条授权互不影响）
+    const authId = crypto.randomUUID();
+    // 写入单条授权申请（待超管审批），审批通过后才可查看原文
     this.appDb
       .prepare(
-        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, created_at, expires_at)
-         VALUES (?, ?, 'FEEDBACK', ?, '单条授权查看反馈原文', ?, ?)`,
+        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, status, created_at, expires_at)
+         VALUES (?, ?, 'FEEDBACK', ?, '单条授权查看反馈原文', '待审批', ?, ?)`,
       )
-      .run(crypto.randomUUID(), actorId, id, now.toISOString(), expiresAt.toISOString());
-    this.audit.record({ actorId, action: 'feedback:authorize', target: id });
-    return { id, authorized: true };
+      .run(authId, actorId, id, now.toISOString(), expiresAt.toISOString());
+    this.audit.record({ actorId, action: 'feedback:authorize-request', target: id, diff: { authId } });
+    return { id, authorized: false, status: '待审批', authId };
+  }
+
+  /** 超管审批单条授权 */
+  approveAuthorization(actorId: string, authId: string) {
+    const row = this.appDb
+      .prepare('SELECT id, status FROM ADMIN_AUTHORIZATION WHERE id = ?')
+      .get(authId) as { id: string; status: string } | undefined;
+    if (!row) throw ERR.NOT_FOUND('授权记录不存在');
+    if (row.status !== '待审批') throw ERR.CONFLICT('该授权已审批');
+    this.appDb.prepare("UPDATE ADMIN_AUTHORIZATION SET status = '已批准' WHERE id = ?").run(authId);
+    this.audit.record({ actorId, action: 'feedback:authorize-approve', target: authId });
+    return { id: authId, status: '已批准' };
   }
 
   /** 处置动作与处理记录（仅管理端）；帮助类反馈不生成举报工单 */
@@ -286,8 +305,11 @@ export class FeedbackService {
       '加入评测集': '已处理',
     };
     const status = statusMap[input.action] ?? '已处理';
-    // 下线相关内容：把该分析引用的已发布内容全部下线（应急隐藏）
+    // 下线相关内容：引用该分析的已发布内容需双人确认后下线（临床/超管发起 + 第二人确认）
     if (input.action === '下线相关内容') {
+      if (!permissions.includes('content:offline')) {
+        throw new ForbiddenException('无权限执行「下线相关内容」');
+      }
       const analysis = this.appDb
         .prepare('SELECT id, sections FROM ANALYSIS WHERE id = (SELECT analysis_id FROM FEEDBACK WHERE id = ?)')
         .get(id) as { id: string; sections: string } | undefined;
@@ -295,9 +317,34 @@ export class FeedbackService {
         const sections = JSON.parse(analysis.sections) as { 视频?: Array<{ contentId: string }> };
         const contentIds = (sections.视频 ?? []).map((v) => v.contentId);
         for (const contentId of contentIds) {
-          this.appDb
-            .prepare("UPDATE CONTENT_ITEM SET offline_switch = 1 WHERE id = ? AND current_status = '已发布'")
-            .run(contentId);
+          const pending = this.appDb
+            .prepare(
+              `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
+               WHERE target_id = ? AND target_type = 'CONTENT_ITEM' AND decision = '下线-发起' AND consumed = 0
+               ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
+            )
+            .get(contentId) as { reviewerId: string } | undefined;
+          if (!pending) {
+            this.appDb
+              .prepare(
+                `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+                 VALUES (?, ?, 'CONTENT_ITEM', ?, '下线-发起', '举报下线第一操作人', NULL, ?)`,
+              )
+              .run(crypto.randomUUID(), contentId, actorId, new Date().toISOString());
+            this.audit.record({ actorId, action: 'content:offline-initiate', target: contentId, diff: { from: 'feedback', feedbackId: id } });
+          } else if (pending.reviewerId === actorId) {
+            throw new ConflictException('下线相关内容需双人确认：不能由同一操作人发起并确认');
+          } else {
+            this.appDb
+              .prepare(
+                "UPDATE REVIEW_RECORD SET consumed = 1 WHERE target_id = ? AND target_type = 'CONTENT_ITEM' AND decision = '下线-发起' AND consumed = 0",
+              )
+              .run(contentId);
+            this.appDb
+              .prepare("UPDATE CONTENT_ITEM SET offline_switch = 1, current_status = '已下线' WHERE id = ?")
+              .run(contentId);
+            this.audit.record({ actorId, action: 'content:offline', target: contentId, diff: { from: 'feedback', feedbackId: id } });
+          }
         }
       }
     }

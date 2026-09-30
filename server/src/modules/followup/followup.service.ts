@@ -8,6 +8,8 @@ export interface SummarySection {
   text: string;
   source?: string;
   mark?: string;
+  /** 用户手动纠正过的条目（预览时优先保留纠正后的文本） */
+  edited?: boolean;
 }
 
 export interface SummaryContent {
@@ -103,36 +105,48 @@ export class FollowupService {
         `SELECT q.question FROM QA_FOLLOWUP_QUESTION q
          JOIN QA_SESSION s ON s.id = q.session_id
          WHERE s.user_id = ?
-           AND (s.analysis_id IS NULL OR s.analysis_id IN (SELECT id FROM ANALYSIS WHERE episode_id = ?))
+           AND (s.episode_id = ? OR (s.episode_id IS NULL AND s.analysis_id IN (SELECT id FROM ANALYSIS WHERE episode_id = ?)))
          ORDER BY q.created_at ASC, q.rowid ASC`,
       )
-      .all(userId, episodeId) as Array<{ question: string }>;
-    content.复诊问题 = questions.map((q) => q.question);
+      .all(userId, episodeId, episodeId) as Array<{ question: string }>;
+    content.复诊问题 = [...new Set(questions.map((q) => q.question))];
     return content;
   }
 
-  /** 把保存的用户纠正合并到实时内容上：同位置以保存为准，新增内容追加 */
+  /**
+   * 把保存的用户纠正合并到实时内容上：
+   * - 实时生成的内容始终以最新记录为准（新增记录、医嘱、症状日志会自动出现）；
+   * - 用户手动纠正过的条目（edited=true）保留纠正后的文本；
+   * - 保存时多出的条目（用户自行补充）追加在后面。
+   */
   private mergeWithCorrections(live: SummaryContent, saved: SummaryContent): SummaryContent {
     const mergeSection = (
       liveItems: Array<{ text: string; source?: string; mark?: string }>,
       savedItems: unknown,
     ): Array<{ text: string; source?: string; mark?: string }> => {
       const savedArr = (Array.isArray(savedItems) ? savedItems : []).filter(
-        (i): i is { text: string; source?: string; mark?: string } =>
+        (i): i is { text: string; source?: string; mark?: string; edited?: boolean } =>
           typeof i === 'object' && i !== null && typeof (i as { text?: unknown }).text === 'string',
       );
       const max = Math.max(liveItems.length, savedArr.length);
       const out: Array<{ text: string; source?: string; mark?: string }> = [];
       for (let i = 0; i < max; i++) {
-        if (i < savedArr.length) {
-          const s = savedArr[i];
+        const s = savedArr[i];
+        const l = liveItems[i];
+        if (s && s.edited) {
           out.push({
             text: s.text,
             ...(s.source !== undefined ? { source: String(s.source) } : {}),
             ...(s.mark !== undefined ? { mark: String(s.mark) } : {}),
           });
-        } else if (i < liveItems.length) {
-          out.push(liveItems[i]);
+        } else if (l) {
+          out.push(l);
+        } else if (s) {
+          out.push({
+            text: s.text,
+            ...(s.source !== undefined ? { source: String(s.source) } : {}),
+            ...(s.mark !== undefined ? { mark: String(s.mark) } : {}),
+          });
         }
       }
       return out;
@@ -152,6 +166,26 @@ export class FollowupService {
       尚未确认: mergeSection(live.尚未确认, saved.尚未确认),
       下一步: mergeSection(live.下一步, saved.下一步),
       复诊问题: mergedQuestions,
+    };
+  }
+
+  /** 标记哪些保存条目是用户手动纠正的（与当时实时生成的内容不同） */
+  private markEdits(live: SummaryContent, saved: SummaryContent): SummaryContent {
+    const mark = (
+      liveItems: Array<{ text: string; source?: string; mark?: string }>,
+      savedItems: Array<{ text: string; source?: string; mark?: string; edited?: boolean }>,
+    ) =>
+      savedItems.map((s, i) => ({
+        ...s,
+        edited: !(liveItems[i] && liveItems[i].text === s.text),
+      }));
+    return {
+      当前情况: mark(live.当前情况, saved.当前情况),
+      报告要点: mark(live.报告要点, saved.报告要点),
+      医嘱要点: mark(live.医嘱要点, saved.医嘱要点),
+      尚未确认: mark(live.尚未确认, saved.尚未确认),
+      下一步: mark(live.下一步, saved.下一步),
+      复诊问题: saved.复诊问题,
     };
   }
 
@@ -178,16 +212,17 @@ export class FollowupService {
 
   /** 校验并清洗摘要内容：各段元素与复诊问题只接受字符串，避免非字符串原样写入 */
   private sanitize(content: SummaryContent): SummaryContent {
-    const clean = (arr: unknown): Array<{ text: string; source?: string; mark?: string }> =>
+    const clean = (arr: unknown): Array<{ text: string; source?: string; mark?: string; edited?: boolean }> =>
       (Array.isArray(arr) ? arr : [])
         .filter(
-          (item): item is { text: string; source?: string; mark?: string } =>
+          (item): item is { text: string; source?: string; mark?: string; edited?: boolean } =>
             typeof item === 'object' && item !== null && typeof (item as { text?: unknown }).text === 'string',
         )
         .map((item) => ({
           text: item.text,
           ...(item.source !== undefined ? { source: String(item.source) } : {}),
           ...(item.mark !== undefined ? { mark: String(item.mark) } : {}),
+          ...(item.edited !== undefined ? { edited: !!item.edited } : {}),
         }));
     const questions = Array.isArray(content.复诊问题)
       ? content.复诊问题.filter((q): q is string => typeof q === 'string')
@@ -205,7 +240,7 @@ export class FollowupService {
   /** 保存/更新摘要 */
   save(userId: string, episodeId: string, content: SummaryContent) {
     this.getEpisode(userId, episodeId);
-    const sanitized = this.sanitize(content);
+    const sanitized = this.markEdits(this.generate(userId, episodeId), this.sanitize(content));
     // 校验内容非空
     const hasContent =
       sanitized.当前情况.length > 0 ||
@@ -239,7 +274,7 @@ export class FollowupService {
   /** 纠正摘要内容 */
   correct(userId: string, summaryId: string, content: SummaryContent) {
     const summary = this.getSummary(userId, summaryId);
-    const sanitized = this.sanitize(content);
+    const sanitized = this.markEdits(this.generate(userId, summary.episodeId), this.sanitize(content));
     this.appDb.prepare('UPDATE FOLLOWUP_SUMMARY SET content = ? WHERE id = ?').run(
       JSON.stringify(sanitized),
       summaryId,

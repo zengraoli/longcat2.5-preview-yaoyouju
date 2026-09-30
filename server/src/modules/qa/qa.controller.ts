@@ -11,6 +11,10 @@ class CreateSessionDto {
   @IsString()
   analysisId?: string | null;
 
+  @IsOptional()
+  @IsString()
+  episodeId?: string | null;
+
   @IsString()
   title!: string;
 }
@@ -35,7 +39,7 @@ export class QaController {
   @Post('sessions')
   @RequireConsent('健康信息处理')
   createSession(@CurrentUser() user: { userId: string }, @Body() dto: CreateSessionDto) {
-    return this.qa.createSession(user.userId, dto.analysisId ?? null, dto.title);
+    return this.qa.createSession(user.userId, dto.analysisId ?? null, dto.title, dto.episodeId ?? null);
   }
 
   @Get('sessions')
@@ -56,6 +60,7 @@ export class QaController {
   }
 
   @Post('sessions/:id/followup-questions')
+  @RequireConsent('健康信息处理')
   addFollowup(
     @CurrentUser() user: { userId: string },
     @Param('id') id: string,

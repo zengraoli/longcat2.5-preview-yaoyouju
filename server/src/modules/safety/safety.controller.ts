@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { RULESET_VERSION, SAFETY_TIPS } from './rules';
 import { SafetyService } from './safety.service';
 
 class CheckDto {
@@ -30,13 +31,8 @@ export class SafetyController {
   tips() {
     return {
       title: '出现以下情况请及时就医',
-      redFlags: [
-        '大小便功能异常或鞍区麻木',
-        '进行性下肢肌力下降',
-        '夜间痛醒伴体重明显下降',
-        '外伤后腰部剧痛',
-        '发热伴腰痛',
-      ],
+      redFlags: SAFETY_TIPS,
+      rulesetVersion: RULESET_VERSION,
       note: '本提示不构成诊断；如症状持续或加重，请前往正规医疗机构就诊。',
     };
   }

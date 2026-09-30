@@ -234,6 +234,8 @@ export class AuthService {
       // 安全事件与案例投稿直接引用 user_id
       this.appDb.prepare('DELETE FROM SAFETY_EVENT WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM CASE_SUBMISSION WHERE user_id = ?').run(userId);
+      // 内容复述直接引用 user_id
+      this.appDb.prepare('DELETE FROM CONTENT_RETELL WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM CONSENT WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM SESSION WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM USER WHERE id = ?').run(userId);

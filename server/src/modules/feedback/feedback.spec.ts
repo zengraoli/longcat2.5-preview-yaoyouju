@@ -60,7 +60,7 @@ describe('反馈与错误举报', () => {
     expect(versions.analysisVersion).toBe(1);
     expect(versions.modelVersion).toContain('local-mock-v1');
     expect(versions.contentVersion).toBe('content-c1');
-    expect(versions.rulesetVersion).toBe('RF-v4');
+    expect(versions.rulesetVersion).toBe('RF-v5');
   });
 
   it('单条授权查看与处置动作', async () => {
@@ -74,12 +74,30 @@ describe('反馈与错误举报', () => {
       .post('/admin/login')
       .send({ name: '临床审核-沈', password: 'Admin@123456', totp: '123456' });
     const adminToken = adminLogin.body.data.token;
-    // 授权
+    // 授权（需超管审批）
     const authorized = await request(app.getHttpServer())
       .post(`/feedback/${id}/authorize`)
       .set('X-Admin-Token', adminToken)
       .expect(201);
-    expect(authorized.body.data.authorized).toBe(true);
+    expect(authorized.body.data.authorized).toBe(false);
+    expect(authorized.body.data.status).toBe('待审批');
+    // 超管审批
+    const superLogin = await request(app.getHttpServer())
+      .post('/admin/login')
+      .send({ name: '超级管理-赵', password: 'Admin@123456', totp: '123456' });
+    const superToken = superLogin.body.data.token;
+    const approved = await request(app.getHttpServer())
+      .post(`/feedback/authorizations/${authorized.body.data.authId}/approve`)
+      .set('X-Admin-Token', superToken)
+      .expect(201);
+    expect(approved.body.data.status).toBe('已批准');
+    // 审批后临床可看到原文
+    const list = await request(app.getHttpServer())
+      .get('/feedback')
+      .set('X-Admin-Token', adminToken)
+      .expect(200);
+    const row = (list.body.data as Array<{ id: string; authorized: boolean }>).find((r) => r.id === id);
+    expect(row?.authorized).toBe(true);
     // 处置
     const handled = await request(app.getHttpServer())
       .post(`/feedback/${id}/handle`)
@@ -93,6 +111,6 @@ describe('反馈与错误举报', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(detail.body.data.versions).toBeTruthy();
-    expect(detail.body.data.versions.rulesetVersion).toBe('RF-v4');
+    expect(detail.body.data.versions.rulesetVersion).toBe('RF-v5');
   });
 });

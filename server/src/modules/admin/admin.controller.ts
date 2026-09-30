@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminGuard, RequirePermission } from './admin.guard';
+import { hashPassword } from '../../database/crypto';
 import { AuditService } from '../audit/audit.service';
 import { FeedbackService } from '../feedback/feedback.service';
 import { CurrentAdmin, CurrentAdminInfo } from './current-admin.decorator';
@@ -39,6 +40,24 @@ class ExportRequestDto {
   reason!: string;
 }
 
+class CreateMemberDto {
+  @IsString()
+  @MaxLength(50)
+  name!: string;
+
+  @IsString()
+  @MaxLength(100)
+  roleId!: string;
+
+  @IsString()
+  @MaxLength(100)
+  password!: string;
+
+  @IsString()
+  @MaxLength(100)
+  email!: string;
+}
+
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -69,7 +88,7 @@ export class AdminController {
   @RequirePermission('audit:read')
   listAuditLogs(@CurrentAdmin() admin: { adminId: string }) {
     this.audit.record({ actorId: admin.adminId, action: 'admin:audit-view', target: 'audit-logs' });
-    return this.audit.list(1000);
+    return this.audit.list(100000);
   }
 
   /** 审计哈希链校验 */
@@ -148,8 +167,8 @@ export class AdminController {
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
-        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, status, created_at)
+         VALUES (?, ?, ?, ?, ?, '待审批', ?)`,
       )
       .run(id, admin.adminId, dto.targetType, dto.targetId, dto.reason, new Date().toISOString());
     this.audit.record({
@@ -158,7 +177,7 @@ export class AdminController {
       target: `${dto.targetType}:${dto.targetId}`,
       diff: { reason: dto.reason },
     });
-    return { id, authorized: true };
+    return { id, authorized: false, status: '待审批' };
   }
 
   /** 反馈与举报列表（管理端；未授权时原文脱敏；运营初筛 / 临床复核 / 超管可读） */
@@ -193,6 +212,28 @@ export class AdminController {
       .all();
   }
 
+  /** 邀请成员（需 member:write，仅超管）：创建后台账号 */
+  @Post('users')
+  @UseGuards(AdminGuard)
+  @RequirePermission('member:write')
+  createMember(@CurrentAdmin() admin: { adminId: string }, @Body() dto: CreateMemberDto) {
+    if (!dto.name.trim()) throw new BadRequestException('姓名不能为空');
+    if (dto.password.length < 8) throw new BadRequestException('密码至少 8 位');
+    const role = this.appDb.prepare('SELECT id FROM ROLE WHERE id = ?').get(dto.roleId) as { id: string } | undefined;
+    if (!role) throw ERR.NOT_FOUND('角色不存在');
+    const existing = this.appDb.prepare('SELECT id FROM ADMIN_USER WHERE email = ?').get(dto.email) as { id: string } | undefined;
+    if (existing) throw new ConflictException('该邮箱已存在');
+    const id = crypto.randomUUID();
+    this.appDb
+      .prepare(
+        `INSERT INTO ADMIN_USER (id, name, email, role_id, password_hash, mfa_enabled, status)
+         VALUES (?, ?, ?, ?, ?, 1, 'active')`,
+      )
+      .run(id, dto.name.trim(), dto.email, dto.roleId, hashPassword(dto.password));
+    this.audit.record({ actorId: admin.adminId, action: 'admin:member-invite', target: id, diff: { name: dto.name, roleId: dto.roleId } });
+    return { id, name: dto.name.trim(), email: dto.email, roleId: dto.roleId, status: 'active' };
+  }
+
   /** 单条授权记录列表（读取写审计） */
   @Get('authorizations')
   @UseGuards(AdminGuard)
@@ -202,7 +243,7 @@ export class AdminController {
     return this.appDb
       .prepare(
         `SELECT a.id, a.admin_id AS adminId, au.name AS adminName, a.target_type AS targetType,
-                a.target_id AS targetId, a.reason, a.created_at AS createdAt
+                a.target_id AS targetId, a.reason, a.status, a.created_at AS createdAt
          FROM ADMIN_AUTHORIZATION a LEFT JOIN ADMIN_USER au ON au.id = a.admin_id
          ORDER BY a.created_at DESC, a.rowid DESC`,
       )
@@ -336,12 +377,21 @@ export class AdminController {
     return { id, status: next };
   }
 
-  /** 审计导出（需 audit:export 权限，写审计） */
+  /** 审计导出（需 audit:export 权限，或已有超管批准的导出申请；写审计） */
   @Get('audit-logs/export')
   @UseGuards(AdminGuard)
-  @RequirePermission('audit:export')
-  exportAuditLogs(@CurrentAdmin() admin: { adminId: string }) {
-    const logs = this.audit.list(1000);
+  @RequirePermission('audit:read')
+  exportAuditLogs(@CurrentAdmin() admin: CurrentAdminInfo) {
+    // 合规角色没有 audit:export，需先发起申请并由超管批准后才能导出
+    if (!admin.permissions.includes('audit:export')) {
+      const approved = this.appDb
+        .prepare("SELECT id FROM AUDIT_EXPORT_REQUEST WHERE requester_id = ? AND status = '已批准' ORDER BY created_at DESC LIMIT 1")
+        .get(admin.adminId) as { id: string } | undefined;
+      if (!approved) {
+        throw ERR.FORBIDDEN('导出审计日志需要 audit:export 权限，或先发起导出申请并由超管批准');
+      }
+    }
+    const logs = this.audit.list(100000);
     const header = '时间,操作人,角色,动作,对象,请求ID,哈希';
     // 字段含逗号/引号/换行时用双引号包裹并转义
     const escapeCsv = (value: string) => {

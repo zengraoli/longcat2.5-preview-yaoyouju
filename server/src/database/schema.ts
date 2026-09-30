@@ -224,6 +224,7 @@ CREATE TABLE IF NOT EXISTS QA_SESSION (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES USER(id),
   analysis_id TEXT REFERENCES ANALYSIS(id),
+  episode_id TEXT,
   title TEXT,
   created_at TEXT NOT NULL
 );
@@ -296,6 +297,7 @@ CREATE TABLE IF NOT EXISTS ADMIN_AUTHORIZATION (
   target_type TEXT NOT NULL,
   target_id TEXT NOT NULL,
   reason TEXT,
+  status TEXT NOT NULL DEFAULT '待审批',
   created_at TEXT NOT NULL,
   expires_at TEXT,
   revoked_at TEXT

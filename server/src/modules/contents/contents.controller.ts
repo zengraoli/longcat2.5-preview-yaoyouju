@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ArrayNotEmpty, IsArray, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentAdmin, CurrentAdminInfo } from '../admin/current-admin.decorator';
@@ -51,6 +52,12 @@ class BatchOfflineDto {
   itemIds!: string[];
 }
 
+class RetellDto {
+  @IsString()
+  @MaxLength(1000)
+  text!: string;
+}
+
 @Controller('contents')
 export class ContentsController {
   constructor(private readonly contents: ContentsService) {}
@@ -75,8 +82,9 @@ export class ContentsController {
 
   /** 用户端：提交内容复述（检验理解，保存记录） */
   @Post('published/:id/retell')
-  @UseGuards(AuthGuard)
-  retell(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() body: { text?: string }) {
+  @UseGuards(AuthGuard, ConsentGuard)
+  @RequireConsent('健康信息处理')
+  retell(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() body: RetellDto) {
     return this.contents.saveRetell(user.userId, id, body.text ?? '');
   }
 

@@ -7,6 +7,7 @@ import {
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
+import { SafetyService } from '../safety/safety.service';
 
 export const EVENT_TYPES = ['报告', '症状', '医嘱', '行动', '结局'] as const;
 export const SOURCE_TYPES = ['自述', '报告原文', '医生记录'] as const;
@@ -40,7 +41,10 @@ function orUnknown<T>(value: T | null): T | '尚未确认' {
 
 @Injectable()
 export class EpisodesService {
-  constructor(@Inject(APP_DB) private readonly appDb: Database.Database) {}
+  constructor(
+    @Inject(APP_DB) private readonly appDb: Database.Database,
+    private readonly safety: SafetyService,
+  ) {}
 
   listEpisodes(userId: string) {
     return this.appDb
@@ -108,7 +112,7 @@ export class EpisodesService {
       rawText?: string | null;
       verifyStatus?: string;
     },
-  ): CareEventView {
+  ): CareEventView & { safety: unknown } {
     this.getEpisode(userId, episodeId);
     if (!EVENT_TYPES.includes(input.eventType as never)) {
       throw new ForbiddenException('事件类型不合法');
@@ -128,13 +132,28 @@ export class EpisodesService {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(id, episodeId, input.eventType, input.occurredAt, now, input.sourceType, input.rawText ?? null, verifyStatus);
-    return this.appDb
+    // 新增事件时同时做安全预检，把就医提示随返回带给客户端
+    const safety = input.rawText
+      ? this.safety.checkAndRecord(userId, 'episode-event', input.rawText)
+      : null;
+    const event = this.appDb
       .prepare(
         `SELECT id, episode_id AS episodeId, event_type AS eventType, occurred_at AS occurredAt,
                 reported_at AS reportedAt, source_type AS sourceType, raw_text AS rawText, verify_status AS verifyStatus
          FROM CARE_EVENT WHERE id = ?`,
       )
       .get(id) as CareEventView;
+    return {
+      ...event,
+      safety: safety
+        ? {
+            passed: safety.passed,
+            redFlags: safety.redFlags,
+            outOfScope: safety.outOfScope,
+            safetyTips: safety.safetyTips,
+          }
+        : { passed: true, redFlags: [], outOfScope: [], safetyTips: [] },
+    };
   }
 
   /** 用户可纠正自己的记录（原文与核实状态） */
@@ -225,7 +244,7 @@ export class EpisodesService {
       changeVsYesterday?: string | null;
       activitiesDone?: string | null;
     },
-  ): SymptomLogView {
+  ): SymptomLogView & { safety: unknown } {
     this.getEpisode(userId, episodeId);
     // 每条症状记录挂在一个"症状"类型的病程事件上
     const eventId = crypto.randomUUID();
@@ -253,6 +272,11 @@ export class EpisodesService {
         input.changeVsYesterday ?? null,
         input.activitiesDone ?? null,
       );
+    // 记录今天的文字（最担心/变化/活动）也做安全预检
+    const safetyText = [input.topWorry, input.changeVsYesterday, input.activitiesDone, input.plannedActivityDone]
+      .filter((t): t is string => !!t && t.trim().length > 0)
+      .join('\n');
+    const safety = safetyText ? this.safety.checkAndRecord(userId, 'symptom-log', safetyText) : null;
     return {
       id,
       careEventId: eventId,
@@ -261,7 +285,15 @@ export class EpisodesService {
       sleepImpact: orUnknown(input.sleepImpact ?? null),
       topWorry: orUnknown(input.topWorry ?? null),
       legChange: orUnknown(input.legChange ?? null),
-    };
+      safety: safety
+        ? {
+            passed: safety.passed,
+            redFlags: safety.redFlags,
+            outOfScope: safety.outOfScope,
+            safetyTips: safety.safetyTips,
+          }
+        : { passed: true, redFlags: [], outOfScope: [], safetyTips: [] },
+    } as SymptomLogView & { safety: unknown };
   }
 
   /** 更新症状记录字段（如工作台确认“腿部麻木或无力”） */
