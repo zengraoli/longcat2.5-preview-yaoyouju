@@ -6,7 +6,7 @@
           <h1 class="models__title">模型与评测 › 发布管理</h1>
           <p class="models__meta">发布组合（模型 + 提示词 + 检索策略 + 内容库 + embedding）</p>
         </div>
-        <button class="btn btn--primary" @click="showCreate = true">＋ 新建候选发布</button>
+        <button v-if="canRelease" class="btn btn--primary" @click="showCreate = true">＋ 新建候选发布</button>
       </div>
       <p class="models__desc">任一要素变更都必须生成新的候选发布并通过全部评测门禁；激活需关联通过的评测运行。发布与回滚需双人确认（技术负责人 + 超管）。</p>
 
@@ -29,9 +29,9 @@
               <td class="table__eval">{{ r.evalResult }}</td>
               <td class="table__actions">
                 <button class="btn btn--text" @click="onView(r)">查看</button>
-                <button v-if="r.status === '候选'" class="btn btn--text" @click="onRunEval(r)">重跑评测</button>
-                <button v-if="r.status === '候选'" class="btn btn--text" @click="onPublish(r)">发布</button>
-                <button v-if="r.status === '生效'" class="btn btn--text" @click="onRollback(r)">回滚到上一版</button>
+                <button v-if="r.status === '候选' && canRunEval" class="btn btn--text" @click="onRunEval(r)">重跑评测</button>
+                <button v-if="r.status === '候选' && canRelease" class="btn btn--text" @click="onPublish(r)">发布</button>
+                <button v-if="r.status === '生效' && canRelease" class="btn btn--text" @click="onRollback(r)">回滚到上一版</button>
               </td>
             </tr>
           </tbody>
@@ -47,7 +47,7 @@
               <span class="card__tag" :class="candidateEvals.length > 0 && candidateEvals.every((e) => e.passed) ? 'card__tag--ok' : 'card__tag--danger'">
                 {{ candidateEvals.length > 0 && candidateEvals.every((e) => e.passed) ? '门禁通过' : '阻断发布' }}
               </span>
-              <button class="btn btn--secondary btn--sm" @click="candidate && onRunEval(candidate)">⟳ 重跑全部评测</button>
+              <button v-if="canRunEval" class="btn btn--secondary btn--sm" @click="candidate && onRunEval(candidate)">⟳ 重跑全部评测</button>
             </div>
           </div>
           <table class="table">
@@ -141,15 +141,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import Modal from '@/components/Modal.vue';
+import { useAuthStore } from '@/stores/auth';
 import { listReleases, runEval, publishRelease, rollbackRelease, createRelease, listEvalRuns, listEvalSets } from '@/api';
 import type { Release, EvalRun } from '@/api/types';
 
 const router = useRouter();
+const auth = useAuthStore();
+const canRelease = computed(() => (auth.session?.permissions ?? []).includes('model:release'));
+const canRunEval = computed(() => (auth.session?.permissions ?? []).includes('eval:run'));
 const releases = ref<Array<Release & { evalResult: string }>>([]);
 const candidateEvals = ref<Array<{ name: string; result: string; cases: number; passed: boolean }>>([]);
 const candidate = ref<Release | null>(null);

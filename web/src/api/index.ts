@@ -46,6 +46,11 @@ export function deleteAccount() {
   return api.post<{ deleted: boolean }>('/auth/delete', {});
 }
 
+/** 导出我的全部数据（可读 JSON） */
+export function exportMyData() {
+  return api.get<Record<string, unknown>>('/auth/export');
+}
+
 export function setConsent(scope: string, granted: boolean) {
   return api.post<Array<{ scope: string; granted: boolean; grantedAt: string | null; revokedAt: string | null }>>('/auth/consents', {
     scope,

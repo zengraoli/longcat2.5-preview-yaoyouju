@@ -18,7 +18,7 @@
       @click="selected = opt.key"
     >
       <view class="confusion__option-icon" :class="{ 'confusion__option-icon--selected': selected === opt.key }">
-        <text>{{ opt.icon }}</text>
+        <Icon :name="opt.icon" :size="22" />
       </view>
       <view class="confusion__option-body">
         <text class="confusion__option-title">{{ opt.title }}</text>
@@ -54,8 +54,8 @@
 import { ref } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
-import { listEpisodes, addEvent } from '@/api';
-import { CONFUSION_OPTIONS, confusionTitle } from '@/utils/confusion';
+import Icon from '@/components/Icon.vue';
+import { CONFUSION_OPTIONS } from '@/utils/confusion';
 
 const options = CONFUSION_OPTIONS;
 const formatOptions = ['简短要点', '详细说明', '带图示视频', '先看原文对照'];
@@ -74,24 +74,7 @@ function goBack() {
 }
 
 async function onNext() {
-  // 保存主要困惑与解释方式选择（写入病程，供分析参考）
-  try {
-    const episodes = await listEpisodes();
-    if (episodes.length > 0) {
-      const selectedTitle = confusionTitle(selected.value);
-      const parts = [`主要困惑：${selectedTitle}`];
-      if (format.value.length > 0) parts.push(`解释方式：${format.value.join('、')}`);
-      await addEvent(episodes[0].id, {
-        eventType: '行动',
-        occurredAt: new Date().toISOString(),
-        sourceType: '自述',
-        rawText: parts.join('；'),
-        verifyStatus: '尚未确认',
-      });
-    }
-  } catch {
-    // 保存失败不阻断流程
-  }
+  // 困惑选择只影响解释重点，不写入病程事件（避免出现在“尚未确认”里）
   uni.navigateTo({ url: '/pages/report/index' });
 }
 </script>

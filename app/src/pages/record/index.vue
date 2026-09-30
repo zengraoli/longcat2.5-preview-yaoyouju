@@ -111,11 +111,12 @@
     <view class="card">
       <text class="record__question">今天最担心什么？</text>
       <textarea
-        v-model="worry"
+        :value="worry"
         class="record__textarea"
         placeholder="例如：会不会越来越严重 / 要不要换医院…"
         placeholder-class="record__placeholder"
         :maxlength="2000"
+        @input="onWorryInput"
       />
     </view>
 
@@ -133,7 +134,7 @@ import { ref } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, addSymptomLog, createEpisode, checkSafety } from '@/api';
+import { listEpisodes, addSymptomLog, createEpisode } from '@/api';
 
 const today = new Date().toISOString().slice(0, 10);
 const sitOptions = ['<15分钟', '15-30', '30-60', '>60分钟'];
@@ -162,6 +163,12 @@ function toggleDone(opt: string) {
   else done.value.push(opt);
 }
 
+/** 同步输入内容，避免“输入后马上保存”时最后 1–2 个字丢失 */
+function onWorryInput(e: unknown) {
+  const detail = (e as { detail?: { value?: string } })?.detail;
+  worry.value = detail?.value ?? '';
+}
+
 function goBack() {
   uni.navigateBack();
 }
@@ -179,8 +186,7 @@ function sitMinutesToNumber(opt: string): number | undefined {
 
 async function onSave(updateCurrent = false) {
   // 先保存记录（红旗信号不阻断记录，记录是用户自己的病程数据）
-  let saved = false;
-  let worryText = '';
+  let safety: { passed: boolean; redFlags: Array<{ message: string }> } | null = null;
   try {
     let episodes = await listEpisodes();
     if (episodes.length === 0) {
@@ -188,7 +194,7 @@ async function onSave(updateCurrent = false) {
       const ep = await createEpisode('腰痛', undefined, '尚未确认');
       episodes = [{ id: ep.id, title: '腰痛', onsetDate: null, onsetCertainty: '尚未确认', status: 'active' }];
     }
-    await addSymptomLog(episodes[0].id, {
+    const res = await addSymptomLog(episodes[0].id, {
       occurredAt: new Date().toISOString(),
       sitMinutes: sitMinutesToNumber(sitMinutes.value),
       plannedActivityDone: activity.value || undefined,
@@ -198,10 +204,8 @@ async function onSave(updateCurrent = false) {
       changeVsYesterday: change.value || undefined,
       activitiesDone: done.value.join('、') || undefined,
     });
-    saved = true;
+    safety = res.safety ?? null;
     uni.showToast({ title: '已保存', icon: 'success' });
-    // 红旗预检在清表单前进行（否则读不到刚保存的内容）
-    worryText = worry.value.trim();
     // 保存后清空表单（不复用昨日答案）
     sitMinutes.value = '';
     activity.value = '';
@@ -217,23 +221,16 @@ async function onSave(updateCurrent = false) {
     uni.showToast({ title: (e as Error).message, icon: 'none' });
     return;
   }
-  // 红旗预检：命中红旗时提示就医（记录已保存，不阻断）
-  if (worryText && saved) {
-    try {
-      const safety = await checkSafety(worryText, 'record');
-      if (!safety.passed && safety.redFlags.length > 0) {
-        uni.showModal({
-          title: '需要及时寻求专业帮助',
-          content: safety.redFlags.map((r) => r.message).join(''),
-          showCancel: false,
-          success: () => {
-            uni.navigateTo({ url: '/pages/redflag/index' });
-          },
-        });
-      }
-    } catch {
-      // 预检失败不阻断
-    }
+  // 红旗提示：命中时提示就医（记录已保存，不阻断）
+  if (safety && !safety.passed && safety.redFlags.length > 0) {
+    uni.showModal({
+      title: '需要及时寻求专业帮助',
+      content: safety.redFlags.map((r) => r.message).join(''),
+      showCancel: false,
+      success: () => {
+        uni.navigateTo({ url: '/pages/redflag/index' });
+      },
+    });
   }
 }
 </script>

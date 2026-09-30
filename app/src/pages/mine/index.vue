@@ -110,7 +110,7 @@
         <text class="mine__row-icon">⚙</text>
         <view class="mine__row-body">
           <text class="mine__row-title">版本信息</text>
-          <text class="mine__row-desc">App v0.1.0 · 分析模型 local-mock-v1 · 内容库 content-c1</text>
+          <text class="mine__row-desc">App v0.1.0 · 分析模型 {{ modelName || 'local-mock-v1' }} · 内容库 {{ contentLibVersion || '—' }}</text>
         </view>
         <text class="mine__row-arrow">›</text>
       </view>
@@ -139,8 +139,8 @@
     <view v-if="showExport" class="mask" @click="showExport = false">
       <view class="dialog" @click.stop>
         <text class="dialog__title">导出我的全部数据</text>
-        <text class="dialog__text">演示环境暂不支持完整数据导出。正式环境将生成可读格式（PDF / JSON），包含病程、报告原文、分析版本与同意记录，链接 24 小时内有效。</text>
-        <AppButton block @click="showExport = false">我知道了</AppButton>
+        <text class="dialog__text">将导出病程、报告原文、分析版本与同意记录（可读 JSON）。点击下方按钮复制导出内容，或保存为文件。</text>
+        <AppButton block @click="onExport">复制导出数据</AppButton>
       </view>
     </view>
 
@@ -182,11 +182,13 @@
 import { ref, computed, onMounted } from 'vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { getSafetyTips, getMe, getConsents, setConsent, logout, deleteAccount, setAuthToken, type ConsentView } from '@/api';
+import { getSafetyTips, getMe, getConsents, setConsent, logout, deleteAccount, setAuthToken, exportMyData, listEpisodes, getLatestAnalysis, type ConsentView } from '@/api';
 
 const maskedPhone = ref('');
 const anonymousId = ref('');
 const consents = ref<ConsentView[]>([]);
+const modelName = ref('');
+const contentLibVersion = ref('');
 const showConsents = ref(false);
 const showEmergency = ref(false);
 const showExport = ref(false);
@@ -260,6 +262,22 @@ async function onLogout() {
   uni.reLaunch({ url: '/pages/login/index' });
 }
 
+async function onExport() {
+  try {
+    const data = await exportMyData();
+    const text = JSON.stringify(data, null, 2);
+    uni.setClipboardData({
+      data: text,
+      success: () => {
+        showExport.value = false;
+        uni.showToast({ title: '导出内容已复制', icon: 'success' });
+      },
+    });
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
+}
+
 onMounted(async () => {
   try {
     const me = await getMe();
@@ -278,6 +296,18 @@ onMounted(async () => {
     emergency.value = tips;
   } catch {
     // 预取失败不阻塞
+  }
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const analysis = await getLatestAnalysis(episodes[0].id);
+      if (analysis) {
+        modelName.value = analysis.modelName ?? analysis.modelReleaseId ?? '';
+        contentLibVersion.value = analysis.contentLibVersion ?? analysis.retrievalSnapshot?.contentLibVersion ?? '';
+      }
+    }
+  } catch {
+    // 未登录或没有分析
   }
 });
 </script>

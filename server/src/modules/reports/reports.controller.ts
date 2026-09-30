@@ -53,7 +53,7 @@ export class ReportsController {
   /** 拍照提取：模拟 OCR，返回示例文本（受“拍照提取”开关控制） */
   @Post('ocr')
   @RequireConsent('健康信息处理')
-  ocr(@CurrentUser() user: { userId: string }, @Body() dto: { careEventId: string }) {
+  ocr(@CurrentUser() user: { userId: string }, @Body() dto: { careEventId?: string }) {
     if (!this.switches.isOn('拍照提取')) {
       return { text: '', disabled: true, message: '拍照提取功能已暂时关闭，请粘贴报告文字。' };
     }

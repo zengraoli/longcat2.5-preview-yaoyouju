@@ -31,8 +31,7 @@
         </span>
       </div>
 
-      <div class="evidence__grid">
-        <!-- 左：表格 -->
+      <div class="evidence__grid">        <!-- 左：表格 -->
         <div class="card">
           <table class="table">
             <thead>
@@ -50,6 +49,7 @@
                 <td>{{ doc.verifiedAt ?? '—' }}</td>
 
                 <td class="table__actions">
+                  <button class="btn btn--text" @click="onVerify(doc)">{{ doc.active ? '重新核实' : '核实并启用' }}</button>
                   <button class="btn btn--text" @click="onDeactivate(doc)" :disabled="!doc.active">停用</button>
                 </td>
               </tr>
@@ -91,6 +91,25 @@
       <TipBar type="info">
         只有“可引用”且“已核实”的条目参与检索；用户反馈、对话与投稿不得写入证据库。“引用了”不等于确实支持，引用核对在分析管线中逐条执行。
       </TipBar>
+
+      <!-- 新建证据弹层 -->
+      <div v-if="showCreate" class="mask" @click.self="showCreate = false">
+        <div class="dialog">
+          <div class="dialog__title">新建证据条目</div>
+          <label class="dialog__label">标题</label>
+          <input v-model="form.title" class="dialog__input" maxlength="200" placeholder="如：腰痛红旗信号识别要点" />
+          <label class="dialog__label">来源类型</label>
+          <select v-model="form.sourceType" class="dialog__input">
+            <option>指南</option><option>研究</option><option>审核科普</option>
+          </select>
+          <label class="dialog__label">证据内容（按句切分入库）</label>
+          <textarea v-model="form.content" class="dialog__textarea" maxlength="50000" placeholder="输入可引用的证据正文…" />
+          <div class="dialog__actions">
+            <button class="btn btn--secondary" @click="showCreate = false">取消</button>
+            <button class="btn btn--primary" @click="onSubmitCreate">创建</button>
+          </div>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -102,7 +121,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { api } from '@/api/client';
-import { listEvidence, createEvidence, deactivateEvidence, getEvidenceImpact, getEvidencePipeline } from '@/api';
+import { listEvidence, createEvidence, deactivateEvidence, verifyEvidence, getEvidenceImpact, getEvidencePipeline } from '@/api';
 import type { EvidenceDoc } from '@/api/types';
 
 const docs = ref<Array<EvidenceDoc>>([]);
@@ -111,6 +130,8 @@ const typeFilter = ref('');
 const licenseFilter = ref('');
 const statusFilter = ref('');
 const selected = ref<EvidenceDoc | null>(null);
+const showCreate = ref(false);
+const form = ref({ title: '', sourceType: '审核科普', content: '' });
 
 /** 搜索与筛选（来源类型 / 许可 / 状态） */
 const filteredDocs = computed(() => {
@@ -160,15 +181,34 @@ async function onConfirmDeactivate() {
   }
 }
 
-async function onCreate() {
-  const title = prompt('证据标题');
-  if (!title) return;
-  const sourceType = prompt('来源类型（指南/研究/审核科普）') ?? '审核科普';
-  const content = prompt('证据内容');
-  if (!content) return;
+async function onVerify(doc: EvidenceDoc) {
   try {
-    await createEvidence({ title, sourceType, content });
+    await verifyEvidence(doc.id);
+    toast('已核实并启用');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+function onCreate() {
+  form.value = { title: '', sourceType: '审核科普', content: '' };
+  showCreate.value = true;
+}
+
+async function onSubmitCreate() {
+  if (!form.value.title.trim()) {
+    toast('请填写标题');
+    return;
+  }
+  if (!form.value.content.trim()) {
+    toast('请填写证据内容');
+    return;
+  }
+  try {
+    await createEvidence({ title: form.value.title.trim(), sourceType: form.value.sourceType, content: form.value.content.trim() });
     toast('已创建');
+    showCreate.value = false;
     await load();
   } catch (e) {
     toast((e as Error).message);
@@ -383,4 +423,48 @@ onMounted(load);
   opacity: 0.5;
   cursor: not-allowed;
 }
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+.dialog {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 86vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.dialog__title { font-size: 16px; font-weight: 500; margin-bottom: 16px; }
+.dialog__label { font-size: 12px; color: var(--text-2); display: block; margin: 10px 0 6px; }
+.dialog__input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: var(--surface);
+}
+.dialog__textarea {
+  width: 100%;
+  min-height: 140px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  box-sizing: border-box;
+  background: var(--surface);
+}
+.dialog__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 </style>

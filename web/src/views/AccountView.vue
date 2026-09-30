@@ -28,6 +28,7 @@
               <div class="card__title">同意记录</div>
               <span class="card__tag">可随时撤回</span>
             </div>
+            <p class="table-scroll-hint">← 左右滑动查看完整表格 →</p>
             <div class="table-wrap">
             <table class="table">
               <thead>
@@ -154,10 +155,11 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { useAuthStore } from '@/stores/auth';
-import { getMe, getConsents, setConsent, logout, deleteAccount, listEpisodes } from '@/api';
+import { getMe, getConsents, setConsent, logout, deleteAccount, exportMyData, listEpisodes } from '@/api';
 
 const auth = useAuthStore();
 const router = useRouter();
+void router;
 
 const maskedPhone = ref('');
 const anonymousId = ref('');
@@ -269,10 +271,23 @@ async function onRevoke() {
 
 const deleteConfirmed = ref(false);
 
-function onApplyExport() {
-  // 申请导出：跳转到复诊准备页导出交接摘要（正式环境将生成可读格式 PDF / JSON）
-  router.push({ name: 'followup' });
-  toast('已为你打开复诊准备，可导出交接摘要；正式环境支持导出全部数据（PDF / JSON）');
+async function onApplyExport() {
+  // 导出全部数据：拉取可读 JSON 并触发下载
+  try {
+    const data = await exportMyData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `腰有据-全部数据-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('已生成并下载导出文件（JSON）');
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function onDelete() {
@@ -328,6 +343,16 @@ onMounted(async () => {
   font-size: 13px;
   color: var(--text-2);
   margin: 0;
+}
+.table-scroll-hint {
+  display: none;
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 8px 0;
+}
+@media (max-width: 480px) {
+  .table-scroll-hint { display: block; }
+  .table { min-width: 640px; }
 }
 .account-page__grid {
   display: grid;

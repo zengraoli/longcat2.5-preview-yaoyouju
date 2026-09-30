@@ -27,12 +27,27 @@
       <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8" />
       <path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
     </template>
+    <!-- 困惑：报告术语 -->
+    <template v-else-if="name === 'report'">
+      <path d="M7 3h7l4 4v14H7V3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M14 3v4h4M10 12h6M10 16h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+    </template>
+    <!-- 困惑：病程变化 -->
+    <template v-else-if="name === 'course'">
+      <path d="M4 18 9 11l4 4 7-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M4 21h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+    </template>
+    <!-- 困惑：生活影响 -->
+    <template v-else-if="name === 'life'">
+      <circle cx="12" cy="6" r="2.5" stroke="currentColor" stroke-width="1.8" />
+      <path d="M12 9v6M12 15l-4 6M12 15l4 6M7 11h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    </template>
   </svg>
 </template>
 
 <script setup lang="ts">
 defineProps<{
-  name: 'home' | 'qa' | 'timeline' | 'followup' | 'mine';
+  name: 'home' | 'qa' | 'timeline' | 'followup' | 'mine' | 'report' | 'course' | 'life';
   size?: number;
 }>();
 </script>

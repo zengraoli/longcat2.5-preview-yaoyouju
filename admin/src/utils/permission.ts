@@ -24,6 +24,11 @@ export const DUAL_CONFIRM_SETTINGS = [
   { name: '模型激活 / 回滚', value: '技术负责人 + 超管' },
 ];
 
+/** 权限矩阵单元格：一个格子可含多个权限点，用“/”分隔（如“✓/—/—”）；拆开逐项渲染 */
+export function splitPermCell(value: string): string[] {
+  return String(value).split('/').map((s) => s.trim());
+}
+
 /** 当前登录管理员是否具有指定权限之一 */
 export function hasPermission(permissions: string[] | undefined, ...needed: string[]): boolean {
   if (!permissions) return false;
@@ -51,6 +56,11 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'admin:login': '后台登录',
   'admin:login-failed': '登录失败',
   'admin:logout': '退出登录',
+  'admin:dashboard-view': '查看仪表盘',
+  'admin:member-view': '查看成员',
+  'admin:member-invite': '邀请成员',
+  'admin:authorization-view': '查看授权记录',
+  'admin:evidence-impact-view': '查看停用影响',
   'admin:user-status': '账号停用/启用',
   'admin:user-role': '角色变更',
   'admin:authorize': '单条授权',
@@ -68,17 +78,26 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'content:offline-initiate': '发起下线',
   'content:offline': '下线内容',
   'content:restore': '取消下线',
+  'content:restore-initiate': '发起取消下线',
   'content:offline-switch-on': '下线开关开启',
   'content:offline-switch-off': '下线开关关闭',
   'content:batch-offline': '批量下线',
   'content:correct-initiate': '发起更正',
   'evidence:create': '新建证据',
   'evidence:deactivate': '停用证据',
+  'evidence:verify': '核实/启用证据',
   'feedback:report': '提交举报',
   'feedback:authorize': '反馈授权',
+  'feedback:authorize-request': '申请反馈授权',
+  'feedback:authorize-approve': '审批反馈授权',
+  'feedback:authorize-revoke': '撤回反馈授权',
+  'feedback:view-plain': '查看反馈原文',
   'feedback:handle': '反馈处置',
   'model:create': '创建发布组合',
   'model:eval': '运行评测',
+  'model:eval-set-create': '新建评测集',
+  'model:eval-case-import': '导入评测用例',
+  'model:eval-case-fix': '标记用例已修复',
   'model:publish-initiate': '发起模型发布',
   'model:publish': '模型发布',
   'model:rollback-initiate': '发起回滚',

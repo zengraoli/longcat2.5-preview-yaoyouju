@@ -14,6 +14,15 @@ function phoneHash(phone: string): string {
   return crypto.createHmac('sha256', pepper).update(phone).digest('hex');
 }
 
+/** 安全解析 JSON 字段（导出时使用），失败则原样返回 */
+function safeJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 export interface ConsentView {
   scope: string;
   granted: boolean;
@@ -158,6 +167,58 @@ export class AuthService {
     return !!row;
   }
 
+  /** 导出用户全部数据（可读 JSON，供用户自主导出） */
+  exportData(userId: string) {
+    const user = this.appDb
+      .prepare('SELECT id, status, created_at AS createdAt, retention_until AS retentionUntil FROM USER WHERE id = ?')
+      .get(userId) as Record<string, unknown> | undefined;
+    const episodes = this.appDb
+      .prepare('SELECT id, title, onset_date AS onsetDate, onset_certainty AS onsetCertainty, status FROM EPISODE WHERE user_id = ?')
+      .all(userId);
+    const events = this.appDb
+      .prepare(
+        `SELECT e.id, e.episode_id AS episodeId, e.event_type AS eventType, e.occurred_at AS occurredAt,
+                e.source_type AS sourceType, e.raw_text AS rawText, e.verify_status AS verifyStatus
+         FROM CARE_EVENT e JOIN EPISODE p ON p.id = e.episode_id WHERE p.user_id = ?`,
+      )
+      .all(userId);
+    const reports = this.appDb
+      .prepare(
+        `SELECT r.id, r.care_event_id AS careEventId, r.report_date AS reportDate, r.raw_text AS rawText
+         FROM REPORT r JOIN CARE_EVENT e ON e.id = r.care_event_id
+         JOIN EPISODE p ON p.id = e.episode_id WHERE p.user_id = ?`,
+      )
+      .all(userId);
+    const analyses = (
+      this.appDb
+        .prepare(
+          `SELECT a.id, a.episode_id AS episodeId, a.version, a.sections, a.retrieval_snapshot AS retrievalSnapshot,
+                  a.safety_flag AS safetyFlag, a.created_at AS createdAt
+           FROM ANALYSIS a JOIN EPISODE p ON p.id = a.episode_id WHERE p.user_id = ?`,
+        )
+        .all(userId) as Array<Record<string, unknown> & { sections: string; retrievalSnapshot: string }>
+    ).map((a) => ({ ...a, sections: safeJson(a.sections), retrievalSnapshot: safeJson(a.retrievalSnapshot) }));
+    const summaries = this.appDb
+      .prepare(
+        `SELECT s.id, s.episode_id AS episodeId, s.content, s.export_format AS exportFormat, s.exported_at AS exportedAt
+         FROM FOLLOWUP_SUMMARY s JOIN EPISODE p ON p.id = s.episode_id WHERE p.user_id = ?`,
+      )
+      .all(userId);
+    const feedback = this.appDb
+      .prepare('SELECT id, analysis_id AS analysisId, help_type AS helpType, unsolved_question AS unsolvedQuestion, created_at AS createdAt FROM FEEDBACK WHERE user_id = ?')
+      .all(userId);
+    return {
+      exportedAt: new Date().toISOString(),
+      user,
+      consents: this.getConsents(userId),
+      episodes,
+      events,
+      reports,
+      analyses,
+      summaries,
+      feedback,
+    };
+  }
   /** 校验会话，返回 userId；无效或过期返回 null（只接受哈希后的令牌，不接受库中哈希值本身） */
   resolveSession(token: string): string | null {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');

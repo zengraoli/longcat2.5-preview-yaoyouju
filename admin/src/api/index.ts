@@ -112,6 +112,11 @@ export function deactivateEvidence(id: string) {
   return api.post<{ id: string; active: boolean }>(`/evidence/docs/${id}/deactivate`, {});
 }
 
+/** 核实 / 重新启用证据 */
+export function verifyEvidence(id: string) {
+  return api.post<{ id: string; active: boolean }>(`/evidence/docs/${id}/verify`, {});
+}
+
 export function getEvidenceImpact(id: string) {
   return api.get<{ docId: string; title: string; analyses: Array<{ analysisId: string; episodeId: string }>; contents: Array<{ itemId: string; title: string }> }>(
     `/evidence/docs/${id}/impact`,
@@ -195,6 +200,11 @@ export function listAdminUsers() {
   return api.get<AdminUser[]>('/admin/users');
 }
 
+/** 邀请成员（仅超管）：创建后台账号 */
+export function createAdminMember(input: { name: string; email: string; roleId: string; password: string }) {
+  return api.post<{ id: string; name: string; email: string; roleId: string; status: string }>('/admin/users', input);
+}
+
 export function reviewCase(id: string, decision: string, comment?: string) {
   return api.post<{ id: string; status: string }>(`/admin/cases/${id}/review`, { decision, comment });
 }
@@ -220,6 +230,11 @@ export function listAuditExportRequests() {
 
 export function approveAuditExportRequest(id: string) {
   return api.post<{ id: string; status: string }>(`/admin/audit-logs/export-requests/${id}/approve`, {});
+}
+
+/** 导出审计日志（需 audit:export 或已批准的导出申请） */
+export function exportAuditLogs() {
+  return api.get<{ csv: string; count: number }>('/admin/audit-logs/export');
 }
 
 /* ---------- 授权 ---------- */

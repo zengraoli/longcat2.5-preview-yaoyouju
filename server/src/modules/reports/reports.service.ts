@@ -68,16 +68,18 @@ export class ReportsService {
     };
   }
 
-  /** 拍照提取走模拟 OCR：返回示例文本，可据此录入；校验病程事件归属 */
-  ocr(userId: string, careEventId: string) {
-    const event = this.appDb
-      .prepare(
-        `SELECT e.id FROM CARE_EVENT e JOIN EPISODE ep ON ep.id = e.episode_id
-         WHERE e.id = ? AND ep.user_id = ?`,
-      )
-      .get(careEventId, userId) as { id: string } | undefined;
-    if (!event) {
-      throw new NotFoundException('病程事件不存在');
+  /** 拍照提取走模拟 OCR：返回示例文本，可据此录入；传入病程事件时校验归属 */
+  ocr(userId: string, careEventId?: string) {
+    if (careEventId) {
+      const event = this.appDb
+        .prepare(
+          `SELECT e.id FROM CARE_EVENT e JOIN EPISODE ep ON ep.id = e.episode_id
+           WHERE e.id = ? AND ep.user_id = ?`,
+        )
+        .get(careEventId, userId) as { id: string } | undefined;
+      if (!event) {
+        throw new NotFoundException('病程事件不存在');
+      }
     }
     return mockOcr();
   }

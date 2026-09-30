@@ -126,6 +126,19 @@ export class EvidenceService {
     return { id: docId, active: false };
   }
 
+  /** 核实 / 重新启用证据（记录核实日期并恢复启用） */
+  verify(actorId: string, docId: string) {
+    const doc = this.appDb
+      .prepare('SELECT id FROM EVIDENCE_DOC WHERE id = ?')
+      .get(docId) as { id: string } | undefined;
+    if (!doc) throw new NotFoundException('证据文档不存在');
+    this.appDb
+      .prepare('UPDATE EVIDENCE_DOC SET active = 1, verified_at = ? WHERE id = ?')
+      .run(new Date().toISOString().slice(0, 10), docId);
+    this.audit.record({ actorId, action: 'evidence:verify', target: docId });
+    return { id: docId, active: true };
+  }
+
   /** 本地检索：只检索启用状态的证据 */
   search(query: string, limit = 8) {
     const tokens = (query.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9/]{2,}/g) ?? []).filter(

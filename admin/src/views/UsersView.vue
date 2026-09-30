@@ -11,7 +11,7 @@
           <div class="card__title">成员（{{ members.length }}）</div>
           <div class="card__header-tags">
             <span class="card__tag">与用户体系隔离 · 仅受邀加入</span>
-            <button class="btn btn--primary btn--sm" @click="showInvite = true">＋ 邀请成员</button>
+            <button v-if="canManageMember" class="btn btn--primary btn--sm" @click="showInvite = true">＋ 邀请成员</button>
           </div>
         </div>
         <table class="table">
@@ -27,8 +27,8 @@
               <td>{{ m.lastLoginAt ? formatBeijing(m.lastLoginAt) : '—' }}</td>
               <td><StatusTag :label="m.status" /></td>
               <td class="table__actions">
-                <button class="btn btn--text" @click="onChangeRole(m)">改角色</button>
-                <button class="btn btn--text" :class="{ 'btn--danger': m.status === '正常' }" @click="onToggleStatus(m)">
+                <button v-if="canManageMember" class="btn btn--text" @click="onChangeRole(m)">改角色</button>
+                <button v-if="canManageMember" class="btn btn--text" :class="{ 'btn--danger': m.status === '正常' }" @click="onToggleStatus(m)">
                   {{ m.status === '正常' ? '停用' : '启用' }}
                 </button>
               </td>
@@ -56,9 +56,11 @@
               <tr v-for="(row, i) in permissionMatrix" :key="i">
                 <td class="table__title">{{ row.point }}</td>
                 <td v-for="(v, vi) in row.values" :key="vi" class="table__perm">
-                  <span v-if="v === '✓'" class="perm--ok">✓</span>
-                  <span v-else-if="v === '◐'" class="perm--partial">◐</span>
-                  <span v-else class="perm--none">—</span>
+                  <span v-for="(part, pi) in splitPermCell(v)" :key="pi" class="perm-part">
+                    <span v-if="part === '✓'" class="perm--ok">✓</span>
+                    <span v-else-if="part === '◐'" class="perm--partial">◐</span>
+                    <span v-else class="perm--none">—</span>
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -112,7 +114,11 @@
             <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
           </select>
         </div>
-        <p class="modal__note">演示环境不发送真实邮件；邀请后由超管激活账号。</p>
+        <div class="form-field">
+          <label class="form-label">初始密码</label>
+          <input v-model="invitePassword" type="password" class="form-input" placeholder="至少 8 位" :maxlength="100" />
+        </div>
+        <p class="modal__note">演示环境不发送真实邮件；创建后成员可立即用该邮箱对应账号登录。</p>
       </Modal>
 
       <!-- 改角色弹层 -->
@@ -130,13 +136,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import Modal from '@/components/Modal.vue';
-import { listAdminUsers, listAuthorizations, setUserStatus, setUserRole, listRoles } from '@/api';
+import { listAdminUsers, listAuthorizations, setUserStatus, setUserRole, listRoles, createAdminMember } from '@/api';
+import { useAuthStore } from '@/stores/auth';
 import type { AdminUser } from '@/api/types';
-import { PERMISSION_POINTS, DUAL_CONFIRM_SETTINGS, roleTone } from '@/utils/permission';
+import { PERMISSION_POINTS, DUAL_CONFIRM_SETTINGS, roleTone, splitPermCell } from '@/utils/permission';
 
 const members = ref<Array<AdminUser & { email: string | null; roleName: string; mfaEnabled: boolean; lastLoginAt: string | null; status: string }>>([]);
 const authorizations = ref<Array<{ id: string; adminName: string | null; targetType: string; targetId: string; reason: string; createdAt: string }>>([]);
@@ -149,6 +156,9 @@ const showInvite = ref(false);
 const inviteName = ref('');
 const inviteEmail = ref('');
 const inviteRoleId = ref('role-ops');
+const invitePassword = ref('Admin@123456');
+const auth = useAuthStore();
+const canManageMember = computed(() => (auth.session?.permissions ?? []).includes('member:write'));
 const roleTarget = ref<(typeof members.value)[number] | null>(null);
 const roleTargetRoleId = ref('');
 
@@ -193,10 +203,29 @@ async function confirmInvite() {
     toast('请填写成员姓名');
     return;
   }
-  toast('演示环境不发送真实邮件，请超管在数据库中添加账号');
-  showInvite.value = false;
-  inviteName.value = '';
-  inviteEmail.value = '';
+  if (!inviteEmail.value.trim()) {
+    toast('请填写工作邮箱');
+    return;
+  }
+  if (invitePassword.value.length < 8) {
+    toast('初始密码至少 8 位');
+    return;
+  }
+  try {
+    await createAdminMember({
+      name: inviteName.value.trim(),
+      email: inviteEmail.value.trim(),
+      roleId: inviteRoleId.value,
+      password: invitePassword.value,
+    });
+    toast('成员已创建');
+    showInvite.value = false;
+    inviteName.value = '';
+    inviteEmail.value = '';
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 async function load() {

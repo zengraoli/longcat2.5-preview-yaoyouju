@@ -42,7 +42,7 @@
         <text class="compare__legend-item">
           <text class="compare__legend-dot compare__legend-dot--ok" />解释引用的来源
         </text>
-        <text class="compare__legend-item">
+        <text class="compare__legend-item" v-if="sideConflict">
           <text class="compare__legend-dot compare__legend-dot--warn" />与你描述侧别不一致，需确认
         </text>
       </view>
@@ -83,6 +83,14 @@ const analysis = ref<AnalysisResult | null>(null);
 const rawText = ref('');
 const reportDate = ref('');
 const currentIndex = ref(0);
+const sideConflict = ref(false);
+
+function extractSide(text: string): string | null {
+  if (/双侧|两边/.test(text)) return '双侧';
+  if (/左侧|左边/.test(text)) return '左侧';
+  if (/右侧|右边/.test(text)) return '右侧';
+  return null;
+}
 
 const explanations = computed(() => analysis.value?.sections.解释 ?? []);
 const currentExplanation = computed(() => explanations.value[currentIndex.value] ?? null);
@@ -131,6 +139,14 @@ onMounted(async () => {
       rawText.value = reportEvent.rawText ?? '';
       reportDate.value = reportEvent.occurredAt.slice(0, 10);
     }
+    // 仅当报告与自述侧别确实不一致时才提示
+    const reportSide = extractSide(rawText.value);
+    const selfText = tl.events
+      .filter((e) => e.sourceType === '自述' && e.rawText)
+      .map((e) => e.rawText)
+      .join('，');
+    const selfSide = extractSide(selfText);
+    sideConflict.value = !!(reportSide && selfSide && reportSide !== selfSide && reportSide !== '双侧' && selfSide !== '双侧');
   } catch {
     // 加载失败不阻塞
   }

@@ -19,7 +19,8 @@
           <span class="audit__chain-status" :class="{ 'audit__chain-status--error': !chainValid }">
             {{ chainValid ? '🛡 哈希链完整' : '⚠ 哈希链校验失败' }} · 最近校验 {{ lastVerify }}
           </span>
-          <button class="btn btn--secondary" @click="showExport = true">⬇ 申请导出（需超管审批）</button>
+          <button v-if="canExport" class="btn btn--secondary" @click="onDownloadExport">⬇ 导出 CSV</button>
+          <button v-if="canRequestExport" class="btn btn--secondary" @click="showExport = true">⬇ 申请导出（需超管审批）</button>
         </div>
       </div>
 
@@ -66,6 +67,26 @@
         审计日志只追加、不可修改、不可删除；每条记录含前序哈希形成链；日志中不含明文健康资料，用户仅以匿名标识出现。导出需超管审批并再次写入审计。
       </TipBar>
 
+      <!-- 导出申请审批（超管） -->
+      <div v-if="canApprove && exportRequests.length > 0" class="card">
+        <div class="card__title">导出申请（待审批 / 已批准）</div>
+        <table class="table">
+          <thead><tr><th>申请人</th><th>原因</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr v-for="req in exportRequests" :key="req.id">
+              <td>{{ req.requesterName ?? '—' }}</td>
+              <td>{{ req.reason }}</td>
+              <td><StatusTag :label="req.status" /></td>
+              <td>{{ req.createdAt.slice(0, 10) }}</td>
+              <td>
+                <button v-if="req.status === '待审批'" class="btn btn--text" @click="onApprove(req.id)">批准</button>
+                <span v-else class="table__muted">已处理</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <!-- 导出申请弹层 -->
       <Modal :open="showExport" title="申请审计导出" confirm-text="提交申请" @close="showExport = false" @confirm="confirmExport">
         <p class="modal__hint">导出需超管审批；申请与审批均写入审计。</p>
@@ -82,9 +103,19 @@ import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import Modal from '@/components/Modal.vue';
 import { formatBeijing } from '@/utils/time';
-import { listAuditLogs, verifyAuditLogs, createAuditExportRequest } from '@/api';
+import { listAuditLogs, verifyAuditLogs, createAuditExportRequest, listAuditExportRequests, approveAuditExportRequest, exportAuditLogs } from '@/api';
 import type { AuditLog } from '@/api/types';
 import { auditActionLabel } from '@/utils/permission';
+import { useAuthStore } from '@/stores/auth';
+
+const auth = useAuthStore();
+const perms = computed(() => auth.session?.permissions ?? []);
+const canRequestExport = computed(() => perms.value.includes('audit:export:request'));
+const canApprove = computed(() => perms.value.includes('audit:export'));
+const exportRequests = ref<Array<{ id: string; reason: string; status: string; createdAt: string; requesterName: string | null }>>([]);
+const canExport = computed(
+  () => canApprove.value || (canRequestExport.value && exportRequests.value.some((r) => r.status === '已批准')),
+);
 
 const lastVerify = ref('—');
 const chainValid = ref(true);
@@ -109,6 +140,42 @@ interface LogRow {
 }
 
 const logs = ref<LogRow[]>([]);
+
+async function loadExportRequests() {
+  try {
+    exportRequests.value = await listAuditExportRequests();
+  } catch {
+    exportRequests.value = [];
+  }
+}
+
+async function onApprove(id: string) {
+  try {
+    await approveAuditExportRequest(id);
+    toast('已批准');
+    await loadExportRequests();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+async function onDownloadExport() {
+  try {
+    const result = await exportAuditLogs();
+    const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `审计日志-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast(`已导出 ${result.count} 条`);
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
 
 const actionOptions = computed(() => [...new Set(logs.value.map((l) => l.action))]);
 const actorOptions = computed(() => [...new Set(logs.value.map((l) => l.actor))]);
@@ -194,6 +261,7 @@ onMounted(async () => {
   } catch {
     // 加载失败不阻塞
   }
+  if (canApprove.value || canRequestExport.value) await loadExportRequests();
 });
 </script>
 

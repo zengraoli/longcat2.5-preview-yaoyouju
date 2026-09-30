@@ -147,22 +147,10 @@ function toggleAdvice(opt: string) {
 }
 
 async function onOcr() {
-  // 拍照提取走模拟 OCR：先创建报告事件，再调用 OCR 接口
+  // 拍照提取走模拟 OCR：只返回示例文本，不再先建“占位”报告事件
   try {
-    let episodes = await listEpisodes();
-    if (episodes.length === 0) {
-      // 新用户自动创建病程，不阻断拍照提取
-      const ep = await createEpisode('腰痛', reportDate.value || undefined, '尚未确认');
-      episodes = [{ id: ep.id, title: '腰痛', onsetDate: reportDate.value || null, onsetCertainty: '尚未确认', status: 'active' }];
-    }
-    const event = await addEvent(episodes[0].id, {
-      eventType: '报告',
-      occurredAt: new Date().toISOString(),
-      sourceType: '报告原文',
-      rawText: '占位',
-    });
     const { api } = await import('@/api');
-    const result = await api.post<{ text: string }>('/reports/ocr', { careEventId: event.id });
+    const result = await api.post<{ text: string }>('/reports/ocr', {});
     ocrText.value = result.text;
     reportText.value = result.text;
   } catch (e) {

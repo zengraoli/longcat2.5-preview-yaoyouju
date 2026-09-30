@@ -14,7 +14,7 @@
           <div class="card">
             <div class="card__header">
               <div class="card__title">评测集</div>
-              <button class="btn btn--secondary btn--sm" @click="showCreate = true">＋ 新建</button>
+              <button v-if="canRunEval" class="btn btn--secondary btn--sm" @click="showCreate = true">＋ 新建</button>
             </div>
             <div
               v-for="set in filteredSets"
@@ -44,8 +44,8 @@
               <div class="card__title">{{ selectedSet.name }}</div>
               <div class="card__header-tags">
                 <span class="card__meta">{{ selectedSet.caseCount }} 例 · 去标识化 · 门禁：{{ selectedSet.threshold }}</span>
-                <button class="btn btn--secondary btn--sm" @click="showImport = true">⬆ 导入用例</button>
-                <button class="btn btn--primary btn--sm" @click="onRunCurrent">⟳ 对当前候选运行</button>
+                <button v-if="canRunEval" class="btn btn--secondary btn--sm" @click="showImport = true">⬆ 导入用例</button>
+                <button v-if="canRunEval" class="btn btn--primary btn--sm" @click="onRunCurrent">⟳ 对当前候选运行</button>
               </div>
             </div>
             <p class="card__note">{{ selectedSet.desc }}</p>
@@ -120,7 +120,7 @@
                 </div>
               </div>
               <div class="failed-case__actions">
-                <button class="btn btn--primary btn--sm" @click="onMarkFixed(c)">标记已修复并重跑</button>
+                <button v-if="canRunEval" class="btn btn--primary btn--sm" @click="onMarkFixed(c)">标记已修复并重跑</button>
                 <button class="btn btn--secondary btn--sm" @click="c.showOutput = !c.showOutput">查看完整输出（去标识化）</button>
               </div>
               <p v-if="c.showOutput" class="card__note">完整输出（去标识化）：{{ c.actual }}</p>
@@ -157,9 +157,13 @@ import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import Modal from '@/components/Modal.vue';
 import { formatBeijing } from '@/utils/time';
+import { useAuthStore } from '@/stores/auth';
 import { api } from '@/api/client';
 import { listEvalSets, listReleases, runEval } from '@/api';
 import type { EvalSet, Release } from '@/api/types';
+
+const auth = useAuthStore();
+const canRunEval = computed(() => (auth.session?.permissions ?? []).includes('eval:run'));
 
 interface EvalSetRow extends EvalSet {
   threshold: string;

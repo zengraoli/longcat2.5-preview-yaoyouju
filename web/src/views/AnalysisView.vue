@@ -74,7 +74,7 @@
               <span class="analysis-question__icon">■</span>
               <span class="analysis-question__text">{{ item.text }}</span>
             </div>
-            <button class="btn btn--soft" @click="onAddFollowup">加入复诊问题清单（已选 {{ analysis?.sections.下一步.length ?? 0 }} 条）</button>
+            <button class="btn btn--soft" @click="onAddFollowup">去复诊准备整理问题</button>
           </div>
 
           <div class="card">
@@ -147,6 +147,23 @@
           </div>
         </div>
       </div>
+
+      <!-- 报告错误弹层 -->
+      <div v-if="showErrorReport" class="mask" @click.self="showErrorReport = false">
+        <div class="dialog">
+          <div class="dialog__title">报告错误</div>
+          <p class="dialog__note">会自动附带分析、模型、内容库与规则集版本；反馈不会自动进入训练或内容库。</p>
+          <textarea v-model="errorDesc" class="dialog__textarea" maxlength="5000" placeholder="请描述错误内容…" />
+          <label class="dialog__label">严重度</label>
+          <select v-model="errorSeverity" class="dialog__input">
+            <option>高</option><option>中</option><option>低</option>
+          </select>
+          <div class="dialog__actions">
+            <button class="btn btn--secondary" @click="showErrorReport = false">取消</button>
+            <button class="btn btn--primary" @click="onSubmitErrorReport">提交</button>
+          </div>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -164,9 +181,6 @@ import {
   createHelpFeedback,
   createErrorReport,
   timeline,
-  createQaSession,
-  listQaSessions,
-  addFollowupQuestion,
   addEvent,
   exportSummary,
   saveSummary,
@@ -183,6 +197,9 @@ const reportDate = ref('');
 const selfReportText = ref('');
 const taskStatus = ref('');
 const taskReason = ref('');
+const showErrorReport = ref(false);
+const errorDesc = ref('');
+const errorSeverity = ref<'高' | '中' | '低'>('中');
 let pollTimer: number | null = null;
 
 async function pollTask(taskId: string) {
@@ -321,32 +338,30 @@ async function onShare() {
 
 function onReportError() {
   if (!analysis.value) return;
-  const desc = prompt('请描述错误（会自动附带分析/模型/内容版本）');
-  if (!desc) return;
-  createErrorReport(analysis.value.id, desc, '中')
-    .then(() => toast('已提交举报'))
-    .catch((e) => toast((e as Error).message));
+  errorDesc.value = '';
+  errorSeverity.value = '中';
+  showErrorReport.value = true;
 }
 
-async function onAddFollowup() {
+async function onSubmitErrorReport() {
   if (!analysis.value) return;
+  const desc = errorDesc.value.trim();
+  if (!desc) {
+    toast('请描述错误内容');
+    return;
+  }
   try {
-    const episodes = await listEpisodes();
-    if (episodes.length === 0) return;
-    // 复用或创建问答会话，把“下一步”条目加入复诊问题清单
-    const existing = await listQaSessions();
-    const session = existing.find((s) => s.analysisId === analysis.value!.id) ?? existing[0];
-    const sessionId = session
-      ? session.id
-      : (await createQaSession(analysis.value.id, '分析补充问题')).id;
-    const questions = analysis.value.sections.下一步.map((s) => s.text);
-    for (const q of questions) {
-      await addFollowupQuestion(sessionId, q);
-    }
-    toast(`已加入 ${questions.length} 条复诊问题`);
+    await createErrorReport(analysis.value.id, desc, errorSeverity.value);
+    showErrorReport.value = false;
+    toast('已提交举报');
   } catch (e) {
     toast((e as Error).message);
   }
+}
+
+function onAddFollowup() {
+  // 复诊问题由用户在问与解释里逐条加入，这里只跳转复诊准备，不批量写入
+  router.push('/followup');
 }
 
 function onPlay(video: { title: string; contentId: string }) {
@@ -687,4 +702,36 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 }
+</style>
+<style scoped>
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+.dialog {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+}
+.dialog__title { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+.dialog__note { font-size: 12px; color: var(--text-2); line-height: 1.5; margin: 0 0 12px; }
+.dialog__label { font-size: 12px; color: var(--text-2); display: block; margin: 10px 0 6px; }
+.dialog__input {
+  width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 10px;
+  padding: 0 12px; font-size: 14px; box-sizing: border-box; background: var(--surface);
+}
+.dialog__textarea {
+  width: 100%; min-height: 120px; border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px; font-size: 14px; line-height: 1.6; box-sizing: border-box; background: var(--surface);
+}
+.dialog__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 </style>

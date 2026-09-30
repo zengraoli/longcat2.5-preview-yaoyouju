@@ -59,11 +59,18 @@ export class EvidenceController {
     return this.evidence.search(q ?? '');
   }
 
-  /** 创建证据文档（自动切分入库） */
+  /** 创建证据文档（自动切分入库）：运营录入 或 临床/超管 */
   @Post('docs')
-  @RequirePermission('evidence:review')
+  @RequirePermission('evidence:create', 'evidence:review')
   create(@CurrentAdmin() admin: { adminId: string }, @Body() dto: CreateDocDto) {
     return this.evidence.create(admin.adminId, dto);
+  }
+
+  /** 核实 / 重新启用证据 */
+  @Post('docs/:id/verify')
+  @RequirePermission('evidence:review')
+  verify(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.evidence.verify(admin.adminId, id);
   }
 
   /** 停用影响预览（读取写审计） */

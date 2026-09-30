@@ -43,6 +43,11 @@ export function deleteAccount() {
   return api.post<{ deleted: boolean }>('/auth/delete', {});
 }
 
+/** 导出我的全部数据（可读 JSON） */
+export function exportMyData() {
+  return api.get<Record<string, unknown>>('/auth/export');
+}
+
 /* ---------- 安全 ---------- */
 export interface SafetyTips {
   title: string;
@@ -95,6 +100,7 @@ export interface SymptomLog {
   sleepImpact: number | '尚未确认';
   topWorry: string | '尚未确认';
   legChange: string | '尚未确认';
+  safety?: { passed: boolean; redFlags: Array<{ message: string }>; outOfScope: unknown[]; safetyTips: string[] };
 }
 
 export function listEpisodes() {
@@ -192,6 +198,7 @@ export function confirmReport(id: string, verifyStatus: '已确认' | '有冲突
 export interface AnalysisSection {
   text: string;
   source: string | null;
+  mark?: string;
 }
 
 export interface AnalysisResult {
@@ -199,6 +206,8 @@ export interface AnalysisResult {
   episodeId: string;
   version: number;
   modelReleaseId: string;
+  modelName?: string | null;
+  contentLibVersion?: string | null;
   sections: {
     已知: AnalysisSection[];
     解释: AnalysisSection[];
@@ -261,10 +270,11 @@ export interface QaMessage {
   createdAt: string;
 }
 
-export function createQaSession(analysisId: string | null, title: string) {
-  return api.post<{ id: string; analysisId: string | null; title: string }>('/qa/sessions', {
+export function createQaSession(analysisId: string | null, title: string, episodeId?: string | null) {
+  return api.post<{ id: string; analysisId: string | null; episodeId?: string | null; title: string }>('/qa/sessions', {
     analysisId,
     title,
+    episodeId: episodeId ?? null,
   });
 }
 

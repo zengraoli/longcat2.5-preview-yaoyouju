@@ -43,6 +43,7 @@ export class QaController {
   }
 
   @Get('sessions')
+  @RequireConsent('健康信息处理')
   listSessions(@CurrentUser() user: { userId: string }) {
     return this.qa.listSessions(user.userId);
   }

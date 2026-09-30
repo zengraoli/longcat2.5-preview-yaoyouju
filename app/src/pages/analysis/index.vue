@@ -82,7 +82,7 @@
           <text class="analysis__question-icon">■</text>
           <text class="analysis__question-text">{{ item.text }}</text>
         </view>
-        <AppButton type="soft" block @click="goFollowup">加入复诊问题清单（已选 {{ result.sections.下一步.length }} 条）</AppButton>
+        <AppButton type="soft" block @click="goFollowup">去复诊准备整理问题</AppButton>
       </view>
 
       <!-- ⑤ 可选科普视频 -->
@@ -137,7 +137,7 @@ import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import AppChip from '@/components/AppChip.vue';
 import TipBar from '@/components/TipBar.vue';
-import { getAnalysis, createHelpFeedback, createErrorReport, listEpisodes, addEvent, listQaSessions, createQaSession, addFollowupQuestion, type AnalysisResult } from '@/api';
+import { getAnalysis, createHelpFeedback, createErrorReport, type AnalysisResult } from '@/api';
 
 const pages = getCurrentPages();
 const currentPage = pages[pages.length - 1] as { options?: Record<string, string> };
@@ -152,9 +152,9 @@ const feedbackOptions = ['看懂了', '知道下一步', '都不好，问题没�
 let pollTimer: number | null = null;
 
 function sourceLabel(source: string | null) {
-  if (source === '报告') return '报告原文 · 可回看';
-  if (source === '医嘱') return '自述 · 未经核实';
-  if (source === '症状') return '自述 · ' + today;
+  if (source === '报告') return '报告原文';
+  if (source === '医嘱') return '医生记录';
+  if (source === '症状') return '自述';
   return source ?? '';
 }
 
@@ -165,13 +165,13 @@ function evidenceTitle(source: string | null) {
   return `审核科普 #${source.slice(-2)}`;
 }
 
-/** 根据分析实际数据生成引言，不写死示例内容 */
+/** 根据分析实际数据生成引言，不写死示例内容；不把“已知”误称为“已确认” */
 const introText = computed(() => {
   if (!result.value) return '';
   const parts: string[] = [];
   const known = result.value.sections.已知;
   if (known.length > 0) {
-    parts.push(`已确认 ${known.length} 条信息`);
+    parts.push(`整理出 ${known.length} 条已知信息（来源与核实状态见每条标注）`);
   }
   const unknown = result.value.sections.未知;
   if (unknown.length > 0) {
@@ -184,52 +184,15 @@ const introText = computed(() => {
 function goBack() {
   uni.navigateBack();
 }
-async function goTimeline() {
-  // 保存到病程：记录本次分析生成事件，再跳转时间线
-  if (result.value) {
-    try {
-      const episodes = await listEpisodes();
-      if (episodes.length > 0) {
-        await addEvent(episodes[0].id, {
-          eventType: '行动',
-          occurredAt: new Date().toISOString(),
-          sourceType: '自述',
-          rawText: `已生成一页分析 v${result.value.version}（模型 ${result.value.modelReleaseId}）`,
-          verifyStatus: '已确认',
-        });
-        uni.showToast({ title: '已保存到病程', icon: 'success' });
-      }
-    } catch (e) {
-      uni.showToast({ title: (e as Error).message, icon: 'none' });
-    }
-  }
+function goTimeline() {
+  // 分析结果已在 ANALYSIS 表中，不再作为“自述/已确认”事件写入病程
   uni.switchTab({ url: '/pages/timeline/index' });
 }
 function goSummary() {
   uni.navigateTo({ url: '/pages/summary/index' });
 }
-async function goFollowup() {
-  // 加入复诊问题清单：把“下一步”条目写入问与解释的复诊问题，再跳转复诊准备
-  if (result.value) {
-    try {
-      const episodes = await listEpisodes();
-      if (episodes.length > 0) {
-        const sessions = await listQaSessions();
-        const session =
-          sessions.find((s) => s.analysisId === result.value!.id) ?? sessions[0];
-        const sessionId = session
-          ? session.id
-          : (await createQaSession(result.value.id, '分析补充问题')).id;
-        const questions = result.value.sections.下一步.map((s) => s.text);
-        for (const q of questions) {
-          await addFollowupQuestion(sessionId, q);
-        }
-        uni.showToast({ title: `已加入 ${questions.length} 条复诊问题`, icon: 'success' });
-      }
-    } catch (e) {
-      uni.showToast({ title: (e as Error).message, icon: 'none' });
-    }
-  }
+function goFollowup() {
+  // 复诊问题由用户在问与解释里逐条加入，这里只跳转复诊准备，不批量写入
   uni.switchTab({ url: '/pages/followup/index' });
 }
 function goContents() {
@@ -370,13 +333,17 @@ onUnmounted(() => {
 }
 .analysis__item {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 10px;
 }
 .analysis__item-dot { color: var(--text-2); }
-.analysis__item-text { font-size: 14px; flex: 1; line-height: 1.5; }
+.analysis__item-text { font-size: 14px; flex: 1 1 60%; line-height: 1.5; }
 .analysis__item-source {
+  flex: 0 0 100%;
+  margin-left: 16px;
+  margin-top: 2px;
   font-size: 11px;
   color: var(--text-3);
   flex-shrink: 0;

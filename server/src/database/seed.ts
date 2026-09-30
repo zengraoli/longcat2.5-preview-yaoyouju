@@ -209,7 +209,7 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
         'https://example.org/guide/ldh',
         'CC-BY-4.0',
         [
-          '腰椎间盘突出症是腰腿痛的常见原因，大多数患者经保守治疗可缓解。',
+          '腰腿痛的原因需要结合病史、查体与影像综合判断，不能仅凭单一报告下结论。',
           '出现马尾综合征（大小便功能障碍、鞍区麻木）需立即就医。',
           '保守治疗 6 周无效且症状影响生活时，可考虑进一步评估。',
         ],

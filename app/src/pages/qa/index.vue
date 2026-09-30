@@ -105,19 +105,28 @@ const contextText = ref('正在加载…');
 const quickQuestions = ['复诊时该怎么描述？', '哪些变化要提前就医？', '保守治疗一般多久？'];
 
 async function onAsk(q: string) {
-  if (!q.trim()) return;
-  // 没有分析时也能提问：创建无分析上下文的会话
+  const text = (q ?? '').trim();
+  if (!text) return;
+  // 先清空输入框，避免首问因等待会话创建而看起来“没清空”
+  question.value = '';
+  // 没有分析时也能提问：创建无分析上下文的会话（归属当前病程，避免复诊问题串病程）
   if (!sessionId.value) {
-    const created = await createQaSession(null, '自由提问');
+    let episodeId: string | null = null;
+    try {
+      const episodes = await listEpisodes();
+      episodeId = episodes[0]?.id ?? null;
+    } catch {
+      episodeId = null;
+    }
+    const created = await createQaSession(null, '自由提问', episodeId);
     sessionId.value = created.id;
     contextText.value = '基于通用上下文（未关联具体分析）';
   }
-  question.value = '';
-  messages.value.push({ id: `u${Date.now()}`, role: 'user', content: q, citations: [], createdAt: '' });
+  messages.value.push({ id: `u${Date.now()}`, role: 'user', content: text, citations: [], createdAt: '' });
   scrollToBottom();
   try {
-    const result = await askQuestion(sessionId.value, q);
-    const msg = { ...result.message, outOfScope: result.outOfScope.length > 0, followupQuestion: q };
+    const result = await askQuestion(sessionId.value, text);
+    const msg = { ...result.message, outOfScope: result.outOfScope.length > 0, followupQuestion: text };
     messages.value.push(msg);
     // 每问一个问题计一次（不再只在反复求保证时计数）
     explainedCount.value = messages.value.filter((m) => m.role === 'user').length;
@@ -170,7 +179,7 @@ async function loadSession() {
         explainedCount.value = history.messages.filter((m) => m.role === 'user').length;
         contextText.value = `本轮基于：${today} 当前情况 + 一页分析 v${analysis.version}`;
       } else {
-        const created = await createQaSession(analysis.id, '报告术语解释');
+        const created = await createQaSession(analysis.id, '报告术语解释', analysis.episodeId);
         sessionId.value = created.id;
         contextText.value = `本轮基于：${today} 当前情况 + 一页分析 v${analysis.version}`;
       }

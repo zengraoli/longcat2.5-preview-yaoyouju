@@ -84,6 +84,13 @@ export class AuthController {
     return { loggedOut: true };
   }
 
+  /** 导出我的全部数据（可读 JSON） */
+  @Get('export')
+  @UseGuards(AuthGuard)
+  exportData(@CurrentUser() user: { userId: string }) {
+    return this.auth.exportData(user.userId);
+  }
+
   /** 注销账户与数据（不可恢复） */
   @Post('delete')
   @UseGuards(AuthGuard)

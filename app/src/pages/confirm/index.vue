@@ -102,7 +102,7 @@ import { ref, computed } from 'vue';
 import TipBar from '@/components/TipBar.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
-import { checkSafety, listEpisodes, addEvent } from '@/api';
+import { checkSafety, listEpisodes, addEvent, createEpisode } from '@/api';
 
 const step = ref(1);
 const changeOptions = ['加重', '差不多', '减轻', '尚未确认'];
@@ -180,15 +180,20 @@ async function onNext() {
   } catch {
     // 预检失败不阻塞流程
   }
-  // 保存确认结果（自述事件）
+  // 保存确认结果（自述事件）；新用户没有病程时自动创建
   try {
-    const episodes = await listEpisodes();
+    let episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      const ep = await createEpisode('腰痛', undefined, '尚未确认');
+      episodes = [{ id: ep.id, title: '腰痛', onsetDate: null, onsetCertainty: '尚未确认', status: 'active' }];
+    }
     if (episodes.length > 0) {
       const parts = [
         q1.value && `与上次相比：${q1.value}`,
         q3.value && `疼痛涉及：${q3.value}`,
         q4date.value && `开始日期：${q4date.value}`,
         q4.value === '记不清' ? '开始日期记不清' : '',
+        q4.value && q4.value !== '记不清' ? `开始时间：${q4.value}` : '',
       ].filter(Boolean).join('；');
       if (parts) {
         await addEvent(episodes[0].id, {

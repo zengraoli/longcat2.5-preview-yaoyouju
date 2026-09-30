@@ -26,8 +26,8 @@
           <option>图文组件</option>
         </select>
         <div class="contents__filter-actions">
-          <button class="btn btn--secondary" @click="onBatchOffline">批量下线（需双人确认）</button>
-          <button class="btn btn--primary" @click="showCreate = true">＋ 新建内容</button>
+          <button v-if="canOffline" class="btn btn--secondary" @click="onBatchOffline">批量下线（需双人确认）</button>
+          <button v-if="canCreate" class="btn btn--primary" @click="showCreate = true">＋ 新建内容</button>
         </div>
       </div>
 
@@ -61,7 +61,7 @@
               <td class="table__actions">
                 <button class="btn btn--text" @click="goDetail(item)">详情</button>
                 <button v-if="canEdit(item)" class="btn btn--text" @click="onCorrect(item)">更正</button>
-                <button
+                <button v-if="canOffline"
                   class="btn btn--text"
                   :class="{ 'btn--danger': item.offlineSwitch }"
                   @click="onToggleOffline(item)"
@@ -194,6 +194,9 @@ function canEdit(item: ContentItem) {
   const editable = ['草稿', '更正中', '已撤回'].includes(item.currentStatus);
   return editable && (perms.includes('content:edit') || perms.includes('content:correct:initiate'));
 }
+
+const canOffline = computed(() => (auth.session?.permissions ?? []).includes('content:offline'));
+const canCreate = computed(() => (auth.session?.permissions ?? []).includes('content:edit'));
 
 function goDetail(item: ContentItem) {
   router.push({ name: 'content-detail', params: { id: item.id } });

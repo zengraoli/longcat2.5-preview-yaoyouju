@@ -55,9 +55,9 @@
     </view>
 
     <!-- 全部内容 -->
-    <text class="contents__section-title">全部内容（{{ all.length }}）</text>
+    <text class="contents__section-title">全部内容（{{ filteredAll.length }}）</text>
     <view
-      v-for="item in all"
+      v-for="item in filteredAll"
       :key="item.id"
       class="contents__card"
       @click="goDetail(item)"
