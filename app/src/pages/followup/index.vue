@@ -68,14 +68,22 @@ const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
 
 const questions = computed(() => content.value?.复诊问题 ?? []);
 
+interface SectionItem {
+  text: string;
+  source?: string;
+  mark?: string;
+}
+
 const sections = computed(() => {
   if (!content.value) return [];
+  const toItems = (arr: Array<{ text: string; source?: string; mark?: string }>): SectionItem[] =>
+    (Array.isArray(arr) ? arr : []).filter((i) => i && typeof i.text === 'string') as SectionItem[];
   return [
-    { key: '当前情况', title: '当前情况', items: content.value.当前情况 },
-    { key: '报告要点', title: '相关检查原文', items: content.value.报告要点 },
-    { key: '医嘱要点', title: '已经接受的专业建议', items: content.value.医嘱要点 },
-    { key: '尚未确认', title: '尚未确认', items: content.value.尚未确认 },
-    { key: '下一步', title: '下一步', items: content.value.下一步 },
+    { key: '当前情况', title: '当前情况', items: toItems(content.value.当前情况) },
+    { key: '报告要点', title: '相关检查原文', items: toItems(content.value.报告要点) },
+    { key: '医嘱要点', title: '已经接受的专业建议', items: toItems(content.value.医嘱要点) },
+    { key: '尚未确认', title: '尚未确认', items: toItems(content.value.尚未确认) },
+    { key: '下一步', title: '下一步', items: toItems(content.value.下一步) },
   ];
 });
 

@@ -89,6 +89,7 @@ export interface CareEvent {
 export interface SymptomLog {
   id: string;
   careEventId: string;
+  occurredAt: string;
   sitMinutes: number | '尚未确认';
   plannedActivityDone: string | '尚未确认';
   sleepImpact: number | '尚未确认';
@@ -139,6 +140,8 @@ export function addSymptomLog(episodeId: string, input: {
   sleepImpact?: number;
   topWorry?: string;
   legChange?: string;
+  changeVsYesterday?: string;
+  activitiesDone?: string;
 }) {
   return api.post<SymptomLog>(`/episodes/${episodeId}/symptom-logs`, input);
 }
@@ -211,7 +214,7 @@ export interface AnalysisResult {
   };
   safetyFlag: string;
   createdAt: string;
-  citations: Array<{ id: string; evidenceDocId: string; statement: string; supported: number }>;
+  citations: Array<{ id: string; evidenceDocId: string; evidenceDocTitle: string | null; statement: string; supported: number }>;
 }
 
 export interface AnalysisTaskStatus {
