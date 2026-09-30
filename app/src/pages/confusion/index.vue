@@ -54,6 +54,7 @@
 import { ref } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
+import { listEpisodes, addEvent } from '@/api';
 
 const options = [
   { key: 'report', icon: '📄', title: '报告术语', desc: '看懂报告里写的是什么、哪些结论不能得出' },
@@ -76,7 +77,24 @@ function goBack() {
   uni.navigateBack();
 }
 
-function onNext() {
+async function onNext() {
+  // 保存主要困惑与解释方式选择（写入病程，供分析参考）
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const parts = [`主要困惑：${selected.value}`];
+      if (format.value.length > 0) parts.push(`解释方式：${format.value.join('、')}`);
+      await addEvent(episodes[0].id, {
+        eventType: '行动',
+        occurredAt: new Date().toISOString(),
+        sourceType: '自述',
+        rawText: parts.join('；'),
+        verifyStatus: '尚未确认',
+      });
+    }
+  } catch {
+    // 保存失败不阻断流程
+  }
   uni.navigateTo({ url: '/pages/report/index' });
 }
 </script>

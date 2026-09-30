@@ -194,12 +194,12 @@ async function onNext() {
         rawText: reportText.value,
       });
     }
-    // 录入医嘱
+    // 录入医嘱（医生已经给出的建议，来源为“医生记录”）
     if (adviceText.value.trim()) {
       await addEvent(episodeId, {
         eventType: '医嘱',
         occurredAt: new Date().toISOString(),
-        sourceType: '自述',
+        sourceType: '医生记录',
         rawText: adviceText.value,
         verifyStatus: '尚未确认',
       });

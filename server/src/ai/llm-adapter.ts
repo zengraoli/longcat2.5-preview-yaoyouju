@@ -58,19 +58,29 @@ export class LocalMockLlmAdapter implements LlmAdapter {
     const unknown: DraftSection[] = [];
     const nextSteps: DraftSection[] = [];
 
-    // 已知：只写来源明确、已确认的事实
+    // 已知：只写来源明确、已确认的事实（无已确认事实时为空，不写占位句）
     for (const event of context.events) {
       if (event.verifyStatus === '已确认' && event.rawText) {
         known.push({ text: event.rawText, source: event.eventType });
       }
     }
-    if (known.length === 0) {
-      known.push({ text: '病程中已确认的事实尚未记录（已录入但尚未确认的信息会在“仍缺哪些信息”中标出）。', source: null });
-    }
 
-    // 解释：基于证据库片段生成，每条带来源
+    // 解释：基于证据库片段生成，每条带来源；结合用户报告中的具体术语做上下文化，
+    // 避免每条分析都出现同一段固定表述
+    const userTerms = new Set<string>();
+    for (const event of context.events) {
+      if (event.rawText) {
+        for (const m of event.rawText.match(/L\d\/\d|L\d|\u690e\u95f4\u76d8\u7a81\u51fa|\u786c\u819c\u56ca|\u795e\u7ecf\u6839/g) ?? []) {
+          userTerms.add(m);
+        }
+      }
+    }
     for (const chunk of evidence) {
-      explanations.push({ text: chunk.content, source: chunk.docId });
+      const matchedTerm = [...userTerms].find((t) => chunk.content.includes(t));
+      const text = matchedTerm
+        ? `关于你资料中提到的「${matchedTerm}」：${chunk.content}`
+        : chunk.content;
+      explanations.push({ text, source: chunk.docId });
     }
     if (explanations.length === 0) {
       unknown.push({ text: '证据库中暂无可引用的解释。', source: null });

@@ -178,26 +178,8 @@ function sitMinutesToNumber(opt: string): number | undefined {
 }
 
 async function onSave(updateCurrent = false) {
-  // 红旗预检：最担心什么 / 腿部症状等字段含红旗内容时优先提示就医
-  const worryText = worry.value.trim();
-  if (worryText) {
-    try {
-      const safety = await checkSafety(worryText, 'record');
-      if (!safety.passed && safety.redFlags.length > 0) {
-        uni.showModal({
-          title: '需要及时寻求专业帮助',
-          content: safety.redFlags.map((r) => r.message).join(''),
-          showCancel: false,
-          success: () => {
-            uni.navigateTo({ url: '/pages/redflag/index' });
-          },
-        });
-        return;
-      }
-    } catch {
-      // 预检失败不阻断保存
-    }
-  }
+  // 先保存记录（红旗信号不阻断记录，记录是用户自己的病程数据）
+  let saved = false;
   try {
     let episodes = await listEpisodes();
     if (episodes.length === 0) {
@@ -215,12 +197,33 @@ async function onSave(updateCurrent = false) {
       changeVsYesterday: change.value || undefined,
       activitiesDone: done.value.join('、') || undefined,
     });
+    saved = true;
     uni.showToast({ title: '已保存', icon: 'success' });
     if (updateCurrent) {
       setTimeout(() => uni.navigateBack(), 1000);
     }
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' });
+    return;
+  }
+  // 红旗预检：命中红旗时提示就医（记录已保存，不阻断）
+  const worryText = worry.value.trim();
+  if (worryText && saved) {
+    try {
+      const safety = await checkSafety(worryText, 'record');
+      if (!safety.passed && safety.redFlags.length > 0) {
+        uni.showModal({
+          title: '需要及时寻求专业帮助',
+          content: safety.redFlags.map((r) => r.message).join(''),
+          showCancel: false,
+          success: () => {
+            uni.navigateTo({ url: '/pages/redflag/index' });
+          },
+        });
+      }
+    } catch {
+      // 预检失败不阻断
+    }
   }
 }
 </script>

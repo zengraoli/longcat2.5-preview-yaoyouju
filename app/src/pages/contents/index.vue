@@ -73,16 +73,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listPublishedContents, type ContentItem } from '@/api';
 
-const filters = ['全部', '报告术语', '节段位置', '医生会观察什么', '信息来源怎么看', '生活影响'];
+const filters = ['全部', '视频', '图文组件'];
 const activeFilter = ref('全部');
 const recommended = ref<ContentItem[]>([]);
 const all = ref<ContentItem[]>([]);
+const recommendationReason = ref('');
 
+const filteredAll = computed(() => {
+  if (activeFilter.value === '全部') return all.value;
+  return all.value.filter((i) => i.type === activeFilter.value);
+});
 
 function goBack() {
   uni.navigateBack();
@@ -95,8 +100,33 @@ function goDetail(item: ContentItem) {
 onMounted(async () => {
   try {
     const items = await listPublishedContents();
-    recommended.value = items.slice(0, 2);
-    all.value = items.slice(2);
+    // 为你推荐：基于用户报告术语匹配适用范围
+    const { listEpisodes, timeline } = await import('@/api');
+    let reportText = '';
+    try {
+      const episodes = await listEpisodes();
+      if (episodes.length > 0) {
+        const tl = await timeline(episodes[0].id);
+        const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
+        if (reportEvent) reportText = reportEvent.rawText ?? '';
+      }
+    } catch {
+      // 忽略
+    }
+    const tokens = (reportText.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9\/]{2,}/g) ?? []).filter((t) => t.length >= 2);
+    const scored = items.map((i) => {
+      let score = 0;
+      for (const t of tokens) {
+        if (i.title.includes(t) || (i.applicableScope ?? '').includes(t)) score += 1;
+      }
+      return { item: i, score };
+    });
+    const matched = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
+    recommended.value = matched.slice(0, 2).map((s) => s.item);
+    recommendationReason.value = matched.length > 0 ? '原因：与你的报告或病程匹配' : '';
+    // 全部内容：排除已在推荐中的
+    const recommendedIds = new Set(recommended.value.map((i) => i.id));
+    all.value = items.filter((i) => !recommendedIds.has(i.id));
   } catch {
     // 加载失败不阻塞
   }

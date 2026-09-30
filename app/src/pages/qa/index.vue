@@ -8,7 +8,7 @@
     <view class="qa__context">
       <text class="qa__context-icon">🛡</text>
       <text class="qa__context-text">
-        本轮基于：{{ today }} 当前情况 + 2026-08-30 报告。出现新变化请先更新“当前情况”。
+        {{ contextText }}
       </text>
     </view>
 
@@ -101,11 +101,17 @@ const question = ref('');
 const sessionId = ref('');
 const explainedCount = ref(0);
 const scrollTop = ref(0);
+const contextText = ref('正在加载…');
 const quickQuestions = ['复诊时该怎么描述？', '哪些变化要提前就医？', '保守治疗一般多久？'];
 
-
 async function onAsk(q: string) {
-  if (!q.trim() || !sessionId.value) return;
+  if (!q.trim()) return;
+  // 没有分析时也能提问：创建无分析上下文的会话
+  if (!sessionId.value) {
+    const created = await createQaSession(null, '自由提问');
+    sessionId.value = created.id;
+    contextText.value = '基于通用上下文（未关联具体分析）';
+  }
   question.value = '';
   messages.value.push({ id: `u${Date.now()}`, role: 'user', content: q, citations: [], createdAt: '' });
   scrollToBottom();
@@ -113,7 +119,8 @@ async function onAsk(q: string) {
     const result = await askQuestion(sessionId.value, q);
     const msg = { ...result.message, outOfScope: result.outOfScope.length > 0, followupQuestion: q };
     messages.value.push(msg);
-    if (result.roundEnded) explainedCount.value += 1;
+    // 每问一个问题计一次（不再只在反复求保证时计数）
+    explainedCount.value = messages.value.filter((m) => m.role === 'user').length;
     scrollToBottom();
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' });
@@ -144,12 +151,12 @@ async function loadSession() {
   try {
     const episodes = await listEpisodes();
     if (episodes.length === 0) {
-      uni.showToast({ title: '请先建立病程', icon: 'none' });
+      contextText.value = '尚未建立病程，可先自由提问';
       return;
     }
     const analysis = await getLatestAnalysis(episodes[0].id);
     if (!analysis) {
-      uni.showToast({ title: '请先生成一页分析', icon: 'none' });
+      contextText.value = '尚未生成分析，可先自由提问';
       return;
     }
     if (!sessionId.value) {
@@ -160,14 +167,18 @@ async function loadSession() {
         sessionId.value = session.id;
         const history = await getQaSession(session.id);
         messages.value = history.messages;
-        explainedCount.value = history.messages.filter((m) => m.role === 'assistant').length;
+        explainedCount.value = history.messages.filter((m) => m.role === 'user').length;
+        contextText.value = `本轮基于：${today} 当前情况 + 一页分析 v${analysis.version}`;
       } else {
         const created = await createQaSession(analysis.id, '报告术语解释');
         sessionId.value = created.id;
+        contextText.value = `本轮基于：${today} 当前情况 + 一页分析 v${analysis.version}`;
       }
+    } else {
+      contextText.value = `本轮基于：${today} 当前情况 + 一页分析 v${analysis.version}`;
     }
   } catch (e) {
-    uni.showToast({ title: (e as Error).message, icon: 'none' });
+    contextText.value = '上下文加载失败，可先自由提问';
   }
 }
 

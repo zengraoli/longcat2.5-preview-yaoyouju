@@ -13,7 +13,7 @@
       </view>
       <text class="detail__player-caption">示意动画（非本人影像）</text>
       <view class="detail__progress">
-        <text class="detail__time">0:00 / 2:10</text>
+        <text class="detail__time">{{ content?.type === '视频' ? '视频' : '图文' }}</text>
         <view class="detail__progress-bar">
           <view class="detail__progress-fill" />
         </view>
@@ -24,7 +24,7 @@
     <view class="detail__body">
       <view class="detail__meta">
         <StatusTag label="已审核" />
-        <text class="detail__meta-text">临床审定{{ content?.publishedAt ? ' · ' + content.publishedAt.slice(0, 7) : '' }}</text>
+        <text class="detail__meta-text" v-if="content?.publishedAt">发布于 {{ content.publishedAt.slice(0, 10) }}</text>
       </view>
       <view class="detail__meta">
         <text class="detail__meta-tag">字幕 · 文字替代</text>
@@ -98,7 +98,7 @@ import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
-import { getContentDetail, listEpisodes, addEvent, type ContentDetail } from '@/api';
+import { getContentDetail, listEpisodes, getLatestAnalysis, createHelpFeedback, type ContentDetail } from '@/api';
 
 const pages = getCurrentPages();
 const currentPage = pages[pages.length - 1] as { options?: Record<string, string> };
@@ -117,27 +117,12 @@ async function onSubmitRetell() {
     uni.showToast({ title: '请先填写你的理解', icon: 'none' });
     return;
   }
-  try {
-    const episodes = await listEpisodes();
-    if (episodes.length === 0) {
-      uni.showToast({ title: '请先建立病程', icon: 'none' });
-      return;
-    }
-    // 复述提交到病程（行动事件），用于检验理解
-    await addEvent(episodes[0].id, {
-      eventType: '行动',
-      occurredAt: new Date().toISOString(),
-      sourceType: '自述',
-      rawText: `内容复述（${content.value?.title ?? ''}）：${retell.value}`,
-    });
-    uni.showToast({ title: '已提交，感谢检验', icon: 'success' });
-    retell.value = '';
-  } catch (e) {
-    uni.showToast({ title: (e as Error).message, icon: 'none' });
-  }
+  // 复述用于检验理解，不写入病程（避免污染待确认项与摘要）
+  uni.showToast({ title: '已提交，感谢检验', icon: 'success' });
+  retell.value = '';
 }
 
-function onFeedback(opt: string) {
+async function onFeedback(opt: string) {
   if (opt === '内容有误（举报）') {
     uni.showModal({
       title: '举报内容错误',
@@ -146,7 +131,19 @@ function onFeedback(opt: string) {
     });
     return;
   }
-  uni.showToast({ title: '感谢反馈', icon: 'success' });
+  // 看懂了 / 没看懂：提交帮助类型反馈（自动附带分析版本）
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const analysis = await getLatestAnalysis(episodes[0].id);
+      if (analysis) {
+        await createHelpFeedback(analysis.id, opt === '看懂了' ? '看懂了' : '都不好', `内容反馈（${content.value?.title ?? ''}）：${opt}`);
+      }
+    }
+    uni.showToast({ title: '感谢反馈', icon: 'success' });
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
 }
 
 onMounted(async () => {

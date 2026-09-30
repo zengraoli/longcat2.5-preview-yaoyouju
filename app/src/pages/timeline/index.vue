@@ -93,7 +93,7 @@
           </text>
           <text class="timeline__event-more" @click="onEventMore(event)">⋯</text>
         </view>
-        <text class="timeline__event-text">{{ event.rawText || '（无原文）' }}</text>
+        <text class="timeline__event-text">{{ eventText(event) }}</text>
         <view class="timeline__event-tags">
           <StatusTag :label="event.sourceType" />
           <StatusTag :label="event.verifyStatus" />
@@ -184,6 +184,20 @@ function toneOf(event: CareEvent): string {
   return 'ok';
 }
 
+/** 事件显示文本：症状记录显示字段摘要，其他显示原文 */
+function eventText(event: CareEvent & { symptomLog?: { sitMinutes: number | '尚未确认'; topWorry: string | '尚未确认'; legChange: string | '尚未确认'; plannedActivityDone: string | '尚未确认' } }): string {
+  if (event.eventType === '症状' && event.symptomLog) {
+    const parts: string[] = [];
+    const log = event.symptomLog;
+    if (log.topWorry && log.topWorry !== '尚未确认') parts.push(`最担心：${log.topWorry}`);
+    if (log.legChange && log.legChange !== '尚未确认') parts.push(`腿部：${log.legChange}`);
+    if (log.plannedActivityDone && log.plannedActivityDone !== '尚未确认') parts.push(`活动：${log.plannedActivityDone}`);
+    if (typeof log.sitMinutes === 'number') parts.push(`能坐约 ${log.sitMinutes} 分钟`);
+    return parts.length > 0 ? parts.join('；') : '记录今天（字段见记录页）';
+  }
+  return event.rawText || '（无原文）';
+}
+
 function formatEventDate(iso: string) {
   return iso ? iso.slice(0, 10) : '';
 }
@@ -253,7 +267,12 @@ async function load() {
     if (episodes.length === 0) return;
     episode.value = episodes[0];
     const tl = await timeline(episodes[0].id);
-    events.value = tl.events;
+    // 把症状记录字段挂到对应事件上，避免时间线显示“（无原文）”
+    const logByEventId = new Map(tl.symptomLogs.map((l) => [l.careEventId, l]));
+    events.value = tl.events.map((e) => ({
+      ...e,
+      symptomLog: logByEventId.get(e.id),
+    }));
     symptomLogs.value = tl.symptomLogs.map((l) => ({ occurredAt: l.occurredAt, sitMinutes: l.sitMinutes }));
     // 分析次数：查该病程的最新分析版本号
     let analysisCount = 0;

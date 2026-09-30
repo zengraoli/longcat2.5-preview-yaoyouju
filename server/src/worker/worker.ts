@@ -135,10 +135,15 @@ function processTask(db: Database.Database, task: TaskRow, llm: LocalMockLlmAdap
     .prepare("SELECT id FROM MODEL_RELEASE WHERE status = '生效' ORDER BY created_at DESC LIMIT 1")
     .get() as { id: string } | undefined;
   const modelReleaseId = release?.id ?? 'release-1';
+  // 内容库版本：取已发布内容的最大版本号（不再固定为 content-c1）
+  const maxContentVersion = (
+    db.prepare("SELECT MAX(version) AS v FROM CONTENT_VERSION v JOIN CONTENT_ITEM i ON i.id = v.item_id WHERE i.current_status = '已发布'").get() as { v: number | null }
+  ).v;
+  const contentLibVersion = maxContentVersion ? `content-c${maxContentVersion}` : 'content-c1';
   const retrievalSnapshot = {
     evidenceDocs: [...new Set(evidence.map((e) => e.docId))],
     modelRelease: modelReleaseId,
-    contentLibVersion: 'content-c1',
+    contentLibVersion,
     rulesetVersion: RULESET_VERSION,
   };
 

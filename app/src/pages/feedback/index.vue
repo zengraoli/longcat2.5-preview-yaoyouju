@@ -107,7 +107,7 @@ const problemTypes = [
 const activeTab = ref('report');
 const problems = ref<string[]>([]);
 const description = ref('');
-const authorized = ref(true);
+const authorized = ref(false);
 const analysisId = ref('');
 const analysisVersion = ref('');
 const analysisModel = ref('');
@@ -143,7 +143,7 @@ async function onSubmit() {
     return;
   }
   try {
-    await createErrorReport(analysisId.value, description.value || problems.value.join('、'), '中', authorized.value);
+    await createErrorReport(analysisId.value, description.value || problems.value.join('、'), '中', problems.value, authorized.value);
     uni.showToast({ title: '已提交举报', icon: 'success' });
     setTimeout(() => uni.navigateBack(), 1000);
   } catch (e) {

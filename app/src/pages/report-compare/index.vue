@@ -18,27 +18,29 @@
       </view>
     </view>
 
-    <!-- 解释卡片 -->
-    <view class="compare__explanation">
-      <text class="compare__explanation-label">解释 ②-2</text>
-      <text class="compare__explanation-pos">对应原文：第 2 行</text>
-      <text class="compare__explanation-text">
-        “硬膜囊受压”描述影像上突出物与神经外膜结构的位置关系，是影像描述，不等于症状严重程度。
+    <!-- 解释卡片（来自最新分析） -->
+    <view v-if="activeTab === 'byExplanation'" class="compare__explanation">
+      <text class="compare__explanation-label">解释 {{ currentIndex + 1 }} / {{ explanations.length }}</text>
+      <text class="compare__explanation-pos" v-if="currentExplanation">
+        来源：{{ evidenceTitle(currentExplanation.source) }}
       </text>
+      <text class="compare__explanation-text">{{ currentExplanation?.text }}</text>
+      <view class="compare__explanation-nav">
+        <AppButton type="secondary" block @click="prevExplanation">‹ 上一条</AppButton>
+        <AppButton type="secondary" block @click="nextExplanation">下一条 ›</AppButton>
+      </view>
     </view>
 
     <!-- 报告原文 -->
     <view class="card">
       <view class="compare__report-title">
-        <text class="compare__report-name">📄 报告原文 · 2026-08-30 · 腰椎MRI</text>
+        <text class="compare__report-name">📄 报告原文{{ reportDate ? ' · ' + reportDate : '' }}</text>
         <StatusTag label="未修改" />
       </view>
-      <text class="compare__raw">
-        检查所见：腰椎生理曲度存在，各椎体形态、信号未见明显异常。\nL4/5椎间盘轻度膨出。\n<text class="compare__highlight">L5/S1椎间盘向后突出，相应硬膜囊受压，右侧神经根受压可能。</text>\n椎管未见明显狭窄。\n印象：L5/S1椎间盘突出；L4/5椎间盘膨出。
-      </text>
+      <text class="compare__raw">{{ rawText || '暂无报告原文' }}</text>
       <view class="compare__legend">
         <text class="compare__legend-item">
-          <text class="compare__legend-dot compare__legend-dot--ok" />本条解释引用
+          <text class="compare__legend-dot compare__legend-dot--ok" />解释引用的来源
         </text>
         <text class="compare__legend-item">
           <text class="compare__legend-dot compare__legend-dot--warn" />与你描述侧别不一致，需确认
@@ -47,12 +49,13 @@
     </view>
 
     <!-- 本段涉及的术语 -->
-    <view class="card">
+    <view class="card" v-if="activeTab === 'byTerm'">
       <text class="card-title">本段涉及的术语</text>
       <view v-for="(term, i) in terms" :key="i" class="compare__term">
         <text class="compare__term-name">{{ term.name }}</text>
         <text class="compare__term-def">{{ term.def }}</text>
       </view>
+      <text v-if="terms.length === 0" class="compare__empty">报告中未识别到术语</text>
     </view>
 
     <TipBar type="warn">
@@ -64,25 +67,74 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
+import { listEpisodes, getLatestAnalysis, timeline } from '@/api';
+import type { AnalysisResult } from '@/api';
 
 const tabs = [
   { key: 'byExplanation', label: '按解释查看' },
   { key: 'byTerm', label: '按术语查看' },
 ];
 const activeTab = ref('byExplanation');
-const terms = [
-  { name: '硬膜囊', def: '包裹脊髓和神经根的膜性结构在影像上的名称。' },
-  { name: '神经根', def: '从脊髓分出、经椎间孔走行的神经起始段。' },
-  { name: '椎间盘突出', def: '椎间盘内容物超出椎体边缘的影像描述，程度与症状不一定对应。' },
-];
+const analysis = ref<AnalysisResult | null>(null);
+const rawText = ref('');
+const reportDate = ref('');
+const currentIndex = ref(0);
+
+const explanations = computed(() => analysis.value?.sections.解释 ?? []);
+const currentExplanation = computed(() => explanations.value[currentIndex.value] ?? null);
+
+const terms = computed(() => {
+  if (!rawText.value) return [];
+  const termDefs: Array<{ name: string; def: string }> = [
+    { name: 'L5/S1', def: '第 5 腰椎与第 1 骶椎之间的椎间盘' },
+    { name: 'L4/5', def: '第 4 腰椎与第 5 腰椎之间的椎间盘' },
+    { name: '硬膜囊受压', def: '突出物与神经外膜结构的位置关系（影像描述）' },
+    { name: '神经根受压', def: '神经根受压迫的可能（需结合查体）' },
+    { name: '椎间盘突出', def: '椎间盘内容物超出椎体边缘的影像描述' },
+    { name: '椎间盘膨出', def: '椎间盘外层完整、整体超出椎体边缘的影像描述' },
+  ];
+  return termDefs.filter((t) => rawText.value.includes(t.name));
+});
+
+function evidenceTitle(source: string | null) {
+  if (!source) return '系统生成';
+  const citation = analysis.value?.citations.find((c) => c.evidenceDocId === source);
+  if (citation?.evidenceDocTitle) return citation.evidenceDocTitle;
+  return '证据库';
+}
+
+function prevExplanation() {
+  if (currentIndex.value > 0) currentIndex.value -= 1;
+}
+function nextExplanation() {
+  if (currentIndex.value < explanations.value.length - 1) currentIndex.value += 1;
+}
 
 function goBack() {
   uni.navigateBack();
 }
+
+onMounted(async () => {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) return;
+    const latest = await getLatestAnalysis(episodes[0].id);
+    analysis.value = latest;
+    // 加载报告原文（用于原文对照）
+    const tl = await timeline(episodes[0].id);
+    const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
+    if (reportEvent) {
+      rawText.value = reportEvent.rawText ?? '';
+      reportDate.value = reportEvent.occurredAt.slice(0, 10);
+    }
+  } catch {
+    // 加载失败不阻塞
+  }
+});
 </script>
 
 <style scoped>
@@ -152,6 +204,11 @@ function goBack() {
   display: block;
   margin-top: 8px;
 }
+.compare__explanation-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
 .compare__report-title {
   display: flex;
   align-items: center;
@@ -167,10 +224,7 @@ function goBack() {
   line-height: 1.8;
   color: var(--text-1);
   display: block;
-}
-.compare__highlight {
-  color: var(--warn);
-  background: rgba(199, 119, 0, 0.1);
+  white-space: pre-line;
 }
 .compare__legend {
   display: flex;
@@ -178,6 +232,7 @@ function goBack() {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 .compare__legend-item {
   font-size: 12px;
@@ -210,5 +265,21 @@ function goBack() {
   color: var(--text-1);
   flex: 1;
   line-height: 1.5;
+}
+.compare__empty {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 12px;
 }
 </style>

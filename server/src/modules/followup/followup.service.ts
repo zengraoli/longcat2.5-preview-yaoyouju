@@ -110,8 +110,15 @@ export class FollowupService {
     return content;
   }
 
-  /** 预览（不保存） */
+  /** 预览（不保存）：若已有保存的摘要（含用户纠正），返回保存的内容；否则实时生成 */
   preview(userId: string, episodeId: string) {
+    this.getEpisode(userId, episodeId);
+    const existing = this.appDb
+      .prepare('SELECT content FROM FOLLOWUP_SUMMARY WHERE episode_id = ?')
+      .get(episodeId) as { content: string } | undefined;
+    if (existing) {
+      return JSON.parse(existing.content) as SummaryContent;
+    }
     return this.generate(userId, episodeId);
   }
 

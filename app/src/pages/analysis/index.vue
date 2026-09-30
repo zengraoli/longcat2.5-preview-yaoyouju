@@ -89,15 +89,15 @@
           <text class="analysis__section-num analysis__section-num--neutral">5</text>
           <text class="analysis__section-name">可选科普视频与本次记录</text>
         </view>
-        <view v-for="video in result.sections.视频" :key="video.contentId" class="analysis__video">
+        <view v-for="video in result.sections.视频" :key="video.contentId" class="analysis__video" @click="goContentDetail(video)">
           <view class="analysis__video-thumb">
             <text class="analysis__video-play">▶</text>
           </view>
           <view class="analysis__video-body">
             <text class="analysis__video-title">{{ video.title }}</text>
             <view class="analysis__video-meta">
-              <StatusTag label="已审核 v2" />
-              <text class="analysis__video-duration">2:10 · 有字幕</text>
+              <StatusTag label="已审核" />
+              <text class="analysis__video-duration">{{ video.reason }}</text>
             </view>
           </view>
         </view>
@@ -196,6 +196,9 @@ function goContents() {
 }
 function goCompare() {
   uni.navigateTo({ url: '/pages/report-compare/index' });
+}
+function goContentDetail(video: { contentId: string }) {
+  uni.navigateTo({ url: `/pages/content-detail/index?id=${video.contentId}` });
 }
 function goFeedback() {
   uni.navigateTo({ url: '/pages/feedback/index' });

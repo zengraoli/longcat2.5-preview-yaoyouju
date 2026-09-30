@@ -34,7 +34,7 @@
         </view>
         <text class="mine__row-arrow">›</text>
       </view>
-      <view class="mine__row">
+      <view class="mine__row" @click="showExport = true">
         <text class="mine__row-icon">⬇</text>
         <view class="mine__row-body">
           <text class="mine__row-title">导出我的全部数据</text>
@@ -82,7 +82,7 @@
     <!-- 服务信息 -->
     <view class="card">
       <text class="card-title">服务信息</text>
-      <view class="mine__row">
+      <view class="mine__row" @click="showService = true">
         <text class="mine__row-icon">ℹ</text>
         <view class="mine__row-body">
           <text class="mine__row-title">服务范围与不做的事</text>
@@ -98,7 +98,7 @@
         </view>
         <text class="mine__row-arrow">›</text>
       </view>
-      <view class="mine__row">
+      <view class="mine__row" @click="showReview = true">
         <text class="mine__row-icon">📄</text>
         <view class="mine__row-body">
           <text class="mine__row-title">临床审定与来源说明</text>
@@ -135,6 +135,33 @@
       </view>
     </view>
 
+    <!-- 导出数据弹层 -->
+    <view v-if="showExport" class="mask" @click="showExport = false">
+      <view class="dialog" @click.stop>
+        <text class="dialog__title">导出我的全部数据</text>
+        <text class="dialog__text">演示环境暂不支持完整数据导出。正式环境将生成可读格式（PDF / JSON），包含病程、报告原文、分析版本与同意记录，链接 24 小时内有效。</text>
+        <AppButton block @click="showExport = false">我知道了</AppButton>
+      </view>
+    </view>
+
+    <!-- 服务范围弹层 -->
+    <view v-if="showService" class="mask" @click="showService = false">
+      <view class="dialog" @click.stop>
+        <text class="dialog__title">服务范围与不做的事</text>
+        <text class="dialog__text">本产品帮助你理解检查报告、整理病程与准备复诊，不代替医生诊断。不作诊断、不给手术判断、不调整药物、不生成严重程度总分。</text>
+        <AppButton block @click="showService = false">我知道了</AppButton>
+      </view>
+    </view>
+
+    <!-- 临床审定弹层 -->
+    <view v-if="showReview" class="mask" @click="showReview = false">
+      <view class="dialog" @click.stop>
+        <text class="dialog__title">临床审定与来源说明</text>
+        <text class="dialog__text">内容库中的视频与图文均由临床审核人员审定，依据为诊疗指南与审核科普材料，每条内容附审定版本与审核记录。如发现错误，可在“反馈与举报”页提交，会自动附带内容版本信息。</text>
+        <AppButton block @click="showReview = false">我知道了</AppButton>
+      </view>
+    </view>
+
     <!-- 就医提示弹层 -->
     <view v-if="showEmergency" class="mask" @click="showEmergency = false">
       <view class="dialog" @click.stop>
@@ -162,6 +189,9 @@ const anonymousId = ref('');
 const consents = ref<ConsentView[]>([]);
 const showConsents = ref(false);
 const showEmergency = ref(false);
+const showExport = ref(false);
+const showService = ref(false);
+const showReview = ref(false);
 const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
 
 const consentSummary = computed(() => {
@@ -372,6 +402,7 @@ onMounted(async () => {
 .dialog__dot { color: var(--error); }
 .dialog__text { font-size: 14px; flex: 1; }
 .dialog__note { font-size: 12px; color: var(--text-2); margin: 12px 0 16px; }
+.dialog__text { font-size: 14px; line-height: 1.6; color: var(--text-1); margin-bottom: 16px; }
 .card {
   background: var(--surface);
   border-radius: 12px;

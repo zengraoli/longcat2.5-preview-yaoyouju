@@ -31,6 +31,7 @@
         <text class="verify__conflict-title">⚠ 侧别冲突：{{ conflict }}</text>
         <view class="verify__conflict-actions">
           <AppButton type="soft" @click="resolveConflict('左侧')">我的症状在左侧</AppButton>
+          <AppButton type="secondary" @click="resolveConflict('右侧')">我的症状在右侧</AppButton>
           <AppButton type="secondary" @click="resolveConflict('双侧')">都有 / 不确定</AppButton>
         </view>
       </view>
@@ -52,6 +53,7 @@
         <text class="verify__row-text">{{ row.text }}</text>
         <StatusTag :label="row.status" />
       </view>
+      <text v-if="symptoms.length === 0" class="verify__empty">暂无自述症状记录</text>
     </view>
 
     <!-- 既有医嘱 -->
@@ -59,7 +61,7 @@
       <view class="verify__card-title">
         <text class="verify__card-name">既有医嘱</text>
         <view class="verify__card-actions">
-          <StatusTag label="自述" />
+          <StatusTag label="医生记录" />
         </view>
       </view>
       <view v-for="(row, i) in advices" :key="i" class="verify__row">
@@ -67,6 +69,7 @@
         <text class="verify__row-text">{{ row.text }}</text>
         <StatusTag :label="row.status" />
       </view>
+      <text v-if="advices.length === 0" class="verify__empty">暂无既有医嘱</text>
     </view>
 
     <TipBar type="warn">
@@ -75,6 +78,22 @@
 
     <AppButton block @click="onGenerate">确认无误，生成一页分析</AppButton>
     <text class="verify__back-link" @click="goBack">返回修改</text>
+
+    <!-- 纠正报告弹层 -->
+    <view v-if="correcting" class="mask" @click="correcting = false">
+      <view class="dialog" @click.stop>
+        <text class="dialog__title">纠正报告原文</text>
+        <textarea
+          v-model="correctText"
+          class="dialog__textarea"
+          placeholder="输入修正后的报告原文"
+          placeholder-class="dialog__placeholder"
+          :maxlength="20000"
+        />
+        <AppButton block @click="onSaveCorrect">保存</AppButton>
+        <text class="dialog__cancel" @click="correcting = false">取消</text>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -83,7 +102,7 @@ import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, timeline } from '@/api';
+import { listEpisodes, timeline, correctEvent } from '@/api';
 
 const report = ref<{
   id: string;
@@ -95,14 +114,29 @@ const report = ref<{
 const conflict = ref('');
 const symptoms = ref<Array<{ label: string; text: string; status: string }>>([]);
 const advices = ref<Array<{ label: string; text: string; status: string }>>([]);
+const correcting = ref(false);
+const correctText = ref('');
 
 function goBack() {
   uni.navigateBack();
 }
 
 function onCorrectReport() {
-  // 跳转到原文对照页确认报告（避免用事件 ID 调报告接口 404）
-  uni.navigateTo({ url: '/pages/report-compare/index' });
+  if (!report.value) return;
+  correctText.value = report.value.rawText;
+  correcting.value = true;
+}
+
+async function onSaveCorrect() {
+  if (!report.value) return;
+  try {
+    await correctEvent(report.value.id, { rawText: correctText.value });
+    report.value.rawText = correctText.value;
+    correcting.value = false;
+    uni.showToast({ title: '已保存', icon: 'success' });
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
 }
 
 function resolveConflict(choice: string) {
@@ -145,6 +179,14 @@ async function onGenerate() {
   }
 }
 
+/** 从原文中提取侧别（左侧 / 右侧 / 双侧） */
+function extractSide(text: string): string | null {
+  if (/双侧|两边/.test(text)) return '双侧';
+  if (/左侧|左边/.test(text)) return '左侧';
+  if (/右侧|右边/.test(text)) return '右侧';
+  return null;
+}
+
 onMounted(async () => {
   try {
     const episodes = await listEpisodes();
@@ -152,7 +194,6 @@ onMounted(async () => {
     const tl = await timeline(episodes[0].id);
     const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
     if (!reportEvent) return;
-    // 从时间线事件中提取报告信息（报告原文在事件里）
     const rawText = reportEvent.rawText ?? '';
     const terms: Array<{ label: string; text: string; pos: string }> = [];
     const termDefs: Array<{ name: string; def: string }> = [
@@ -175,6 +216,42 @@ onMounted(async () => {
       terms,
       verifyStatus: reportEvent.verifyStatus,
     };
+    // 症状与变化：来自自述事件与症状记录
+    const symptomRows: Array<{ label: string; text: string; status: string }> = [];
+    for (const e of tl.events) {
+      if (e.eventType === '症状' && e.rawText) {
+        symptomRows.push({ label: '症状', text: e.rawText, status: e.verifyStatus });
+      }
+    }
+    for (const log of tl.symptomLogs) {
+      if (log.topWorry && log.topWorry !== '尚未确认') {
+        symptomRows.push({ label: '最担心', text: log.topWorry, status: '尚未确认' });
+      }
+      if (log.legChange && log.legChange !== '尚未确认') {
+        symptomRows.push({ label: '腿部变化', text: log.legChange, status: '尚未确认' });
+      }
+    }
+    symptoms.value = symptomRows;
+    // 既有医嘱：来自医嘱事件
+    const adviceRows: Array<{ label: string; text: string; status: string }> = [];
+    for (const e of tl.events) {
+      if (e.eventType === '医嘱' && e.rawText) {
+        adviceRows.push({ label: '医嘱', text: e.rawText, status: e.verifyStatus });
+      }
+    }
+    advices.value = adviceRows;
+    // 侧别冲突：报告侧别 vs 自述侧别
+    if (rawText) {
+      const reportSide = extractSide(rawText);
+      const selfText = tl.events
+        .filter((e) => e.sourceType === '自述' && e.rawText)
+        .map((e) => e.rawText)
+        .join('，');
+      const selfSide = extractSide(selfText);
+      if (reportSide && selfSide && reportSide !== selfSide && reportSide !== '双侧' && selfSide !== '双侧') {
+        conflict.value = `报告写的是「${reportSide}」，你的自述是「${selfSide}」`;
+      }
+    }
   } catch {
     // 加载失败不阻塞
   }
@@ -271,6 +348,7 @@ onMounted(async () => {
 .verify__conflict-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 .verify__row {
   display: flex;
@@ -301,6 +379,45 @@ onMounted(async () => {
   font-size: 14px;
   color: var(--primary);
   margin-top: 16px;
+  min-height: 44px;
+  line-height: 44px;
+}
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 32px;
+}
+.dialog {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+}
+.dialog__title { font-size: 16px; font-weight: 500; margin-bottom: 12px; }
+.dialog__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 120px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.dialog__placeholder { color: var(--text-3); }
+.dialog__cancel {
+  display: block;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-2);
+  margin-top: 12px;
   min-height: 44px;
   line-height: 44px;
 }

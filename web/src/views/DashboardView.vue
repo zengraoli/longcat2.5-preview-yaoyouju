@@ -289,7 +289,7 @@ async function load() {
       const pending: Array<{ question: string; options: string[]; value: string }> = [];
       for (const e of tl.events) {
         if (e.verifyStatus === '尚未确认' && e.rawText) {
-          pending.push({ question: e.rawText.slice(0, 24), options: ['已确认', '有冲突'], value: '' });
+          pending.push({ question: e.rawText, options: ['已确认', '有冲突'], value: '' });
         }
       }
       for (const log of tl.symptomLogs) {

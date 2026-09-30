@@ -261,8 +261,8 @@ export interface QaMessage {
   createdAt: string;
 }
 
-export function createQaSession(analysisId: string, title: string) {
-  return api.post<{ id: string; analysisId: string; title: string }>('/qa/sessions', {
+export function createQaSession(analysisId: string | null, title: string) {
+  return api.post<{ id: string; analysisId: string | null; title: string }>('/qa/sessions', {
     analysisId,
     title,
   });
@@ -364,7 +364,13 @@ export function createHelpFeedback(analysisId: string, helpType: string, unsolve
   });
 }
 
-export function createErrorReport(analysisId: string, description: string, severity: '高' | '中' | '低', authorized?: boolean) {
+export function createErrorReport(
+  analysisId: string,
+  description: string,
+  severity: '高' | '中' | '低',
+  problemTypes?: string[],
+  authorized?: boolean,
+) {
   return api.post<{
     id: string;
     isErrorReport: boolean;
@@ -375,5 +381,5 @@ export function createErrorReport(analysisId: string, description: string, sever
       contentVersion: string | null;
       rulesetVersion: string;
     };
-  }>('/feedback/reports', { analysisId, description, severity, authorized });
+  }>('/feedback/reports', { analysisId, description, severity, problemTypes, authorized });
 }

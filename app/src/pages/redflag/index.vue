@@ -24,9 +24,9 @@
 
     <view class="card">
       <text class="card-title">就诊时可以带上</text>
-      <view class="redflag__bring">
+      <view v-if="reportHint" class="redflag__bring">
         <text class="redflag__bring-icon">✓</text>
-        <text class="redflag__bring-text">已录入的检查报告原文（2026-08-30 腰椎MRI）</text>
+        <text class="redflag__bring-text">{{ reportHint }}</text>
       </view>
       <view class="redflag__bring">
         <text class="redflag__bring-icon">✓</text>
@@ -56,14 +56,29 @@ import TipBar from '@/components/TipBar.vue';
 import AppButton from '@/components/AppButton.vue';
 
 const selectedText = ref('');
+const reportHint = ref('');
 
-onMounted(() => {
+onMounted(async () => {
   // 读取确认页选择的红旗项
   const selected = uni.getStorageSync('redflagSelected') as string[] | '';
   if (Array.isArray(selected) && selected.length > 0) {
     selectedText.value = selected.join('、');
   } else {
     selectedText.value = '你选择的变化（记录见病程）';
+  }
+  // 已录入的报告提示
+  try {
+    const { listEpisodes, timeline } = await import('@/api');
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const tl = await timeline(episodes[0].id);
+      const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
+      if (reportEvent) {
+        reportHint.value = `已录入的检查报告原文（${reportEvent.occurredAt.slice(0, 10)}）`;
+      }
+    }
+  } catch {
+    // 加载失败不阻塞
   }
 });
 
@@ -84,7 +99,11 @@ function goContents() {
 }
 
 function goHospital() {
-  uni.showToast({ title: '请前往正规医疗机构急诊', icon: 'none' });
+  uni.showModal({
+    title: '查找附近医院',
+    content: '请前往正规医疗机构急诊；如症状严重，请拨打 120 由急救车转运。本演示不提供实时定位与医院推荐。',
+    showCancel: false,
+  });
 }
 
 function goDoctor() {
@@ -132,6 +151,7 @@ function goDoctor() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 12px;
   margin-bottom: 12px;
 }
 .redflag__bring {
