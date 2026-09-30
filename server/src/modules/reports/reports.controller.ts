@@ -46,8 +46,8 @@ export class ReportsController {
 
   /** 拍照提取：模拟 OCR，返回示例文本 */
   @Post('ocr')
-  ocr(@Body() dto: { careEventId: string }) {
-    return this.reports.ocr(dto.careEventId);
+  ocr(@CurrentUser() user: { userId: string }, @Body() dto: { careEventId: string }) {
+    return this.reports.ocr(user.userId, dto.careEventId);
   }
 
   @Get(':id')

@@ -69,16 +69,21 @@ describe('反馈与错误举报', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ analysisId: 'analysis-1', description: '测试处置', severity: '中' });
     const id = report.body.data.id;
+    // 后台登录
+    const adminLogin = await request(app.getHttpServer())
+      .post('/admin/login')
+      .send({ name: '合规-顾', password: 'Admin@123456', totp: '123456' });
+    const adminToken = adminLogin.body.data.token;
     // 授权
     const authorized = await request(app.getHttpServer())
       .post(`/feedback/${id}/authorize`)
-      .set('Authorization', `Bearer ${token}`)
+      .set('X-Admin-Token', adminToken)
       .expect(201);
     expect(authorized.body.data.authorized).toBe(true);
     // 处置
     const handled = await request(app.getHttpServer())
       .post(`/feedback/${id}/handle`)
-      .set('Authorization', `Bearer ${token}`)
+      .set('X-Admin-Token', adminToken)
       .send({ action: '转人工复核', resolution: '已转临床审核复核' })
       .expect(201);
     expect(handled.body.data.status).toBe('已处理');

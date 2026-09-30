@@ -92,7 +92,7 @@ class AddSymptomLogDto {
   topWorry?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['有', '没有', '尚未确认'])
   legChange?: string;
 }
 

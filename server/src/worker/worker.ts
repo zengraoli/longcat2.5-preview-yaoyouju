@@ -125,9 +125,14 @@ function processTask(db: Database.Database, task: TaskRow, llm: LocalMockLlmAdap
     下一步: draft.下一步,
     视频: videos,
   };
+  // 使用当前生效的模型发布版本
+  const release = db
+    .prepare("SELECT id FROM MODEL_RELEASE WHERE status = '生效' ORDER BY created_at DESC LIMIT 1")
+    .get() as { id: string } | undefined;
+  const modelReleaseId = release?.id ?? 'release-1';
   const retrievalSnapshot = {
     evidenceDocs: [...new Set(evidence.map((e) => e.docId))],
-    modelRelease: 'release-1',
+    modelRelease: modelReleaseId,
     contentLibVersion: 'content-c1',
     rulesetVersion: RULESET_VERSION,
   };
@@ -137,8 +142,8 @@ function processTask(db: Database.Database, task: TaskRow, llm: LocalMockLlmAdap
     ((db.prepare('SELECT COUNT(*) AS c FROM ANALYSIS WHERE episode_id = ?').get(task.episode_id) as { c: number }).c) + 1;
   db.prepare(
     `INSERT INTO ANALYSIS (id, episode_id, version, model_release_id, sections, retrieval_snapshot, safety_flag, created_at)
-     VALUES (?, ?, ?, 'release-1', ?, ?, '通过', ?)`,
-  ).run(task.id, task.episode_id, version, JSON.stringify(sections), JSON.stringify(retrievalSnapshot), now);
+     VALUES (?, ?, ?, ?, ?, ?, '通过', ?)`,
+  ).run(task.id, task.episode_id, version, modelReleaseId, JSON.stringify(sections), JSON.stringify(retrievalSnapshot), now);
 
   const insertCitation = db.prepare(
     'INSERT INTO ANALYSIS_CITATION (id, analysis_id, evidence_doc_id, statement, supported) VALUES (?, ?, ?, ?, 1)',

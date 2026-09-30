@@ -12,7 +12,20 @@ async function bootstrap() {
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.use('/docs', express.static(path.join(__dirname, '../public')));
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, transform: true, stopAtFirstError: true }),
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      stopAtFirstError: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((e) => {
+          const constraints = e.constraints ?? {};
+          const first = Object.values(constraints)[0];
+          return typeof first === 'string' ? first : '参数校验失败';
+        });
+        const { BusinessException } = require('./common/utils/business-exception');
+        return new BusinessException(1001, messages[0] ?? '参数校验失败');
+      },
+    }),
   );
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());

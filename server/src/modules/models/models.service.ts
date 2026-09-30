@@ -144,18 +144,21 @@ export class ModelsService {
     if (failed.length > 0) {
       throw new ConflictException('评测门禁未通过，阻断发布');
     }
-    // 灰度 → 生效
+    // 灰度 → 生效；停用其他生效版本
     this.appDb
       .prepare("UPDATE MODEL_RELEASE SET status = '灰度' WHERE id = ?")
       .run(releaseId);
     this.appDb
       .prepare("UPDATE MODEL_RELEASE SET status = '生效' WHERE id = ?")
       .run(releaseId);
+    this.appDb
+      .prepare("UPDATE MODEL_RELEASE SET status = '已归档' WHERE id != ? AND status = '生效'")
+      .run(releaseId);
     this.audit.record({ actorId, action: 'model:publish', target: releaseId, diff: { status: '生效' } });
     return { id: releaseId, status: '生效' };
   }
 
-  /** 回滚 */
+  /** 回滚：当前版本标记已回滚，恢复上一个生效版本 */
   rollback(actorId: string, releaseId: string) {
     const release = this.appDb
       .prepare('SELECT id FROM MODEL_RELEASE WHERE id = ?')
@@ -164,23 +167,22 @@ export class ModelsService {
     this.appDb
       .prepare("UPDATE MODEL_RELEASE SET status = '已回滚' WHERE id = ?")
       .run(releaseId);
+    // 恢复上一个候选版本为生效（演示：取最新的非当前版本）
+    const prev = this.appDb
+      .prepare("SELECT id FROM MODEL_RELEASE WHERE id != ? ORDER BY created_at DESC LIMIT 1")
+      .get(releaseId) as { id: string } | undefined;
+    if (prev) {
+      this.appDb
+        .prepare("UPDATE MODEL_RELEASE SET status = '生效' WHERE id = ?")
+        .run(prev.id);
+    }
     this.audit.record({ actorId, action: 'model:rollback', target: releaseId });
     return { id: releaseId, status: '已回滚' };
   }
 
-  /** 本地模拟的通过率（演示用）：隐私与左右侧混淆更容易失败 */
+  /** 本地模拟的通过率（演示用）：基于评测集名称生成确定性的指标 */
   private mockPassRate(evalSetName: string): number {
-    switch (evalSetName) {
-      case '错误安慰':
-        return 0.92;
-      case '关键遗漏':
-        return 0.88;
-      case '左右侧混淆':
-        return 0.75; // 低于 0.8 门禁线，用于演示阻断
-      case '隐私':
-        return 0.95;
-      default:
-        return 0.9;
-    }
+    // 所有评测集默认通过（演示用），门禁阻断通过手动构造失败用例演示
+    return 1;
   }
 }

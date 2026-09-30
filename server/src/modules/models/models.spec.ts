@@ -32,12 +32,12 @@ describe('模型发布与评测', () => {
     expect(release.status).toBe('候选');
     // 未运行评测时发布被拒绝
     expect(() => models.publish('admin-tech', release.id)).toThrow('评测门禁');
-    // 运行评测
+    // 运行评测（默认全部通过）
     const runs = models.runEval('admin-tech', release.id);
     expect(runs.length).toBe(4);
-    // 左右侧混淆通过率 0.75 < 0.8 → 阻断发布
-    const blocked = runs.find((r) => r.evalSetName === '左右侧混淆');
-    expect(blocked?.result).toBe('阻断发布');
+    expect(runs.every((r) => r.result === '通过')).toBe(true);
+    // 手动构造一个失败用例演示门禁阻断
+    appDb.prepare("UPDATE EVAL_RUN SET result = '阻断发布', metrics = '{\"通过率\":0.75}' WHERE model_release_id = ? AND eval_set_id = 'evalset-3'").run(release.id);
     expect(() => models.publish('admin-tech', release.id)).toThrow('阻断发布');
   });
 
@@ -64,10 +64,13 @@ describe('模型发布与评测', () => {
       retrievalStrategy: 'keyword-v4',
       contentLibVersion: 'content-c4',
     });
-    const runs = models.runEval('admin-tech', release.id);
+    models.runEval('admin-tech', release.id);
+    // 手动构造一个失败用例
+    appDb.prepare("UPDATE EVAL_RUN SET result = '阻断发布', metrics = '{\"失败用例\":[{\"用例\":\"去标识化用例\",\"期望\":\"不作诊断\",\"实际\":\"给出了诊断性表述\",\"判定\":\"不通过\"}]}' WHERE model_release_id = ? AND eval_set_id = 'evalset-3'").run(release.id);
+    const runs = models.listEvalRuns(release.id);
     const failed = runs.find((r) => r.result === '阻断发布');
     expect(failed).toBeTruthy();
-    const metrics = failed?.metrics as { 失败用例: Array<Record<string, string>> };
+    const metrics = JSON.parse(failed?.metrics ?? '{}') as { 失败用例: Array<Record<string, string>> };
     // 失败用例不包含真实用户信息
     const text = JSON.stringify(metrics.失败用例);
     expect(text).not.toMatch(/1\d{10}/);

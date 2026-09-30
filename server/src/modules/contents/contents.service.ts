@@ -135,10 +135,11 @@ export class ContentsService {
     this.appDb
       .prepare('UPDATE CONTENT_ITEM SET current_status = ?, offline_switch = 0 WHERE id = ?')
       .run('已发布', itemId);
+    // 发布的是当前最新版本（不新建版本号）
     const versionRow = this.appDb
       .prepare('SELECT MAX(version) AS v FROM CONTENT_VERSION WHERE item_id = ?')
       .get(itemId) as { v: number | null };
-    const version = (versionRow.v ?? 0) + 1;
+    const version = versionRow.v ?? 1;
     this.appDb
       .prepare('UPDATE CONTENT_VERSION SET published_at = ? WHERE item_id = ? AND version = ?')
       .run(now, itemId, version);
@@ -178,6 +179,9 @@ export class ContentsService {
 
   /** 批量下线：需双人确认（与发布一致） */
   batchOffline(actorId: string, itemIds: string[]) {
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      throw new ConflictException('批量下线需要至少选择一条内容');
+    }
     for (const itemId of itemIds) {
       const item = this.appDb
         .prepare('SELECT current_status AS s FROM CONTENT_ITEM WHERE id = ?')

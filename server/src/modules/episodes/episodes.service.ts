@@ -142,13 +142,16 @@ export class EpisodesService {
       .get(eventId) as CareEventView;
   }
 
-  /** 用户可删除自己的记录 */
+  /** 用户可删除自己的记录（级联删除关联的报告与症状记录） */
   deleteEvent(userId: string, eventId: string) {
     const event = this.appDb
       .prepare('SELECT episode_id AS episodeId FROM CARE_EVENT WHERE id = ?')
       .get(eventId) as { episodeId: string } | undefined;
     if (!event) throw new NotFoundException('记录不存在');
     this.getEpisode(userId, event.episodeId);
+    // 先删关联数据，再删事件
+    this.appDb.prepare('DELETE FROM REPORT WHERE care_event_id = ?').run(eventId);
+    this.appDb.prepare('DELETE FROM SYMPTOM_LOG WHERE care_event_id = ?').run(eventId);
     this.appDb.prepare('DELETE FROM CARE_EVENT WHERE id = ?').run(eventId);
     return { deleted: true };
   }

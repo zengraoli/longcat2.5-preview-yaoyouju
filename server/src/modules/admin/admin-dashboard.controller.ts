@@ -13,10 +13,18 @@ export class AdminDashboardController {
   @Get()
   @RequirePermission('*')
   stats() {
-    const taskCount = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK').get() as { c: number }).c;
-    const failedCount = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '失败'").get() as { c: number }).c;
+    // 今日任务（按创建日期统计）
+    const today = new Date().toISOString().slice(0, 10);
+    const taskTotal = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK').get() as { c: number }).c;
+    const taskToday = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE created_at >= ?').get(today) as { c: number }).c;
+    const taskFailed = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '失败'").get() as { c: number }).c;
+    const taskBlocked = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '排队' AND payload LIKE '%redFlags%'").get() as { c: number }).c;
     const pendingReview = (this.appDb.prepare("SELECT COUNT(*) AS c FROM CONTENT_ITEM WHERE current_status = '待审'").get() as { c: number }).c;
-    const pendingReports = (this.appDb.prepare('SELECT COUNT(*) AS c FROM FEEDBACK WHERE is_error_report = 1').get() as { c: number }).c;
+    // 待处理举报（FEEDBACK_REPORT.status = '待处理'）
+    const pendingReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理'").get() as { c: number }).c;
+    const highReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理' AND severity = '高'").get() as { c: number }).c;
+    const midReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理' AND severity = '中'").get() as { c: number }).c;
+    const lowReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理' AND severity = '低'").get() as { c: number }).c;
     const safetyEvents = this.appDb
       .prepare(
         `SELECT rule_code AS ruleCode, severity, action_taken AS actionTaken, source, created_at AS createdAt
@@ -34,9 +42,9 @@ export class AdminDashboardController {
       )
       .all();
     return {
-      tasks: { total: taskCount, failed: failedCount },
+      tasks: { total: taskTotal, today: taskToday, failed: taskFailed, blocked: taskBlocked },
       pendingReview,
-      pendingReports,
+      pendingReports: { total: pendingReports, high: highReports, mid: midReports, low: lowReports },
       safetyEvents,
       switches,
       evalRuns,

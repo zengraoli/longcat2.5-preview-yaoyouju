@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { IsIn, IsString, MaxLength } from 'class-validator';
-import { AuthGuard } from '../auth/auth.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { AdminGuard, RequirePermission } from '../admin/admin.guard';
+import { CurrentAdmin } from '../admin/current-admin.decorator';
 import { ModelsService } from './models.service';
 
 class CreateReleaseDto {
@@ -23,49 +23,56 @@ class CreateReleaseDto {
 }
 
 @Controller('models')
-@UseGuards(AuthGuard)
+@UseGuards(AdminGuard)
 export class ModelsController {
   constructor(private readonly models: ModelsService) {}
 
   /** 发布组合列表 */
   @Get('releases')
-  listReleases(@CurrentUser() _user: { userId: string }) {
+  @RequirePermission('model:release')
+  listReleases() {
     return this.models.listReleases();
   }
 
   /** 评测集列表 */
   @Get('eval-sets')
-  listEvalSets(@CurrentUser() _user: { userId: string }) {
+  @RequirePermission('eval:run')
+  listEvalSets() {
     return this.models.listEvalSets();
   }
 
   /** 创建发布组合（候选） */
   @Post('releases')
-  createRelease(@CurrentUser() user: { userId: string }, @Body() dto: CreateReleaseDto) {
-    return this.models.createRelease(user.userId, dto);
+  @RequirePermission('model:release')
+  createRelease(@CurrentAdmin() admin: { adminId: string }, @Body() dto: CreateReleaseDto) {
+    return this.models.createRelease(admin.adminId, dto);
   }
 
   /** 运行评测 */
   @Post('releases/:id/eval')
-  runEval(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
-    return this.models.runEval(user.userId, id);
+  @RequirePermission('eval:run')
+  runEval(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.models.runEval(admin.adminId, id);
   }
 
   /** 评测运行记录 */
   @Get('releases/:id/eval-runs')
-  listEvalRuns(@CurrentUser() _user: { userId: string }, @Param('id') id: string) {
+  @RequirePermission('eval:run')
+  listEvalRuns(@Param('id') id: string) {
     return this.models.listEvalRuns(id);
   }
 
   /** 发布（候选 → 评测门禁 → 灰度 → 生效） */
   @Post('releases/:id/publish')
-  publish(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
-    return this.models.publish(user.userId, id);
+  @RequirePermission('model:release')
+  publish(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.models.publish(admin.adminId, id);
   }
 
   /** 回滚 */
   @Post('releases/:id/rollback')
-  rollback(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
-    return this.models.rollback(user.userId, id);
+  @RequirePermission('model:release')
+  rollback(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.models.rollback(admin.adminId, id);
   }
 }

@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { CurrentAdmin } from '../admin/current-admin.decorator';
 import { FeedbackService } from './feedback.service';
 
 class HelpFeedbackDto {
@@ -56,31 +58,41 @@ export class FeedbackController {
     return this.feedback.createErrorReport(user.userId, dto);
   }
 
-  /** 反馈列表（管理端） */
-  @Get()
+  /** 用户端：我的反馈 */
+  @Get('mine')
   @UseGuards(AuthGuard)
-  list(@CurrentUser() _user: { userId: string }) {
+  listMine(@CurrentUser() user: { userId: string }) {
+    return this.feedback.listOwn(user.userId);
+  }
+
+  /** 用户端：反馈详情（只能看自己的） */
+  @Get(':id')
+  @UseGuards(AuthGuard)
+  detail(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
+    return this.feedback.detail(id, user.userId);
+  }
+
+  /** 管理端：全部反馈 */
+  @Get()
+  @UseGuards(AdminGuard)
+  @RequirePermission('feedback:handle')
+  list(@CurrentAdmin() _admin: unknown) {
     return this.feedback.list();
   }
 
-  /** 详情（含四类版本） */
-  @Get(':id')
-  @UseGuards(AuthGuard)
-  detail(@CurrentUser() _user: { userId: string }, @Param('id') id: string) {
-    return this.feedback.detail(id);
-  }
-
-  /** 单条授权查看用户原始内容 */
+  /** 管理端：单条授权查看用户原始内容 */
   @Post(':id/authorize')
-  @UseGuards(AuthGuard)
-  authorize(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
-    return this.feedback.authorize(user.userId, id);
+  @UseGuards(AdminGuard)
+  @RequirePermission('feedback:handle')
+  authorize(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
+    return this.feedback.authorize(admin.adminId, id);
   }
 
-  /** 处置动作与处理记录 */
+  /** 管理端：处置动作与处理记录 */
   @Post(':id/handle')
-  @UseGuards(AuthGuard)
-  handle(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: HandleDto) {
-    return this.feedback.handle(user.userId, id, dto);
+  @UseGuards(AdminGuard)
+  @RequirePermission('feedback:handle')
+  handle(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() dto: HandleDto) {
+    return this.feedback.handle(admin.adminId, id, dto);
   }
 }

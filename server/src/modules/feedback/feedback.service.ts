@@ -8,27 +8,13 @@ import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { AuditService } from '../audit/audit.service';
 import { RULESET_VERSION } from '../safety/rules';
+import { ERR } from '../../common/utils/business-exception';
 
 export interface VersionSnapshot {
   analysisVersion: number | null;
   modelVersion: string | null;
   contentVersion: string | null;
   rulesetVersion: string;
-}
-
-export interface FeedbackView {
-  id: string;
-  analysisId: string | null;
-  helpType: string | null;
-  unsolvedQuestion: string | null;
-  isErrorReport: boolean;
-  severity: string | null;
-  description: string | null;
-  versions: VersionSnapshot | null;
-  status: string;
-  resolution: string | null;
-  authorized: boolean;
-  createdAt: string;
 }
 
 @Injectable()
@@ -44,17 +30,14 @@ export class FeedbackService {
     helpType: '看懂了' | '知道下一步' | '都不好';
     unsolvedQuestion?: string;
   }) {
-    const analysis = this.appDb
-      .prepare('SELECT id FROM ANALYSIS WHERE id = ?')
-      .get(input.analysisId) as { id: string } | undefined;
-    if (!analysis) throw new NotFoundException('分析不存在');
+    this.assertOwnAnalysis(userId, input.analysisId);
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
-        `INSERT INTO FEEDBACK (id, analysis_id, help_type, unsolved_question, is_error_report, created_at)
-         VALUES (?, ?, ?, ?, 0, ?)`,
+        `INSERT INTO FEEDBACK (id, user_id, analysis_id, help_type, unsolved_question, is_error_report, created_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?)`,
       )
-      .run(id, input.analysisId, input.helpType, input.unsolvedQuestion ?? null, new Date().toISOString());
+      .run(id, userId, input.analysisId, input.helpType, input.unsolvedQuestion ?? null, new Date().toISOString());
     return { id, isErrorReport: false };
   }
 
@@ -64,30 +47,15 @@ export class FeedbackService {
     description: string;
     severity: '高' | '中' | '低';
   }) {
-    const analysis = this.appDb
-      .prepare('SELECT id, version, retrieval_snapshot AS retrievalSnapshot FROM ANALYSIS WHERE id = ?')
-      .get(input.analysisId) as { id: string; version: number; retrievalSnapshot: string } | undefined;
-    if (!analysis) throw new NotFoundException('分析不存在');
-    const snapshot = JSON.parse(analysis.retrievalSnapshot ?? '{}') as {
-      modelRelease?: string;
-      contentLibVersion?: string;
-    };
-    const model = this.appDb
-      .prepare("SELECT model_name || '/' || prompt_version AS v FROM MODEL_RELEASE WHERE id = ?")
-      .get(snapshot.modelRelease ?? 'release-1') as { v: string } | undefined;
-    const versions: VersionSnapshot = {
-      analysisVersion: analysis.version,
-      modelVersion: model?.v ?? null,
-      contentVersion: snapshot.contentLibVersion ?? null,
-      rulesetVersion: RULESET_VERSION,
-    };
+    this.assertOwnAnalysis(userId, input.analysisId);
+    const versions = this.getVersions(input.analysisId);
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
-        `INSERT INTO FEEDBACK (id, analysis_id, help_type, unsolved_question, is_error_report, created_at)
-         VALUES (?, ?, '都不好', ?, 1, ?)`,
+        `INSERT INTO FEEDBACK (id, user_id, analysis_id, help_type, unsolved_question, is_error_report, created_at)
+         VALUES (?, ?, ?, '都不好', ?, 1, ?)`,
       )
-      .run(id, input.analysisId, input.description, new Date().toISOString());
+      .run(id, userId, input.analysisId, input.description, new Date().toISOString());
     this.appDb
       .prepare(
         `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status) VALUES (?, ?, '待处理')`,
@@ -102,54 +70,65 @@ export class FeedbackService {
     return { id, isErrorReport: true, severity: input.severity, versions };
   }
 
-  /** 反馈列表（管理端） */
-  list() {
+  /** 用户端：只能看到自己的反馈 */
+  listOwn(userId: string) {
     return this.appDb
       .prepare(
         `SELECT id, analysis_id AS analysisId, help_type AS helpType, unsolved_question AS unsolvedQuestion,
                 is_error_report AS isErrorReport, created_at AS createdAt
+         FROM FEEDBACK WHERE user_id = ? ORDER BY created_at DESC, rowid DESC`,
+      )
+      .all(userId);
+  }
+
+  /** 管理端：全部反馈 */
+  list() {
+    return this.appDb
+      .prepare(
+        `SELECT id, user_id AS userId, analysis_id AS analysisId, help_type AS helpType,
+                unsolved_question AS unsolvedQuestion, is_error_report AS isErrorReport, created_at AS createdAt
          FROM FEEDBACK ORDER BY created_at DESC, rowid DESC`,
       )
       .all();
   }
 
-  /** 详情（含四类版本） */
-  detail(id: string): FeedbackView {
+  /** 详情（含四类版本）；用户只能看自己的 */
+  detail(id: string, requesterUserId?: string): {
+    id: string;
+    analysisId: string | null;
+    helpType: string | null;
+    unsolvedQuestion: string | null;
+    isErrorReport: boolean;
+    severity: string | null;
+    description: string | null;
+    versions: VersionSnapshot | null;
+    status: string;
+    resolution: string | null;
+    authorized: boolean;
+    createdAt: string;
+  } {
     const row = this.appDb
       .prepare(
-        `SELECT id, analysis_id AS analysisId, help_type AS helpType, unsolved_question AS unsolvedQuestion,
-                is_error_report AS isErrorReport, created_at AS createdAt
+        `SELECT id, user_id AS userId, analysis_id AS analysisId, help_type AS helpType,
+                unsolved_question AS unsolvedQuestion, is_error_report AS isErrorReport, created_at AS createdAt
          FROM FEEDBACK WHERE id = ?`,
       )
       .get(id) as {
       id: string;
+      userId: string;
       analysisId: string | null;
       helpType: string | null;
       unsolvedQuestion: string | null;
       isErrorReport: number;
       createdAt: string;
     } | undefined;
-    if (!row) throw new NotFoundException('反馈不存在');
+    if (!row) throw ERR.NOT_FOUND('反馈不存在');
+    if (requesterUserId && row.userId !== requesterUserId) {
+      throw ERR.FORBIDDEN('无权查看他人的反馈');
+    }
     let versions: VersionSnapshot | null = null;
     if (row.analysisId) {
-      const analysis = this.appDb
-        .prepare('SELECT version, retrieval_snapshot AS retrievalSnapshot FROM ANALYSIS WHERE id = ?')
-        .get(row.analysisId) as { version: number; retrievalSnapshot: string } | undefined;
-      if (analysis) {
-        const snapshot = JSON.parse(analysis.retrievalSnapshot ?? '{}') as {
-          modelRelease?: string;
-          contentLibVersion?: string;
-        };
-        const model = this.appDb
-          .prepare("SELECT model_name || '/' || prompt_version AS v FROM MODEL_RELEASE WHERE id = ?")
-          .get(snapshot.modelRelease ?? 'release-1') as { v: string } | undefined;
-        versions = {
-          analysisVersion: analysis.version,
-          modelVersion: model?.v ?? null,
-          contentVersion: snapshot.contentLibVersion ?? null,
-          rulesetVersion: RULESET_VERSION,
-        };
-      }
+      versions = this.getVersions(row.analysisId);
     }
     const report = this.appDb
       .prepare(
@@ -172,12 +151,12 @@ export class FeedbackService {
     };
   }
 
-  /** 单条授权查看用户原始内容 */
+  /** 单条授权查看用户原始内容（仅管理端） */
   authorize(actorId: string, id: string) {
     const row = this.appDb.prepare('SELECT id FROM FEEDBACK WHERE id = ?').get(id) as
       | { id: string }
       | undefined;
-    if (!row) throw new NotFoundException('反馈不存在');
+    if (!row) throw ERR.NOT_FOUND('反馈不存在');
     this.appDb
       .prepare(
         `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, resolution, authorized)
@@ -189,12 +168,12 @@ export class FeedbackService {
     return { id, authorized: true };
   }
 
-  /** 处置动作与处理记录 */
+  /** 处置动作与处理记录（仅管理端） */
   handle(actorId: string, id: string, input: { action: string; resolution: string }) {
     const row = this.appDb.prepare('SELECT id FROM FEEDBACK WHERE id = ?').get(id) as
       | { id: string }
       | undefined;
-    if (!row) throw new NotFoundException('反馈不存在');
+    if (!row) throw ERR.NOT_FOUND('反馈不存在');
     this.appDb
       .prepare(
         `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, resolution, authorized)
@@ -204,5 +183,40 @@ export class FeedbackService {
       .run(id, input.resolution);
     this.audit.record({ actorId, action: 'feedback:handle', target: id, diff: input });
     return { id, status: '已处理', resolution: input.resolution };
+  }
+
+  /** 校验分析属于当前用户 */
+  private assertOwnAnalysis(userId: string, analysisId: string) {
+    const analysis = this.appDb
+      .prepare(
+        `SELECT a.id FROM ANALYSIS a JOIN EPISODE e ON e.id = a.episode_id
+         WHERE a.id = ? AND e.user_id = ?`,
+      )
+      .get(analysisId, userId) as { id: string } | undefined;
+    if (!analysis) {
+      throw ERR.NOT_FOUND('分析不存在');
+    }
+  }
+
+  private getVersions(analysisId: string): VersionSnapshot {
+    const analysis = this.appDb
+      .prepare('SELECT version, retrieval_snapshot AS retrievalSnapshot FROM ANALYSIS WHERE id = ?')
+      .get(analysisId) as { version: number; retrievalSnapshot: string } | undefined;
+    if (!analysis) {
+      return { analysisVersion: null, modelVersion: null, contentVersion: null, rulesetVersion: RULESET_VERSION };
+    }
+    const snapshot = JSON.parse(analysis.retrievalSnapshot ?? '{}') as {
+      modelRelease?: string;
+      contentLibVersion?: string;
+    };
+    const model = this.appDb
+      .prepare("SELECT model_name || '/' || prompt_version AS v FROM MODEL_RELEASE WHERE id = ?")
+      .get(snapshot.modelRelease ?? 'release-1') as { v: string } | undefined;
+    return {
+      analysisVersion: analysis.version,
+      modelVersion: model?.v ?? null,
+      contentVersion: snapshot.contentLibVersion ?? null,
+      rulesetVersion: RULESET_VERSION,
+    };
   }
 }

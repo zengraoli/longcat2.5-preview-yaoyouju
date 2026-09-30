@@ -124,7 +124,7 @@ describe('病程与记录今天', () => {
         plannedActivityDone: '完成',
         sleepImpact: 2,
         topWorry: '担心影像恶化',
-        legChange: '无',
+        legChange: '没有',
       })
       .expect(201);
     expect(first.body.data.sitMinutes).toBe(40);

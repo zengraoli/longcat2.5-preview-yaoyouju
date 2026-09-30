@@ -21,6 +21,11 @@ export function initDatabase(
   if (!cols.includes('based_on')) {
     appDb.exec('ALTER TABLE CONTENT_VERSION ADD COLUMN based_on TEXT');
   }
+  // 迁移：为旧库补充 FEEDBACK.user_id 列
+  const fbCols = (appDb.prepare('PRAGMA table_info(FEEDBACK)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!fbCols.includes('user_id')) {
+    appDb.exec('ALTER TABLE FEEDBACK ADD COLUMN user_id TEXT');
+  }
   const userCount = appDb.prepare('SELECT COUNT(*) AS c FROM USER').get() as { c: number };
   if (userCount.c > 0) return;
   seed(appDb, identityDb);

@@ -2,12 +2,10 @@ import { Module } from '@nestjs/common';
 import { FeedbackModule } from '../feedback/feedback.module';
 import { AdminController } from './admin.controller';
 import { AdminDashboardController } from './admin-dashboard.controller';
-import { AdminAuthService } from './admin-auth.service';
+import { AdminGuardModule } from './admin-guard.module';
 
 @Module({
-  imports: [FeedbackModule],
+  imports: [AdminGuardModule, FeedbackModule],
   controllers: [AdminController, AdminDashboardController],
-  providers: [AdminAuthService],
-  exports: [AdminAuthService],
 })
 export class AdminModule {}

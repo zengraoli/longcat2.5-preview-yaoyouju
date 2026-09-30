@@ -82,6 +82,11 @@ export class AuditService {
          FROM AUDIT_LOG ORDER BY created_at ASC, rowid ASC`,
       )
       .all() as AuditEntry[];
+    if (rows.length === 0) return null;
+    // 第一条记录的 prevHash 必须为 null（创世记录）；若首条被删，新首条 prevHash 非 null 即可发现
+    if (rows[0].prevHash !== null) {
+      return { id: rows[0].id, expected: 'null', actual: String(rows[0].prevHash) };
+    }
     let prevHash: string | null = null;
     for (const row of rows) {
       if (row.prevHash !== prevHash) {

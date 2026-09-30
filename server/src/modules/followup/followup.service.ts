@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
+import { ERR } from '../../common/utils/business-exception';
 
 export interface SummarySection {
   text: string;
@@ -82,6 +83,17 @@ export class FollowupService {
   /** 保存/更新摘要 */
   save(userId: string, episodeId: string, content: SummaryContent) {
     this.getEpisode(userId, episodeId);
+    // 校验内容非空
+    const hasContent =
+      content.当前情况.length > 0 ||
+      content.报告要点.length > 0 ||
+      content.医嘱要点.length > 0 ||
+      content.尚未确认.length > 0 ||
+      content.下一步.length > 0 ||
+      content.复诊问题.length > 0;
+    if (!hasContent) {
+      throw ERR.CONFLICT('摘要内容为空，无法保存');
+    }
     const existing = this.appDb
       .prepare('SELECT id FROM FOLLOWUP_SUMMARY WHERE episode_id = ?')
       .get(episodeId) as { id: string } | undefined;
@@ -112,10 +124,11 @@ export class FollowupService {
   }
 
   /** 问题清单排序 */
-  reorderQuestions(userId: string, summaryId: string, questions: string[]) {
+  reorderQuestions(userId: string, summaryId: string, questions: unknown[]) {
     const summary = this.getSummary(userId, summaryId);
     const content = JSON.parse(summary.content) as SummaryContent;
-    content.复诊问题 = questions;
+    // 只接受字符串元素
+    content.复诊问题 = questions.filter((q): q is string => typeof q === 'string');
     this.appDb.prepare('UPDATE FOLLOWUP_SUMMARY SET content = ? WHERE id = ?').run(
       JSON.stringify(content),
       summaryId,

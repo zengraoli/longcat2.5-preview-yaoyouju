@@ -63,15 +63,16 @@ export class AdminAuthService {
       this.recordFailure(admin.id, admin.failedAttempts);
       throw ERR.ADMIN_CREDENTIALS();
     }
-    // 登录成功：重置失败计数，创建短会话（30 分钟）
+    // 登录成功：重置失败计数，创建短会话（30 分钟）；令牌哈希存储
     const token = crypto.randomUUID();
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 30 * 60 * 1000);
     this.appDb
       .prepare(
         `INSERT INTO ADMIN_SESSION (id, admin_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`,
       )
-      .run(crypto.randomUUID(), admin.id, token, now.toISOString(), expiresAt.toISOString());
+      .run(crypto.randomUUID(), admin.id, tokenHash, now.toISOString(), expiresAt.toISOString());
     this.appDb
       .prepare('UPDATE ADMIN_USER SET failed_attempts = 0, locked_until = NULL, last_login_at = ? WHERE id = ?')
       .run(now.toISOString(), admin.id);
@@ -87,11 +88,12 @@ export class AdminAuthService {
     };
   }
 
-  /** 校验后台会话（同时检查账号是否已停用） */
+  /** 校验后台会话（同时检查账号是否已停用）；令牌以哈希比对 */
   resolveSession(token: string): AdminSession | null {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const session = this.appDb
       .prepare('SELECT admin_id AS adminId, expires_at AS expiresAt FROM ADMIN_SESSION WHERE token = ?')
-      .get(token) as { adminId: string; expiresAt: string } | undefined;
+      .get(tokenHash) as { adminId: string; expiresAt: string } | undefined;
     if (!session) return null;
     if (new Date(session.expiresAt).getTime() < Date.now()) return null;
     const admin = this.appDb

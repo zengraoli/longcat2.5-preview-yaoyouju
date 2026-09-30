@@ -61,7 +61,7 @@ describe('内容库与审核流程', () => {
     // 第二个审核人确认 → 已发布
     const second = contents.publish(actor1, item.id);
     expect(second.status).toBe('已发布');
-    expect(second.version).toBe(2);
+    expect(second.version).toBe(1);
   });
 
   it('非法流转返回错误', () => {

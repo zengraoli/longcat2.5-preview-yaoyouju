@@ -69,7 +69,7 @@ export const RULES: RuleDef[] = [
   {
     code: 'SC-01',
     name: '诊断类越界请求',
-    keywords: ['是不是', '是什么病', '确诊', '有没有癌', '是不是肿瘤', '帮我判断是不是'],
+    keywords: ['是不是腰椎间盘突出', '是不是癌', '是不是肿瘤', '是什么病', '确诊了吗', '帮我判断是不是', '是不是得了'],
     severity: '中',
     action: '停止个性化分析',
     category: 'out-of-scope',
