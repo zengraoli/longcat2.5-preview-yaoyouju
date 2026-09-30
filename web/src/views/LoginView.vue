@@ -12,21 +12,21 @@
       </p>
       <div class="login__features">
         <div class="login__feature">
-          <span class="login__feature-icon">📄</span>
+          <Icon name="report" :size="16" class="login__feature-icon" />
           <div>
             <div class="login__feature-title">看懂报告</div>
             <div class="login__feature-desc">术语解释逐句对应原文；报告未提及的内容不会被写成“已排除”</div>
           </div>
         </div>
         <div class="login__feature">
-          <span class="login__feature-icon">📈</span>
+          <Icon name="chart" :size="16" class="login__feature-icon" />
           <div>
             <div class="login__feature-title">记录病程</div>
             <div class="login__feature-desc">低负担记录，保留来源、时间与核实状态</div>
           </div>
         </div>
         <div class="login__feature">
-          <span class="login__feature-icon">📋</span>
+          <Icon name="list" :size="16" class="login__feature-icon" />
           <div>
             <div class="login__feature-title">准备复诊</div>
             <div class="login__feature-desc">一页交接摘要，预览后由你自主导出</div>
@@ -72,7 +72,7 @@
 
         <div class="login__agree" @click="agreed = !agreed">
           <div class="login__checkbox" :class="{ 'login__checkbox--checked': agreed }">
-            <span v-if="agreed">✓</span>
+            <Icon name="check" :size="16" v-if="agreed" />
           </div>
           <span class="login__agree-text">我已阅读并同意《用户协议》《隐私政策》</span>
         </div>
@@ -80,7 +80,7 @@
         <div class="login__consent">
           <div class="login__consent-row" @click="consented = !consented">
             <div class="login__checkbox" :class="{ 'login__checkbox--checked': consented }">
-              <span v-if="consented">✓</span>
+              <Icon name="check" :size="16" v-if="consented" />
             </div>
             <span class="login__consent-text">
               单独同意：处理我的健康信息（含检查报告、症状记录，属敏感个人信息）。可随时在“账户与数据”撤回。
@@ -93,7 +93,7 @@
         </TipBar>
 
         <div class="login__emergency" @click="showEmergency = true">
-          ⚠ 出现严重症状？无需登录，立即查看就医提示
+          出现严重症状？无需登录，立即查看就医提示
         </div>
       </div>
     </div>
@@ -115,6 +115,7 @@
 
 <script setup lang="ts">
 import { toast } from "@/utils/toast";
+import Icon from '@/components/Icon.vue';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import TipBar from '@/components/TipBar.vue';

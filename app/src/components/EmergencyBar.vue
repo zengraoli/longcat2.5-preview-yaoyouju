@@ -1,6 +1,6 @@
 <template>
   <view class="emergency-bar" @click="emit('click')">
-    <text class="emergency-bar__icon">⚠</text>
+    <Icon name="warning" :size="18" class="emergency-bar__icon" />
     <text class="emergency-bar__text">出现严重症状？无需登录，立即查看就医提示</text>
   </view>
 </template>

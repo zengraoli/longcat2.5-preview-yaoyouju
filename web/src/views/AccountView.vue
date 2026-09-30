@@ -28,7 +28,7 @@
               <div class="card__title">同意记录</div>
               <span class="card__tag">可随时撤回</span>
             </div>
-            <p class="table-scroll-hint">← 左右滑动查看完整表格 →</p>
+            <p class="table-scroll-hint">左右滑动查看完整表格 </p>
             <div class="table-wrap">
             <table class="table">
               <thead>
@@ -66,7 +66,7 @@
             <div class="card__title">导出与删除</div>
             <div class="export-grid">
               <div class="export-card">
-                <div class="export-card__title">⬇ 导出我的全部数据</div>
+                <div class="export-card__title">导出我的全部数据</div>
                 <p class="export-card__desc">
                   可读格式（PDF / JSON），包含病程、报告原文、分析版本与同意记录。完成后链接 24 小时内有效。
                 </p>
@@ -74,9 +74,9 @@
                 <button class="btn btn--secondary" @click="onApplyExport">申请导出</button>
               </div>
               <div class="export-card export-card--danger">
-                <div class="export-card__title export-card__title--danger">🗑 删除账户与数据</div>
+                <div class="export-card__title export-card__title--danger">删除账户与数据</div>
                 <p class="export-card__desc">
-                  二次确认后立即删除（覆盖病程、报告、分析、导出文件、缓存与派生摘要 → 30 天内备份轮换清除。
+                  二次确认后立即删除（覆盖病程、报告、分析、导出文件、缓存与派生摘要 30 天内备份轮换清除。
                 </p>
                 <button class="btn btn--danger" @click="onDelete">删除账户</button>
               </div>
@@ -166,12 +166,12 @@ const anonymousId = ref('');
 const consentRows = ref<Array<{ scope: string; status: string; time: string; version: string; action: string; actionText: string }>>([]);
 
 const navItems = [
-  { key: 'account', label: '账户', icon: '👤' },
-  { key: 'consents', label: '同意记录', icon: '🛡' },
-  { key: 'export', label: '导出与删除', icon: '⬇' },
-  { key: 'feedback', label: '反馈与举报', icon: '⚑' },
+  { key: 'account', label: '账户', icon: '' },
+  { key: 'consents', label: '同意记录', icon: '' },
+  { key: 'export', label: '导出与删除', icon: '' },
+  { key: 'feedback', label: '反馈与举报', icon: '' },
   { key: 'service', label: '服务信息', icon: 'ℹ' },
-  { key: 'logout', label: '退出登录', icon: '→' },
+  { key: 'logout', label: '退出登录', icon: '' },
 ];
 const activeNav = ref('account');
 const modelVersion = ref('');

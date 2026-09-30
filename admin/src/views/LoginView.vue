@@ -15,19 +15,19 @@
       <form @submit.prevent="onLogin">
         <label class="login__label">账号</label>
         <div class="login__input-wrap">
-          <span class="login__input-icon">👁</span>
+          <Icon name="users" :size="16" class="login__input-icon" />
           <input v-model="name" class="login__input" placeholder="工作邮箱" />
         </div>
 
         <label class="login__label">密码</label>
         <div class="login__input-wrap">
-          <span class="login__input-icon">🔒</span>
+          <Icon name="safety" :size="16" class="login__input-icon" />
           <input v-model="password" type="password" class="login__input" placeholder="••••••••••" />
         </div>
 
         <label class="login__label">动态验证码（TOTP）</label>
         <div class="login__input-wrap">
-          <span class="login__input-icon">🛡</span>
+          <Icon name="safety" :size="16" class="login__input-icon" />
           <input v-model="totp" class="login__input" maxlength="6" placeholder="6 位验证码" />
         </div>
 
@@ -47,6 +47,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import Icon from '@/components/Icon.vue';
 import { useRouter } from 'vue-router';
 import TipBar from '@/components/TipBar.vue';
 import { useAuthStore } from '@/stores/auth';

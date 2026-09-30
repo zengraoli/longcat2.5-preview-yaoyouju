@@ -8,7 +8,7 @@
     <!-- 待确认项 -->
     <view v-if="pendingItems.length > 0" class="home__pending card">
       <view class="home__pending-title">
-        <text class="home__pending-icon">⚠</text>
+        <Icon name="warning" :size="18" class="home__pending-icon" />
         <text class="home__pending-text">有 {{ pendingItems.length }} 项信息尚未确认</text>
       </view>
       <view v-for="(item, i) in pendingItems" :key="i" class="home__pending-item">
@@ -48,22 +48,22 @@
     <!-- 快捷入口（2×2） -->
     <view class="home__grid">
       <view class="home__grid-item" @click="goRecord">
-        <text class="home__grid-icon">✎</text>
+        <Icon name="edit" :size="18" class="home__grid-icon" />
         <text class="home__grid-title">记录今天</text>
         <text class="home__grid-desc">约 1 分钟</text>
       </view>
       <view class="home__grid-item" @click="goReport">
-        <text class="home__grid-icon">↑</text>
+        <Icon name="download" :size="18" class="home__grid-icon" />
         <text class="home__grid-title">录入报告</text>
         <text class="home__grid-desc">粘贴文字</text>
       </view>
       <view class="home__grid-item" @click="goQa">
-        <text class="home__grid-icon">💬</text>
+        <Icon name="chat" :size="18" class="home__grid-icon" />
         <text class="home__grid-title">问与解释</text>
         <text class="home__grid-desc">基于当前上下文</text>
       </view>
       <view class="home__grid-item" @click="goSummary">
-        <text class="home__grid-icon">📋</text>
+        <Icon name="list" :size="18" class="home__grid-icon" />
         <text class="home__grid-title">复诊摘要</text>
         <text class="home__grid-desc">{{ followupQuestionCount }} 个问题待确认</text>
       </view>
@@ -71,7 +71,7 @@
 
     <!-- 复诊倒计时 -->
     <view class="card home__countdown" v-if="followupDate">
-      <text class="home__countdown-icon">📅</text>
+      <Icon name="calendar" :size="18" class="home__countdown-icon" />
       <view class="home__countdown-body">
         <text class="home__countdown-title">计划复诊：{{ followupDate }}（约 {{ daysUntil }} 天后）</text>
         <text class="home__countdown-desc">来源：你录入的医嘱 · 未经核实</text>
@@ -115,6 +115,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import { beijingDate } from '@/utils/time';
 import { onShow } from '@dcloudio/uni-app';
 import AppButton from '@/components/AppButton.vue';

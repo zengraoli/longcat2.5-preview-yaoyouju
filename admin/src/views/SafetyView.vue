@@ -34,7 +34,7 @@
           <!-- 安全事件 -->
           <div class="card">
             <div class="card__header">
-              <div class="card__title">⚠ 安全事件（24 小时）</div>
+              <div class="card__title">安全事件（24 小时）</div>
               <div class="card__header-filters">
                 <span class="card__filter-tag">24h: 高 {{ highCount }} · 中 {{ midCount }} · 低 {{ lowCount }}</span>
                 <select v-model="severityFilter" class="card__select">
@@ -70,7 +70,7 @@
           <!-- 红旗规则集 -->
           <div class="card">
             <div class="card__header">
-              <div class="card__title">🛡 红旗规则集</div>
+              <div class="card__title">红旗规则集</div>
               <div class="card__header-tags">
                 <span class="card__version">当前 {{ rulesetVersion }}</span>
                 <span class="card__tag">临床审定</span>

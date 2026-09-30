@@ -72,7 +72,7 @@
           </div>
 
           <div v-if="selected" class="card card--danger">
-            <div class="card__title card__title--danger">⚠ 停用影响预览 · {{ selected.id }}</div>
+            <div class="card__title card__title--danger">停用影响预览 · {{ selected.id }}</div>
             <p class="card__note">停用后立即从检索中剔除。以下内容曾引用该文档，需临床审核决定是否更正：</p>
             <div class="impact-section" v-if="impact && impact.contents.length > 0">
               <div class="impact-section__label">引用内容</div>

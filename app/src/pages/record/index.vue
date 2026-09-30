@@ -7,7 +7,7 @@
     </view>
 
     <view class="record__info">
-      <text class="record__info-icon">🕐</text>
+      <Icon name="clock" :size="18" class="record__info-icon" />
       <text class="record__info-text">
         {{ today }} · 每个问题都可以跳过，跳过会记为“尚未确认”
       </text>
@@ -131,6 +131,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import Icon from '@/components/Icon.vue';
 import { beijingDate } from '@/utils/time';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';

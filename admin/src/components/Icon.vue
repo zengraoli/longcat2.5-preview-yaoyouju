@@ -84,6 +84,21 @@
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
     </template>
+    <template v-else-if="name === 'download'">
+      <path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14" />
+    </template>
+    <template v-else-if="name === 'close'">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </template>
+    <template v-else-if="name === 'check'">
+      <path d="m5 12 4 4 10-10" />
+    </template>
+    <template v-else-if="name === 'plus'">
+      <path d="M12 5v14M5 12h14" />
+    </template>
+    <template v-else-if="name === 'flag'">
+      <path d="M6 3v18M6 4h11l-2 4 2 4H6" />
+    </template>
   </svg>
 </template>
 

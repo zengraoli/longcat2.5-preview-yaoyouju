@@ -44,7 +44,7 @@
               <div class="card__title">{{ selectedSet.name }}</div>
               <div class="card__header-tags">
                 <span class="card__meta">{{ selectedSet.caseCount }} 例 · 去标识化 · 门禁：{{ selectedSet.threshold }}</span>
-                <button v-if="canRunEval" class="btn btn--secondary btn--sm" @click="showImport = true">⬆ 导入用例</button>
+                <button v-if="canRunEval" class="btn btn--secondary btn--sm" @click="showImport = true">导入用例</button>
                 <button v-if="canRunEval" class="btn btn--primary btn--sm" @click="onRunCurrent">⟳ 对当前候选运行</button>
               </div>
             </div>

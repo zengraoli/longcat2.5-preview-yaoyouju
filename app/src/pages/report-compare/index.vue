@@ -34,7 +34,7 @@
     <!-- 报告原文 -->
     <view class="card">
       <view class="compare__report-title">
-        <text class="compare__report-name">📄 报告原文{{ reportDate ? ' · ' + reportDate : '' }}</text>
+        <text class="compare__report-name">报告原文{{ reportDate ? ' · ' + reportDate : '' }}</text>
         <StatusTag label="未修改" />
       </view>
       <text class="compare__raw">{{ rawText || '暂无报告原文' }}</text>

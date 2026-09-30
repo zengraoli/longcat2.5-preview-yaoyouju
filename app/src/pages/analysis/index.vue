@@ -119,7 +119,7 @@
             {{ opt }}
           </AppChip>
         </view>
-        <text class="analysis__report-error" @click="onReportError">⚑ 报告错误（会记录分析版本与影响范围）</text>
+        <text class="analysis__report-error" @click="onReportError">报告错误（会记录分析版本与影响范围）</text>
         <text class="analysis__report-error" @click="goFeedback">前往“反馈与举报”页</text>
       </view>
 

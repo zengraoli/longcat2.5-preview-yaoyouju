@@ -6,7 +6,7 @@
       </div>
 
       <TipBar type="warn">
-        ⚠ 二期功能 · 首版隐藏（功能开关 case_cards = off）<br />
+        二期功能 · 首版隐藏（功能开关 case_cards = off）<br />
         进入条件：单独授权、预览、第三方信息去除、人工审核、撤回链路可用。禁止把“导出群聊后直接公开”或“删除昵称”当作充分匿名化。
       </TipBar>
 
@@ -49,32 +49,32 @@
             <div class="card__title">可识别风险检查（发布前必过）</div>
             <div class="risk-list">
               <div class="risk-item">
-                <span class="risk-item__icon risk-item__icon--warn">⚠</span>
+                <Icon name="emergency" :size="16" class="risk-item__icon risk-item__icon--warn" />
                 <span class="risk-item__text">罕见经历 + 时间 + 医院 + 职业的组合是否可能指向具体个人</span>
                 <StatusTag label="待人工判断" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon" :class="riskIcon('thirdParty')">⚠</span>
+                <Icon name="emergency" :size="16" class="risk-item__icon" :class="riskIcon('thirdParty')" />
                 <span class="risk-item__text">是否包含第三方（医生、家人、病友）可识别信息</span>
                 <StatusTag :label="riskStatus('thirdParty')" :tone="riskTone('thirdParty')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon" :class="riskIcon('orgInfo')">✓</span>
+                <Icon name="check" :size="16" class="risk-item__icon" :class="riskIcon('orgInfo')" />
                 <span class="risk-item__text">是否包含具体机构名称、地址、联系方式</span>
                 <StatusTag :label="riskStatus('orgInfo')" :tone="riskTone('orgInfo')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon" :class="riskIcon('image')">✓</span>
+                <Icon name="check" :size="16" class="risk-item__icon" :class="riskIcon('image')" />
                 <span class="risk-item__text">是否包含影像 / 报告截图</span>
                 <StatusTag :label="riskStatus('image')" :tone="riskTone('image')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon" :class="riskIcon('outcome')">✓</span>
+                <Icon name="check" :size="16" class="risk-item__icon" :class="riskIcon('outcome')" />
                 <span class="risk-item__text">结局是否为“未知 / 失访”并如实标注</span>
                 <StatusTag :label="riskStatus('outcome')" :tone="riskTone('outcome')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon" :class="caseSwitchOn ? 'risk-item__icon--ok' : ''">{{ caseSwitchOn ? '✓' : '—' }}</span>
+                <span class="risk-item__icon" :class="caseSwitchOn ? 'risk-item__icon--ok' : ''">{{ caseSwitchOn ? '' : '—' }}</span>
                 <span class="risk-item__text">撤回链路：公开卡片 / 索引 / 向量 / 缓存 / 派生摘要</span>
                 <StatusTag :label="caseSwitchOn ? '已配置' : '案例卡片已关闭'" :tone="caseSwitchOn ? 'ok' : 'warn'" />
               </div>
@@ -100,7 +100,7 @@
             <div class="detail-section">
               <div class="detail-section__label">授权范围（用户单独勾选）</div>
               <div v-for="(label, key) in consentItems" :key="key" class="consent-item">
-                <span class="consent-item__check" :class="hasConsent(key) ? 'consent-item__check--ok' : 'consent-item__check--none'">{{ hasConsent(key) ? '✓' : '✕' }}</span>
+                <span class="consent-item__check" :class="hasConsent(key) ? 'consent-item__check--ok' : 'consent-item__check--none'">{{ hasConsent(key) ? '' : '' }}</span>
                 <span :class="{ 'consent-item__muted': !hasConsent(key) }">{{ label }}</span>
               </div>
             </div>
@@ -121,6 +121,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';

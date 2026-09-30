@@ -88,7 +88,7 @@
               <div class="card__title">{{ selected.shortId }} · {{ selected.type }}</div>
               <div class="card__header-tags">
                 <StatusTag :label="selected.severity" />
-                <button class="card__close" @click="selected = null">✕</button>
+                <button class="card__close" @click="selected = null"></button>
               </div>
             </div>
 
@@ -119,7 +119,7 @@
             <div class="detail-section">
               <div class="detail-section__label">单条授权</div>
               <p v-if="selected.authorized" class="detail-section__text detail-section__text--ok">
-                ✓ 已授权查看本条反馈涉及的报告与记录（每次读取写审计）
+                已授权查看本条反馈涉及的报告与记录（每次读取写审计）
               </p>
               <p v-else class="detail-section__text detail-section__text--muted">
                 未授权：用户描述已脱敏。授权后可查看原文，每次读取写入审计。

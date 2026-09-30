@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const icon = computed(() => {
-  if (props.type === 'error') return '⚠';
+  if (props.type === 'error') return '';
   if (props.type === 'warn') return '•';
   return 'ℹ';
 });

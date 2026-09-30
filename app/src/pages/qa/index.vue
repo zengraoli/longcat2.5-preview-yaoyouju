@@ -2,11 +2,11 @@
   <view class="qa">
     <view class="qa__header">
       <text class="qa__title">问与解释</text>
-      <text class="qa__history">🕐</text>
+      <Icon name="clock" :size="18" class="qa__history" />
     </view>
 
     <view class="qa__context">
-      <text class="qa__context-icon">🛡</text>
+      <Icon name="shield" :size="18" class="qa__context-icon" />
       <text class="qa__context-text">
         {{ contextText }}
       </text>
@@ -72,7 +72,7 @@
         @confirm="onSend"
       />
       <view class="qa__send" @click="onSend">
-        <text class="qa__send-icon">➤</text>
+        <Icon name="send" :size="18" class="qa__send-icon" />
       </view>
     </view>
 
@@ -81,6 +81,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
+import Icon from '@/components/Icon.vue';
 import { beijingDate } from '@/utils/time';
 import { onShow } from '@dcloudio/uni-app';
 import AppChip from '@/components/AppChip.vue';

@@ -17,7 +17,7 @@
         </router-link>
       </nav>
       <div class="layout__actions">
-        <button class="layout__emergency" @click="showEmergency = true">⚠ 紧急就医提示</button>
+        <button class="layout__emergency" @click="showEmergency = true">紧急就医提示</button>
         <router-link to="/account" class="layout__account">账户与数据</router-link>
       </div>
     </header>

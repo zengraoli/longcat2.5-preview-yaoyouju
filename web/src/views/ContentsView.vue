@@ -7,7 +7,7 @@
           <p class="contents-page__meta">所有内容经临床审定，附字幕与文字替代。示意图不是你的真实病变，不能据此判断本人病因。</p>
         </div>
         <div class="contents-page__search">
-          <input v-model="search" class="contents-page__search-input" placeholder="🔍 搜索已发布内容" />
+          <input v-model="search" class="contents-page__search-input" placeholder="搜索已发布内容" />
         </div>
       </div>
 
@@ -35,7 +35,7 @@
               class="content-card"
               @click="onSelect(item)"
             >
-              <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
+              <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '' }}</div>
               <div class="content-card__body">
                 <div class="content-card__title">{{ item.title }}</div>
                 <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }}</div>
@@ -55,7 +55,7 @@
               class="content-card"
               @click="onSelect(item)"
             >
-              <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
+              <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '' }}</div>
               <div class="content-card__body">
                 <div class="content-card__title">{{ item.title }}</div>
                 <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }}</div>
@@ -77,7 +77,7 @@
           <div class="drawer">
             <div class="drawer__header">
               <div class="drawer__title">内容详情</div>
-              <button class="drawer__close" @click="selected = null">✕</button>
+              <button class="drawer__close" @click="selected = null"></button>
             </div>
             <div class="drawer__player">
               <div class="drawer__play-btn">▶</div>

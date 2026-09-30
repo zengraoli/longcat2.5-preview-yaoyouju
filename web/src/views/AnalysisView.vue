@@ -7,9 +7,9 @@
           <p class="analysis-page__meta">基于 {{ today }} 的信息 · 分析版本 v{{ analysis?.version ?? '-' }} · 模型 {{ analysis?.modelName ?? analysis?.modelReleaseId ?? '-' }}<template v-if="analysis?.contentLibVersion"> · 内容库 {{ analysis.contentLibVersion }}</template></p>
         </div>
         <div class="analysis-page__actions">
-          <button class="btn btn--secondary" @click="onExport">📄 导出</button>
-          <button class="btn btn--secondary" @click="onShare">⬆ 分享</button>
-          <button class="btn btn--secondary" @click="onReportError">⚑ 报告错误</button>
+          <button class="btn btn--secondary" @click="onExport">导出</button>
+          <button class="btn btn--secondary" @click="onShare">分享</button>
+          <button class="btn btn--secondary" @click="onReportError">报告错误</button>
         </div>
       </div>
 
@@ -117,7 +117,7 @@
         <div class="analysis-page__side">
           <div class="card">
             <div class="report__header">
-              <span class="report__title">📄 报告原文{{ reportDate ? ' · ' + reportDate : '' }}</span>
+              <span class="report__title">报告原文{{ reportDate ? ' · ' + reportDate : '' }}</span>
               <StatusTag label="未修改" />
             </div>
             <p class="report__raw">{{ rawText || '暂无报告原文' }}</p>

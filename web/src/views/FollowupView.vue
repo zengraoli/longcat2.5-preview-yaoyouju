@@ -7,8 +7,8 @@
           <p class="followup-page__meta">一页交接摘要由你的记录与报告原文整理，保留来源与未核实项；预览后由你自主导出</p>
         </div>
         <div class="followup-page__actions">
-          <button class="btn btn--primary" @click="onExport('PDF')">📄 导出 PDF</button>
-          <button class="btn btn--secondary" @click="onPrint">🖨 打印</button>
+          <button class="btn btn--primary" @click="onExport('PDF')">导出 PDF</button>
+          <button class="btn btn--secondary" @click="onPrint">打印</button>
           <button class="btn btn--secondary" @click="onExport('文本')">⧉ 复制文本</button>
         </div>
       </div>
@@ -21,7 +21,7 @@
           <div class="card" v-for="section in sections" :key="section.key">
             <div class="card__header">
               <div class="card__title">{{ section.title }}</div>
-              <button class="btn btn--text" @click="onCorrect(section.key)">✎ 纠正</button>
+              <button class="btn btn--text" @click="onCorrect(section.key)">纠正</button>
             </div>
             <!-- 纠正弹层 -->
             <div v-if="correcting === section.key" class="correct-editor">
@@ -69,7 +69,7 @@
                 </p>
               </div>
               <p class="print-preview__footer">
-                🛡 未经医生核实 · 不含诊断结论 · 本摘要仅整理你已录入的信息，供复诊时参考。
+                未经医生核实 · 不含诊断结论 · 本摘要仅整理你已录入的信息，供复诊时参考。
               </p>
             </div>
           </div>

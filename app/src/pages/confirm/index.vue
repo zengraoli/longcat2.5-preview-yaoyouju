@@ -36,19 +36,19 @@
         @click="toggleRedFlag(opt)"
       >
         <view class="confirm__checkbox" :class="{ 'confirm__checkbox--checked': q2.includes(opt) }">
-          <text v-if="q2.includes(opt)">✓</text>
+          <Icon name="check" :size="18" v-if="q2.includes(opt)" />
         </view>
         <text class="confirm__check-text">{{ opt }}</text>
       </view>
       <view class="confirm__check confirm__check--none" @click="toggleNone">
         <view class="confirm__checkbox" :class="{ 'confirm__checkbox--checked': noneSelected }">
-          <text v-if="noneSelected">✓</text>
+          <Icon name="check" :size="18" v-if="noneSelected" />
         </view>
         <text class="confirm__check-text">以上都没有</text>
       </view>
       <view class="confirm__check" @click="q2uncertain = !q2uncertain">
         <view class="confirm__checkbox" :class="{ 'confirm__checkbox--checked': q2uncertain }">
-          <text v-if="q2uncertain">✓</text>
+          <Icon name="check" :size="18" v-if="q2uncertain" />
         </view>
         <text class="confirm__check-text">不确定 / 记不清</text>
       </view>
@@ -77,7 +77,7 @@
           <text :class="{ 'confirm__date--placeholder': !q4date }">
             {{ q4date || '选择日期，或点“记不清”' }}
           </text>
-          <text class="confirm__date-icon">📅</text>
+          <Icon name="calendar" :size="18" class="confirm__date-icon" />
         </view>
       </picker>
       <view class="confirm__chips">
@@ -99,6 +99,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import Icon from '@/components/Icon.vue';
 import TipBar from '@/components/TipBar.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';

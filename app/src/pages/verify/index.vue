@@ -16,7 +16,7 @@
         <text class="verify__card-name">报告信息 · {{ report.reportDate || '日期尚未确认' }}</text>
         <view class="verify__card-actions">
           <StatusTag label="报告原文" />
-          <text class="verify__edit" @click="onCorrectReport">✎</text>
+          <Icon name="edit" :size="18" class="verify__edit" @click="onCorrectReport" />
         </view>
       </view>
       <view v-for="(term, i) in report.terms" :key="i" class="verify__term">
@@ -28,7 +28,7 @@
 
       <!-- 侧别冲突 -->
       <view v-if="conflict" class="verify__conflict">
-        <text class="verify__conflict-title">⚠ 侧别冲突：{{ conflict }}</text>
+        <text class="verify__conflict-title">侧别冲突：{{ conflict }}</text>
         <view class="verify__conflict-actions">
           <AppButton type="soft" @click="resolveConflict('左侧')">我的症状在左侧</AppButton>
           <AppButton type="secondary" @click="resolveConflict('右侧')">我的症状在右侧</AppButton>
@@ -99,6 +99,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';

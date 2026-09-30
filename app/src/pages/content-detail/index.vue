@@ -3,7 +3,7 @@
     <view class="detail__header">
       <text class="detail__back" @click="goBack">‹</text>
       <text class="detail__title">{{ content?.title || '内容详情' }}</text>
-      <text class="detail__share">↑</text>
+      <Icon name="download" :size="18" class="detail__share" />
     </view>
 
     <!-- 视频占位 -->
@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import AppChip from '@/components/AppChip.vue';

@@ -78,8 +78,8 @@
             <p class="card__note">当前状态：{{ item.currentStatus }}</p>
             <textarea v-model="reviewComment" class="form-textarea" placeholder="审核意见（退回时必填）" />
             <div class="card__actions" v-if="canReview">
-              <button class="btn btn--primary" @click="onTransition('通过')">✓ 审核通过</button>
-              <button class="btn btn--secondary" @click="onTransition('退回')">✕ 退回修改</button>
+              <button class="btn btn--primary" @click="onTransition('通过')">审核通过</button>
+              <button class="btn btn--secondary" @click="onTransition('退回')">退回修改</button>
             </div>
             <div class="card__actions" v-if="canEdit">
               <button class="btn btn--secondary" @click="onTransition('提交审核')">提交审核</button>

@@ -56,7 +56,7 @@
           <!-- 安全事件 -->
           <div class="card">
             <div class="card__header">
-              <div class="card__title">⚠ 安全事件（24 小时）</div>
+              <div class="card__title">安全事件（24 小时）</div>
               <button class="btn btn--text" @click="goSafety">查看全部</button>
             </div>
             <table class="table">
@@ -94,7 +94,7 @@
 
           <!-- 评测门禁 -->
           <div class="card">
-            <div class="card__title card__title--ok">✓ 评测门禁 · 最近运行</div>
+            <div class="card__title card__title--ok">评测门禁 · 最近运行</div>
             <div v-for="(e, i) in stats.evalRuns" :key="i" class="eval-item">
               <span class="eval-item__name">{{ e.evalSetName }}</span>
               <span class="eval-item__result" :class="e.result === '通过' ? 'eval-item__result--ok' : 'eval-item__result--error'">

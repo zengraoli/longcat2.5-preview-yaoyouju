@@ -2,7 +2,7 @@
   <AppLayout>
     <div class="qa-page">
       <div class="qa-page__context">
-        🛡 本轮基于：{{ contextText }}。出现新变化请先更新“当前情况”。
+        本轮基于：{{ contextText }}。出现新变化请先更新“当前情况”。
       </div>
 
       <div class="qa-page__grid">
@@ -22,7 +22,7 @@
                 <button v-if="msg.followup" class="qa-add-followup" @click="onAddFollowup(msg.followup)">
                   ＋ 把“{{ msg.followup }}”加入复诊问题
                 </button>
-                <div v-if="msg.added" class="qa-added">✓ 已加入复诊问题：{{ msg.added }}</div>
+                <div v-if="msg.added" class="qa-added">已加入复诊问题：{{ msg.added }}</div>
               </div>
             </div>
           </div>
@@ -51,7 +51,7 @@
               placeholder="输入你的问题…（回车发送）"
               @keyup.enter="onSend"
             />
-            <button class="qa-send" @click="onSend">➤</button>
+            <button class="qa-send" @click="onSend"></button>
           </div>
         </div>
 
@@ -69,7 +69,7 @@
           <div class="card">
             <div class="card__header">
               <div class="card__title">已加入的复诊问题（{{ followupQuestions.length }}）</div>
-              <span class="card__icon">📋</span>
+              <Icon name="list" :size="16" class="card__icon" />
             </div>
             <div v-for="(q, i) in followupQuestions" :key="i" class="followup-item">
               {{ i + 1 }}. {{ q }}
@@ -85,7 +85,7 @@
           </div>
 
           <div class="card">
-            <div class="card__title">🕐 历史会话</div>
+            <div class="card__title">历史会话</div>
             <div v-for="(h, i) in history" :key="i" class="history-item">
               {{ h.date }} · {{ h.title }}（{{ h.count }} 问）
             </div>
@@ -98,6 +98,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';

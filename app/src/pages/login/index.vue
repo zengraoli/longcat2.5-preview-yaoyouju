@@ -53,7 +53,7 @@
 
       <view class="login__agree" @click="agreed = !agreed">
         <view class="login__checkbox" :class="{ 'login__checkbox--checked': agreed }">
-          <text v-if="agreed">✓</text>
+          <Icon name="check" :size="18" v-if="agreed" />
         </view>
         <text class="login__agree-text">我已阅读并同意《用户协议》《隐私政策》</text>
       </view>
@@ -61,7 +61,7 @@
       <view class="login__consent">
         <view class="login__consent-row" @click="consented = !consented">
           <view class="login__checkbox" :class="{ 'login__checkbox--checked': consented }">
-            <text v-if="consented">✓</text>
+            <Icon name="check" :size="18" v-if="consented" />
           </view>
           <text class="login__consent-text">
             单独同意：处理我的健康信息（含检查报告、症状记录，属敏感个人信息）。可随时在“我的-数据与授权”撤回。
@@ -93,6 +93,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import Icon from '@/components/Icon.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
 import EmergencyBar from '@/components/EmergencyBar.vue';

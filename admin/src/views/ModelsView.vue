@@ -90,7 +90,7 @@
               <div class="flow__desc">{{ candidate ? candidate.modelName : '—' }}</div>
             </div>
           </div>
-          <div class="flow__arrow">→</div>
+          <div class="flow__arrow"></div>
           <div class="flow__node">
             <span class="flow__dot" :class="candidateEvals.length > 0 && candidateEvals.every((e) => e.passed) ? 'flow__dot--ok' : 'flow__dot--error'" />
             <div>
@@ -98,7 +98,7 @@
               <div class="flow__desc">{{ candidateEvals.length > 0 ? (candidateEvals.every((e) => e.passed) ? '全部通过' : '存在未通过项') : '未运行' }}</div>
             </div>
           </div>
-          <div class="flow__arrow">→</div>
+          <div class="flow__arrow"></div>
           <div class="flow__node">
             <span class="flow__dot" :class="releases.some((r) => r.status === '灰度') ? 'flow__dot--ok' : ''" />
             <div>
@@ -106,7 +106,7 @@
               <div class="flow__desc">{{ releases.some((r) => r.status === '灰度') ? '灰度中' : '未到达' }}</div>
             </div>
           </div>
-          <div class="flow__arrow">→</div>
+          <div class="flow__arrow"></div>
           <div class="flow__node">
             <span class="flow__dot" :class="releases.some((r) => r.status === '生效') ? 'flow__dot--ok' : ''" />
             <div>

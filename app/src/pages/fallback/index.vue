@@ -6,7 +6,7 @@
     </view>
 
     <view class="fallback__body">
-      <view class="fallback__icon">📶</view>
+      <view class="fallback__icon"></view>
       <text class="fallback__title-main">本次无法完成个性化解释</text>
       <text class="fallback__desc">
         模型或来源校验暂时不可用。我们不会无限重试，也不会重复计费。你已核对的信息已经保存，稍后可以直接生成分析。
@@ -28,7 +28,7 @@
           <text class="fallback__available-tag">可用</text>
         </view>
         <view class="fallback__available-item">
-          <text class="fallback__available-icon">📋</text>
+          <Icon name="list" :size="18" class="fallback__available-icon" />
           <view class="fallback__available-body">
             <text class="fallback__available-name">复诊摘要</text>
             <text class="fallback__available-desc">基于你已有的记录与报告原文生成，可导出</text>
@@ -36,7 +36,7 @@
           <text class="fallback__available-tag">可用</text>
         </view>
         <view class="fallback__available-item">
-          <text class="fallback__available-icon">📈</text>
+          <Icon name="chart" :size="18" class="fallback__available-icon" />
           <view class="fallback__available-body">
             <text class="fallback__available-name">病程记录</text>
             <text class="fallback__available-desc">继续记录今天；数据只保存在你的账户</text>
@@ -72,6 +72,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
 import EmergencyBar from '@/components/EmergencyBar.vue';

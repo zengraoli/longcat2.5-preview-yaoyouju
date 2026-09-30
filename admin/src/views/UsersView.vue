@@ -43,7 +43,7 @@
           <div class="card__header">
             <div class="card__title">权限矩阵（最小必要）</div>
             <div class="card__header-tags">
-              <span class="card__legend">✓ 允许</span>
+              <span class="card__legend">允许</span>
               <span class="card__legend">◐ 发起/申请</span>
               <span class="card__legend">— 无</span>
             </div>
@@ -57,7 +57,7 @@
                 <td class="table__title">{{ row.point }}</td>
                 <td v-for="(v, vi) in row.values" :key="vi" class="table__perm">
                   <span v-for="(part, pi) in splitPermCell(v)" :key="pi" class="perm-part">
-                    <span v-if="part === '✓'" class="perm--ok">✓</span>
+                    <Icon name="check" :size="16" v-if="part === ''" class="perm--ok" />
                     <span v-else-if="part === '◐'" class="perm--partial">◐</span>
                     <span v-else class="perm--none">—</span>
                   </span>
@@ -71,12 +71,12 @@
         <div class="users__side">
           <div class="card">
             <div class="card__header">
-              <div class="card__title">👁 单条授权（明文查看）</div>
+              <div class="card__title">单条授权（明文查看）</div>
               <span class="card__tag card__tag--ok">{{ authorizations.length }} 条</span>
             </div>
             <div v-for="(a, i) in authorizations" :key="i" class="auth-item">
               <div class="auth-item__header">
-                <span class="auth-item__title">{{ a.adminName || '—' }} → {{ a.targetType }}:{{ a.targetId }}</span>
+                <span class="auth-item__title">{{ a.adminName || '—' }} {{ a.targetType }}:{{ a.targetId }}</span>
               </div>
               <div class="auth-item__meta">{{ a.reason }}</div>
               <div class="auth-item__meta">{{ formatBeijing(a.createdAt) }}</div>
@@ -137,6 +137,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import Modal from '@/components/Modal.vue';

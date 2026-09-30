@@ -2,7 +2,7 @@
   <view class="mine">
     <view class="mine__header">
       <text class="mine__title">我的</text>
-      <text class="mine__settings">⚙</text>
+      <Icon name="settings" :size="18" class="mine__settings" />
     </view>
 
     <!-- 用户卡片 -->
@@ -18,7 +18,7 @@
     <view class="card">
       <text class="card-title">数据与授权</text>
       <view class="mine__row" @click="goConsents">
-        <text class="mine__row-icon">🛡</text>
+        <Icon name="shield" :size="18" class="mine__row-icon" />
         <view class="mine__row-body">
           <text class="mine__row-title">我的同意记录</text>
           <text class="mine__row-desc">{{ consentSummary }}</text>
@@ -27,7 +27,7 @@
         <text class="mine__row-arrow">›</text>
       </view>
       <view class="mine__row" @click="onRevoke">
-        <text class="mine__row-icon">✕</text>
+        <Icon name="close" :size="18" class="mine__row-icon" />
         <view class="mine__row-body">
           <text class="mine__row-title">撤回“处理健康信息”的同意</text>
           <text class="mine__row-desc">撤回后停止个性化分析，已审核科普与已导出摘要仍可用</text>
@@ -35,7 +35,7 @@
         <text class="mine__row-arrow">›</text>
       </view>
       <view class="mine__row" @click="showExport = true">
-        <text class="mine__row-icon">⬇</text>
+        <Icon name="download" :size="18" class="mine__row-icon" />
         <view class="mine__row-body">
           <text class="mine__row-title">导出我的全部数据</text>
           <text class="mine__row-desc">可读格式（PDF / JSON），包含病程、报告原文与分析版本</text>
@@ -43,7 +43,7 @@
         <text class="mine__row-arrow">›</text>
       </view>
       <view class="mine__row" @click="onDelete">
-        <text class="mine__row-icon mine__row-icon--danger">🗑</text>
+        <Icon name="trash" :size="18" class="mine__row-icon mine__row-icon--danger" />
         <view class="mine__row-body">
           <text class="mine__row-title mine__row-title--danger">删除账户与数据</text>
           <text class="mine__row-desc">删除病程、报告、分析、反馈与身份信息，不可恢复</text>
@@ -56,7 +56,7 @@
     <view class="card">
       <text class="card-title">已审核内容</text>
       <view class="mine__row" @click="goContents">
-        <text class="mine__row-icon">📚</text>
+        <Icon name="book" :size="18" class="mine__row-icon" />
         <view class="mine__row-body">
           <text class="mine__row-title">审核内容库</text>
           <text class="mine__row-desc">临床审定的科普视频与图文，附来源与版本</text>
@@ -69,7 +69,7 @@
     <view class="card">
       <text class="card-title">分享与社区</text>
       <view class="mine__row">
-        <text class="mine__row-icon">👥</text>
+        <Icon name="people" :size="18" class="mine__row-icon" />
         <view class="mine__row-body">
           <text class="mine__row-title">案例投稿（二期）</text>
           <text class="mine__row-desc">单独授权 · 预览 · 去除第三方信息 · 人工审核 · 可撤回</text>
@@ -91,7 +91,7 @@
         <text class="mine__row-arrow">›</text>
       </view>
       <view class="mine__row" @click="showEmergency = true">
-        <text class="mine__row-icon mine__row-icon--danger">⚠</text>
+        <Icon name="warning" :size="18" class="mine__row-icon mine__row-icon--danger" />
         <view class="mine__row-body">
           <text class="mine__row-title mine__row-title--danger">紧急就医提示</text>
           <text class="mine__row-desc">无需登录，网络异常时也可查看</text>
@@ -99,7 +99,7 @@
         <text class="mine__row-arrow">›</text>
       </view>
       <view class="mine__row" @click="showReview = true">
-        <text class="mine__row-icon">📄</text>
+        <Icon name="report" :size="18" class="mine__row-icon" />
         <view class="mine__row-body">
           <text class="mine__row-title">临床审定与来源说明</text>
           <text class="mine__row-desc">谁审核了内容、依据是什么、如何举报错误</text>
@@ -107,7 +107,7 @@
         <text class="mine__row-arrow">›</text>
       </view>
       <view class="mine__row">
-        <text class="mine__row-icon">⚙</text>
+        <Icon name="settings" :size="18" class="mine__row-icon" />
         <view class="mine__row-body">
           <text class="mine__row-title">版本信息</text>
           <text class="mine__row-desc">App v0.1.0 · 分析模型 {{ modelName || 'local-mock-v1' }} · 内容库 {{ contentLibVersion || '—' }}</text>
@@ -180,6 +180,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
 import { getSafetyTips, getMe, getConsents, setConsent, logout, deleteAccount, setAuthToken, exportMyData, listEpisodes, getLatestAnalysis, type ConsentView } from '@/api';

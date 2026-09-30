@@ -2,7 +2,7 @@
   <view class="summary">
     <view class="summary__header">
       <text class="summary__title">复诊准备</text>
-      <text class="summary__share" @click="onShare">↑</text>
+      <Icon name="download" :size="18" class="summary__share" @click="onShare" />
     </view>
 
     <!-- 页签 -->
@@ -26,7 +26,7 @@
       <view v-for="section in sections" :key="section.key" class="summary__section">
         <view class="summary__section-header">
           <text class="summary__section-title">{{ section.title }}</text>
-          <text class="summary__correct" @click="onCorrect(section.key)">✎ 纠正</text>
+          <text class="summary__correct" @click="onCorrect(section.key)">纠正</text>
         </view>
         <view v-for="(item, i) in section.items" :key="i" class="summary__section-item">
           <text class="summary__section-text">{{ item.text }}</text>
@@ -39,7 +39,7 @@
       </view>
 
       <view class="summary__note">
-        🛡 本摘要整理已有信息，保留时间来源与未核实项，不含诊断结论。
+        本摘要整理已有信息，保留时间来源与未核实项，不含诊断结论。
       </view>
     </view>
 
@@ -57,22 +57,22 @@
     <view v-else class="card">
       <text class="card-title">带什么</text>
       <view class="summary__bring">
-        <text class="summary__bring-icon">✓</text>
+        <Icon name="check" :size="18" class="summary__bring-icon" />
         <text class="summary__bring-text">已录入的检查报告原文</text>
       </view>
       <view class="summary__bring">
-        <text class="summary__bring-icon">✓</text>
+        <Icon name="check" :size="18" class="summary__bring-icon" />
         <text class="summary__bring-text">症状开始时间与最近变化记录</text>
       </view>
       <view class="summary__bring">
-        <text class="summary__bring-icon">✓</text>
+        <Icon name="check" :size="18" class="summary__bring-icon" />
         <text class="summary__bring-text">正在使用的药物与既有医嘱</text>
       </view>
     </view>
 
     <!-- 导出 -->
     <view class="summary__export">
-      <AppButton type="primary" @click="onExport('PDF')">📄 导出 PDF</AppButton>
+      <AppButton type="primary" @click="onExport('PDF')">导出 PDF</AppButton>
       <AppButton type="secondary" @click="onExport('文本')">⧉ 复制文本</AppButton>
     </view>
 
@@ -100,6 +100,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import { beijingDate } from '@/utils/time';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';

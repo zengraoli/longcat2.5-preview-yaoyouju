@@ -7,9 +7,9 @@
           <p class="dashboard__subtitle">{{ episode?.title || '尚未建立病程' }}</p>
         </div>
         <div class="dashboard__header-actions">
-          <button class="btn btn--primary" @click="onGenerateAnalysis">⚙ 生成一页分析</button>
-          <button class="btn btn--primary" @click="goRecord">✎ 记录今天</button>
-          <button class="btn btn--secondary" @click="showReportForm = !showReportForm">⬆ 录入报告</button>
+          <button class="btn btn--primary" @click="onGenerateAnalysis">生成一页分析</button>
+          <button class="btn btn--primary" @click="goRecord">记录今天</button>
+          <button class="btn btn--secondary" @click="showReportForm = !showReportForm">录入报告</button>
         </div>
       </div>
 
@@ -37,7 +37,7 @@
           <!-- 待确认项 -->
           <div class="card" v-if="pendingItems.length > 0">
             <div class="card__pending-title">
-              <span>⚠</span>
+              <Icon name="warning" :size="16" />
               <span>有 {{ pendingItems.length }} 项信息尚未确认</span>
             </div>
             <p class="card__pending-desc">
@@ -116,22 +116,22 @@
           <!-- 快捷入口 -->
           <div class="dashboard__quick">
             <div class="quick-card" @click="goRecord">
-              <span class="quick-card__icon">✎</span>
+              <Icon name="edit" :size="16" class="quick-card__icon" />
               <div class="quick-card__title">记录今天</div>
               <div class="quick-card__desc">约 1 分钟 · 允许跳过</div>
             </div>
             <div class="quick-card" @click="goReport">
-              <span class="quick-card__icon">↑</span>
+              <Icon name="download" :size="16" class="quick-card__icon" />
               <div class="quick-card__title">录入报告</div>
               <div class="quick-card__desc">粘贴文字 · 原文对照</div>
             </div>
             <div class="quick-card" @click="goQa">
-              <span class="quick-card__icon">💬</span>
+              <Icon name="chat" :size="16" class="quick-card__icon" />
               <div class="quick-card__title">问与解释</div>
               <div class="quick-card__desc">基于当前上下文</div>
             </div>
             <div class="quick-card" @click="goFollowup">
-              <span class="quick-card__icon">📋</span>
+              <Icon name="list" :size="16" class="quick-card__icon" />
               <div class="quick-card__title">复诊准备</div>
               <div class="quick-card__desc">{{ followupQuestionCount }} 个问题待确认</div>
             </div>
@@ -141,7 +141,7 @@
         <div class="dashboard__col">
           <div class="card" v-if="followupDate">
             <div class="card__header">
-              <h2 class="card__title">📅 计划复诊</h2>
+              <h2 class="card__title">计划复诊</h2>
             </div>
             <div class="followup__date">{{ followupDate }}（约 {{ daysUntil }} 天后）</div>
             <p class="followup__source">来源：你录入的医嘱 · 未经核实</p>
@@ -170,6 +170,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';

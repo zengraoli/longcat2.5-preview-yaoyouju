@@ -17,10 +17,10 @@
         </select>
         <div class="audit__filter-actions">
           <span class="audit__chain-status" :class="{ 'audit__chain-status--error': !chainValid }">
-            {{ chainValid ? '🛡 哈希链完整' : '⚠ 哈希链校验失败' }} · 最近校验 {{ lastVerify }}
+            {{ chainValid ? '哈希链完整' : '哈希链校验失败' }} · 最近校验 {{ lastVerify }}
           </span>
-          <button v-if="canExport" class="btn btn--secondary" @click="onDownloadExport">⬇ 导出 CSV</button>
-          <button v-if="canRequestExport" class="btn btn--secondary" @click="showExport = true">⬇ 申请导出（需超管审批）</button>
+          <button v-if="canExport" class="btn btn--secondary" @click="onDownloadExport">导出 CSV</button>
+          <button v-if="canRequestExport" class="btn btn--secondary" @click="showExport = true">申请导出（需超管审批）</button>
         </div>
       </div>
 

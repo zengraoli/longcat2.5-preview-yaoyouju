@@ -25,21 +25,21 @@
     <view class="card">
       <text class="card-title">就诊时可以带上</text>
       <view v-if="reportHint" class="redflag__bring">
-        <text class="redflag__bring-icon">✓</text>
+        <Icon name="check" :size="18" class="redflag__bring-icon" />
         <text class="redflag__bring-text">{{ reportHint }}</text>
       </view>
       <view class="redflag__bring">
-        <text class="redflag__bring-icon">✓</text>
+        <Icon name="check" :size="18" class="redflag__bring-icon" />
         <text class="redflag__bring-text">症状开始时间与最近变化记录</text>
       </view>
       <view class="redflag__bring">
-        <text class="redflag__bring-icon">✓</text>
+        <Icon name="check" :size="18" class="redflag__bring-icon" />
         <text class="redflag__bring-text">正在使用的药物与既有医嘱</text>
       </view>
     </view>
 
     <AppButton type="soft" block @click="goSummary">
-      📄 生成一页“就诊交接”摘要（仅整理已有信息）
+      生成一页“就诊交接”摘要（仅整理已有信息）
     </AppButton>
 
     <TipBar type="info">
@@ -52,6 +52,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import TipBar from '@/components/TipBar.vue';
 import AppButton from '@/components/AppButton.vue';
 

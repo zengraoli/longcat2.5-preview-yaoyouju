@@ -65,7 +65,7 @@
           <div class="card">
             <div class="card__header">
               <div class="card__title">记录今天</div>
-              <span class="card__tag">🕐 约 1 分钟 · 可跳过</span>
+              <span class="card__tag">约 1 分钟 · 可跳过</span>
             </div>
 
             <div class="record__question">今天能坐多久？</div>
@@ -169,7 +169,7 @@
         <div class="dialog">
           <div class="dialog__header">
             <span class="dialog__title">新增记录</span>
-            <button class="dialog__close" @click="showAdd = false">✕</button>
+            <button class="dialog__close" @click="showAdd = false"></button>
           </div>
           <textarea
             v-model="addText"

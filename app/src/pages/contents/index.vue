@@ -3,10 +3,10 @@
     <view class="contents__header">
       <text class="contents__back" @click="goBack">‹</text>
       <text class="contents__title">审核内容库</text>
-      <text class="contents__search" @click="showSearch = !showSearch">🔍</text>
+      <Icon name="search" :size="18" class="contents__search" @click="showSearch = !showSearch" />
     </view>
 
-    <!-- 搜索框（点击 🔍 展开） -->
+    <!-- 搜索框（点击 展开） -->
     <view v-if="showSearch" class="contents__search-bar">
       <input
         v-model="search"
@@ -42,7 +42,7 @@
       @click="goDetail(item)"
     >
       <view class="contents__thumb">
-        <text class="contents__thumb-icon">{{ item.type === '视频' ? '▶' : '🖼' }}</text>
+        <text class="contents__thumb-icon">{{ item.type === '视频' ? '▶' : '' }}</text>
       </view>
       <view class="contents__body">
         <text class="contents__item-title">{{ item.title }}</text>
@@ -63,7 +63,7 @@
       @click="goDetail(item)"
     >
       <view class="contents__thumb">
-        <text class="contents__thumb-icon">{{ item.type === '视频' ? '▶' : '🖼' }}</text>
+        <text class="contents__thumb-icon">{{ item.type === '视频' ? '▶' : '' }}</text>
       </view>
       <view class="contents__body">
         <text class="contents__item-title">{{ item.title }}</text>
@@ -84,6 +84,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listPublishedContents, type ContentItem } from '@/api';

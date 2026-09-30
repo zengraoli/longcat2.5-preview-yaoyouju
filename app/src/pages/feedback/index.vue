@@ -20,7 +20,7 @@
 
     <!-- 自动附带 -->
     <view class="feedback__attached">
-      <text class="feedback__attached-title">📋 关于哪条内容（自动附带）</text>
+      <text class="feedback__attached-title">关于哪条内容（自动附带）</text>
       <view class="feedback__attached-row">
         <text class="feedback__attached-label">内容</text>
         <text class="feedback__attached-value">一页分析 {{ analysisVersion || '—' }}</text>
@@ -60,13 +60,13 @@
         placeholder-class="feedback__placeholder"
         :maxlength="5000"
       />
-      <text class="feedback__add-image">⬆ 添加截图（可选）</text>
+      <text class="feedback__add-image">添加截图（可选）</text>
     </view>
 
     <!-- 单条授权 -->
     <view class="feedback__authorize" @click="authorized = !authorized">
       <view class="feedback__checkbox" :class="{ 'feedback__checkbox--checked': authorized }">
-        <text v-if="authorized">✓</text>
+        <Icon name="check" :size="18" v-if="authorized" />
       </view>
       <text class="feedback__authorize-text">
         允许审核人员为处理这条举报查看相关资料（仅限本条分析涉及的报告与记录，可随时撤回）
@@ -84,6 +84,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import Icon from '@/components/Icon.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';

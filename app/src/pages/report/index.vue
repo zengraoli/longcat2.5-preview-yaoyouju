@@ -38,7 +38,7 @@
           <picker mode="date" :value="reportDate" @change="onDateChange">
             <view class="report__input">
               <text :class="{ 'report__placeholder-text': !reportDate }">{{ reportDate || '选择日期' }}</text>
-              <text class="report__input-icon">📅</text>
+              <Icon name="calendar" :size="18" class="report__input-icon" />
             </view>
           </picker>
         </view>
@@ -65,7 +65,7 @@
     <view v-else-if="activeTab === 'ocr'" class="card">
       <text class="card-title">拍照提取（模拟）</text>
       <view class="report__ocr-box" @click="onOcr">
-        <text class="report__ocr-icon">📷</text>
+        <Icon name="camera" :size="18" class="report__ocr-icon" />
         <text class="report__ocr-text">{{ ocrText || '点击拍照，提取报告文字（演示返回示例文本）' }}</text>
       </view>
     </view>
@@ -111,6 +111,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import Icon from '@/components/Icon.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
