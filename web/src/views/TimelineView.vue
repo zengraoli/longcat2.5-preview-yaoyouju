@@ -4,11 +4,11 @@
       <div class="timeline-page__header">
         <div>
           <h1 class="timeline-page__title">病程</h1>
-          <p class="timeline-page__meta">本次发作 · 起点约 2026-08 中旬（自述，具体日期尚未确认）· 12 条记录 · 1 份报告 · 3 次分析</p>
+          <p class="timeline-page__meta">{{ episode?.title || '尚未建立病程' }}</p>
         </div>
         <div class="timeline-page__actions">
           <button class="btn btn--secondary">▽ 筛选</button>
-          <button class="btn btn--primary">＋ 新增事件</button>
+          <button class="btn btn--primary" @click="onAdd">＋ 新增事件</button>
         </div>
       </div>
 
@@ -22,13 +22,14 @@
           <div
             v-for="(v, i) in chartData"
             :key="i"
-            class="chart__bar"
-            :class="{ 'chart__bar--warn': v.warn }"
-            :style="{ height: `${v.height}%` }"
-          />
-        </div>
-        <div class="chart__labels">
-          <span v-for="d in chartLabels" :key="d">{{ d }}</span>
+            class="chart__col"
+          >
+            <div class="chart__bar-wrap">
+              <div class="chart__bar" :style="{ height: `${v.height}%` }" />
+              <div class="chart__bar-fail" :style="{ height: `${v.failHeight}%` }" />
+            </div>
+            <div class="chart__label">{{ v.label }}</div>
+          </div>
         </div>
         <p class="chart__disclaimer">图中变化只反映你的记录，缺失日留空；不代表影像变化或病情恶化。</p>
       </div>
@@ -38,19 +39,20 @@
         <div class="timeline-page__main">
           <div class="section-title">记录（按事件，保留来源与核实状态）</div>
           <div class="timeline">
-            <div v-for="(event, i) in events" :key="i" class="timeline__event">
+            <div v-for="(event, i) in events" :key="event.id" class="timeline__event">
               <div class="timeline__rail">
                 <div class="timeline__dot" :class="`timeline__dot--${event.tone}`" />
                 <div v-if="i < events.length - 1" class="timeline__line" />
               </div>
               <div class="timeline__card">
                 <div class="timeline__header">
-                  <span class="timeline__date">{{ event.date }}</span>
-                  <span class="timeline__type" :class="`timeline__type--${event.tone}`">{{ event.type }}</span>
+                  <span class="timeline__date">{{ formatDate(event.occurredAt) }}</span>
+                  <span class="timeline__type" :class="`timeline__type--${event.tone}`">{{ event.typeLabel }}</span>
                   <span class="timeline__more">⋯</span>
                 </div>
-                <p class="timeline__text">{{ event.text }}</p>
+                <p class="timeline__text">{{ event.rawText }}</p>
                 <div class="timeline__tags">
+                  <StatusTag :label="event.sourceType" />
                   <StatusTag v-for="(tag, ti) in event.tags" :key="ti" :label="tag" />
                 </div>
               </div>
@@ -70,14 +72,14 @@
             <div class="record__chips">
               <button
                 v-for="opt in sitOptions"
-                :key="opt"
+                :key="opt.value"
                 class="chip"
-                :class="{ 'chip--selected': sitMinutes === opt }"
-                @click="sitMinutes = opt"
+                :class="{ 'chip--selected': sitMinutes === opt.value }"
+                @click="sitMinutes = opt.value"
               >
-                {{ opt }}
+                {{ opt.label }}
               </button>
-              <button class="chip chip--skip" @click="sitMinutes = ''">跳过</button>
+              <button class="chip chip--skip" @click="sitMinutes = null">跳过</button>
             </div>
 
             <div class="record__question">能否完成原本计划的活动？</div>
@@ -91,7 +93,7 @@
               >
                 {{ opt }}
               </button>
-              <button class="chip chip--skip" @click="activity = ''">跳过</button>
+              <button class="chip chip--skip" @click="activity = null">跳过</button>
             </div>
 
             <div class="record__question">与昨天相比</div>
@@ -105,11 +107,11 @@
               >
                 {{ opt }}
               </button>
-              <button class="chip chip--skip" @click="change = ''">跳过</button>
+              <button class="chip chip--skip" @click="change = null">跳过</button>
             </div>
 
             <div class="record__question">今天有腿部麻木或无力吗？</div>
-            <p class="record__desc">不会沿用昨天的答案；不确定请选“尚未确认”。</p>
+            <p class="record__desc">不会沿用昨天的答案；不确定请选"尚未确认"。</p>
             <div class="record__chips">
               <button
                 v-for="opt in legOptions"
@@ -144,7 +146,7 @@
             />
 
             <button class="btn btn--primary btn--block" @click="() => onSave()">保存记录</button>
-            <button class="btn btn--text" @click="() => onSave(true)">保存并更新“当前情况”</button>
+            <button class="btn btn--text" @click="() => onSave(true)">保存并更新"当前情况"</button>
           </div>
         </div>
       </div>
@@ -153,40 +155,40 @@
 </template>
 
 <script setup lang="ts">
-import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { api } from '@/api/client';
+import { listEpisodes, timeline, addSymptomLog } from '@/api';
+import type { Episode } from '@/api/types';
 
-const sitOptions = ['<15分钟', '15-30', '30-60', '>60分钟'];
+const episode = ref<Episode | null>(null);
+const events = ref<Array<{
+  id: string;
+  occurredAt: string;
+  typeLabel: string;
+  tone: string;
+  rawText: string;
+  sourceType: string;
+  tags: string[];
+}>>([]);
+
+const sitOptions = [
+  { label: '<15分钟', value: 10 },
+  { label: '15-30', value: 22 },
+  { label: '30-60', value: 45 },
+  { label: '>60分钟', value: 75 },
+];
 const activityOptions = ['能', '部分', '不能'];
 const changeOptions = ['加重', '差不多', '减轻'];
 const legOptions = ['有', '没有', '尚未确认'];
 const doneOptions = ['步行', '热敷', '按医嘱用药', '休息', '康复练习', '工作/久坐', '其他'];
 
-const sitMinutes = ref('');
-const activity = ref('');
-const change = ref('');
-const leg = ref('');
+const sitMinutes = ref<number | null>(null);
+const activity = ref<string | null>(null);
+const change = ref<string | null>(null);
+const leg = ref<string | null>(null);
 const done = ref<string[]>([]);
 const worry = ref('');
-
-const chartData = ref(
-  Array.from({ length: 14 }, (_, i) => ({
-    height: 30 + Math.round(Math.abs(Math.sin(i * 1.7)) * 60),
-    warn: i >= 11,
-  })),
-);
-const chartLabels = ['08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'];
-
-const events = ref([
-  { date: '2026-09-21 · 今天', type: '症状记录', tone: 'ok', text: '与上周相比加重；能坐约 30 分钟；夜间痛醒 1 次；今天最担心“会不会越来越严重”。', tags: ['自述', '腿部无力：尚未确认'] },
-  { date: '2026-09-18', type: '一页分析 v2', tone: 'info', text: '生成于模型 M-2609；使用报告 2026-08-30 与 9 条症状记录。', tags: ['系统生成', '可查看当时版本'] },
-  { date: '2026-09-10', type: '医生建议', tone: 'warn', text: '医生建议保守治疗，4 周后复查。', tags: ['自述转述', '未经核实'] },
-  { date: '2026-08-30', type: '检查报告', tone: 'info', text: '腰椎 MRI：L5/S1 椎间盘向后突出，相应硬膜囊受压…', tags: ['报告原文', '已录入'] },
-  { date: '约 2026-08-15', type: '症状开始', tone: 'warn', text: '腰痛开始，起初以久坐后酸痛为主。', tags: ['自述', '日期尚未确认'] },
-]);
 
 function toggleDone(opt: string) {
   const idx = done.value.indexOf(opt);
@@ -194,18 +196,59 @@ function toggleDone(opt: string) {
   else done.value.push(opt);
 }
 
-function onSave(updateCurrent = false) {
-  toast(updateCurrent ? '已保存并更新当前情况（演示）' : '已保存记录（演示）');
+function formatDate(iso: string) {
+  return iso ? iso.slice(0, 10) : '';
+}
+
+async function onSave(updateCurrent = false) {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) return;
+    await addSymptomLog(episodes[0].id, {
+      occurredAt: new Date().toISOString(),
+      sitMinutes: sitMinutes.value,
+      plannedActivityDone: activity.value,
+      legChange: leg.value,
+      changeVsYesterday: change.value,
+      activitiesDone: done.value.length > 0 ? done.value.join('、') : undefined,
+      topWorry: worry.value || undefined,
+    });
+    toast('已保存');
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+function onAdd() {
+  toast('新增事件（演示）');
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(async () => {
   try {
-    const episodes = await api.get<{ id: string }[]>('/episodes');
+    const episodes = await listEpisodes();
     if (episodes.length > 0) {
-      await api.get<unknown>(`/episodes/${episodes[0].id}/timeline`);
+      episode.value = episodes[0];
+      const data = await timeline(episodes[0].id);
+      events.value = data.events.map((e: { id: string; occurredAt: string; eventType: string; tone: string; rawText: string; sourceType: string; tags: string[]; verifyStatus: string }) => ({
+        id: e.id,
+        occurredAt: e.occurredAt,
+        typeLabel: e.eventType,
+        tone: e.eventType === '报告' ? 'info' : e.eventType === '医嘱' ? 'warn' : 'ok',
+        rawText: e.rawText ?? '',
+        sourceType: e.sourceType,
+        tags: e.verifyStatus === '已确认' ? [] : [e.verifyStatus],
+      }));
     }
   } catch {
-    // 加载失败不阻塞
+    // 未登录时不阻塞
   }
 });
 </script>
@@ -231,11 +274,26 @@ onMounted(async () => {
   display: flex;
   gap: 10px;
 }
+.timeline-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+.timeline-page__main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.timeline-page__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .card {
   background: var(--surface);
   border-radius: 12px;
   padding: 20px;
-  margin-bottom: 16px;
 }
 .card__header {
   display: flex;
@@ -251,45 +309,68 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--text-3);
 }
+.section-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
 .chart {
   display: flex;
   align-items: flex-end;
   gap: 6px;
   height: 120px;
-  margin-bottom: 8px;
+}
+.chart__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.chart__bar-wrap {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  height: 100px;
 }
 .chart__bar {
-  flex: 1;
+  width: 60%;
   background: var(--primary);
   border-radius: 4px 4px 0 0;
-  min-height: 8px;
 }
-.chart__bar--warn {
-  background: var(--warn);
+.chart__bar-fail {
+  width: 60%;
+  background: var(--error);
+  border-radius: 4px 4px 0 0;
+  align-self: flex-end;
 }
-.chart__labels {
-  display: flex;
-  justify-content: space-between;
+.chart__label {
   font-size: 11px;
   color: var(--text-3);
-  margin-bottom: 12px;
 }
 .chart__disclaimer {
   font-size: 12px;
   color: var(--text-2);
-  line-height: 1.5;
-  margin: 0;
+  margin: 12px 0 0;
 }
-.timeline-page__grid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 20px;
-  align-items: start;
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
 }
-.section-title {
-  font-size: 16px;
+.table th {
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-2);
   font-weight: 500;
-  margin: 0 0 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
 }
 .timeline__event {
   display: flex;
@@ -380,16 +461,41 @@ onMounted(async () => {
   min-height: 72px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px;
+  padding: 10px 12px;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.5;
   margin-bottom: 16px;
   outline: none;
   font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
 }
 .record__textarea:focus {
   border-color: var(--primary);
 }
+.btn {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn--primary { background: var(--primary); color: #fff; }
+.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
+.btn--soft { background: var(--primary-light); color: var(--primary); }
+.btn--text {
+  background: none;
+  color: var(--primary);
+  min-height: 32px;
+  padding: 0;
+  font-size: 13px;
+}
+.btn--block { width: 100%; margin-top: 16px; }
 .chip {
   min-height: 36px;
   padding: 0 14px;
@@ -409,27 +515,9 @@ onMounted(async () => {
   border-color: transparent;
   color: var(--text-3);
 }
-.btn {
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.btn--primary { background: var(--primary); color: #fff; }
-.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
-.btn--block { width: 100%; margin-top: 16px; }
-.btn--text {
-  background: none;
-  color: var(--primary);
-  min-height: 32px;
-  padding: 0;
-  margin-top: 8px;
-  width: 100%;
+@media (max-width: 1100px) {
+  .timeline-page__grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -30,6 +30,21 @@ export class AnalysesService {
       ? this.safety.checkAndRecord(userId, 'analysis-submit', safetyText)
       : { rulesetVersion: 'RF-v1', redFlags: [], outOfScope: [], passed: true, safetyTips: [] };
 
+    // 命中红旗或越界：不创建分析任务，停止个性化分析
+    if (!safetyResult.passed) {
+      return {
+        taskId: null,
+        status: 'blocked',
+        safety: {
+          passed: false,
+          rulesetVersion: safetyResult.rulesetVersion,
+          redFlags: safetyResult.redFlags,
+          outOfScope: safetyResult.outOfScope,
+          safetyTips: safetyResult.safetyTips,
+        },
+      };
+    }
+
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     this.appDb
@@ -42,11 +57,11 @@ export class AnalysesService {
       taskId: id,
       status: '排队',
       safety: {
-        passed: safetyResult.passed,
+        passed: true,
         rulesetVersion: safetyResult.rulesetVersion,
-        redFlags: safetyResult.redFlags,
-        outOfScope: safetyResult.outOfScope,
-        safetyTips: safetyResult.safetyTips,
+        redFlags: [],
+        outOfScope: [],
+        safetyTips: [],
       },
     };
   }

@@ -4,7 +4,7 @@
       <div class="dashboard__header">
         <div>
           <h1 class="dashboard__title">当前情况</h1>
-          <p class="dashboard__subtitle">本次发作 · 第 5 周 · 上次记录：昨天 · 起点约 2026-08 中旬（尚未确认）</p>
+          <p class="dashboard__subtitle">{{ episode?.title || '尚未建立病程' }}</p>
         </div>
         <div class="dashboard__header-actions">
           <button class="btn btn--primary" @click="goRecord">✎ 记录今天</button>
@@ -13,17 +13,17 @@
       </div>
 
       <div class="dashboard__grid">
-        <!-- 左栏：待确认项 -->
         <div class="dashboard__col">
-          <div class="card card--pending">
+          <!-- 待确认项 -->
+          <div class="card" v-if="pendingItems.length > 0">
             <div class="card__pending-title">
               <span>⚠</span>
-              <span>有 {{ pending.length }} 项信息尚未确认</span>
+              <span>有 {{ pendingItems.length }} 项信息尚未确认</span>
             </div>
             <p class="card__pending-desc">
-              确认后才会生成新的分析；没有回答的问题会记录为“尚未确认”，不会被当作“没有”。
+              确认后才会生成新的分析；没有回答的问题会记录为"尚未确认"，不会被当作"没有"。
             </p>
-            <div v-for="(item, i) in pending" :key="i" class="pending-item">
+            <div v-for="(item, i) in pendingItems" :key="i" class="pending-item">
               <p class="pending-item__question">{{ i + 1 }}. {{ item.question }}</p>
               <div class="pending-item__options">
                 <button
@@ -56,36 +56,39 @@
           </div>
         </div>
 
-        <!-- 中栏：最新分析 -->
         <div class="dashboard__col">
+          <!-- 最新分析 -->
           <div class="card">
             <div class="card__header">
               <h2 class="card__title">最新一页分析</h2>
               <div class="card__header-tags">
-                <span class="card__version">v3 · 2026-09-21</span>
+                <span class="card__version" v-if="analysis">v{{ analysis.version }} · {{ formatDate(analysis.createdAt) }}</span>
                 <StatusTag label="不作诊断" />
               </div>
             </div>
-            <p class="analysis__intro">
-              你上传的报告中提到了 L5/S1；你描述目前腰痛持续约 1 个月且最近加重。报告日期已确认，症状开始日期和是否出现腿部无力还需要确认。
+            <p class="analysis__intro" v-if="analysis">
+              你上传的报告中提到了 L5/S1；你描述目前腰痛持续约 1 个月且最近加重。报告日期已确认，症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。
             </p>
-            <div v-for="(item, i) in sections.known" :key="`k${i}`" class="analysis__item">
-              <StatusTag label="已知" />
-              <span class="analysis__text">{{ item.text }}</span>
+            <div v-if="analysis">
+              <div v-for="(item, i) in analysis.sections.已知" :key="`k${i}`" class="analysis__item">
+                <StatusTag label="已知" />
+                <span class="analysis__text">{{ item.text }}</span>
+              </div>
+              <div v-for="(item, i) in analysis.sections.解释" :key="`e${i}`" class="analysis__item">
+                <StatusTag label="解释" />
+                <span class="analysis__text">{{ item.text }}</span>
+              </div>
+              <div v-for="(item, i) in analysis.sections.未知" :key="`u${i}`" class="analysis__item">
+                <StatusTag label="未知" />
+                <span class="analysis__text">{{ item.text }}</span>
+              </div>
+              <div v-for="(item, i) in analysis.sections.下一步" :key="`n${i}`" class="analysis__item">
+                <StatusTag label="下一步" />
+                <span class="analysis__text">{{ item.text }}</span>
+              </div>
             </div>
-            <div v-for="(item, i) in sections.explained" :key="`e${i}`" class="analysis__item">
-              <StatusTag label="解释" />
-              <span class="analysis__text">{{ item.text }}</span>
-            </div>
-            <div v-for="(item, i) in sections.unknown" :key="`u${i}`" class="analysis__item">
-              <StatusTag label="未知" />
-              <span class="analysis__text">{{ item.text }}</span>
-            </div>
-            <div v-for="(item, i) in sections.next" :key="`n${i}`" class="analysis__item">
-              <StatusTag label="下一步" />
-              <span class="analysis__text">{{ item.text }}</span>
-            </div>
-            <div class="card__actions">
+            <p v-else class="analysis__empty">尚未生成分析</p>
+            <div class="card__actions" v-if="analysis">
               <button class="btn btn--primary" @click="goAnalysis">查看完整分析与原文对照</button>
               <button class="btn btn--secondary" @click="goQa">继续追问</button>
               <button class="btn btn--secondary" @click="goFollowup">生成复诊摘要</button>
@@ -117,14 +120,13 @@
           </div>
         </div>
 
-        <!-- 右栏 -->
         <div class="dashboard__col">
           <div class="card">
             <div class="card__header">
               <h2 class="card__title">📅 计划复诊</h2>
             </div>
             <div class="followup__date">2026-10-08（约 17 天后）</div>
-            <p class="followup__source">来源：你录入的医嘱“4 周后复查” · 未经核实</p>
+            <p class="followup__source">来源：你录入的医嘱"4 周后复查" · 未经核实</p>
             <button class="btn btn--text" @click="goFollowup">修改日期</button>
           </div>
 
@@ -149,54 +151,23 @@
 </template>
 
 <script setup lang="ts">
-import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { api } from '@/api/client';
-import type { AnalysisResult } from '@/api/types';
+import { listEpisodes, getLatestAnalysis } from '@/api';
+import type { AnalysisResult, Episode } from '@/api/types';
 
 const router = useRouter();
+const episode = ref<Episode | null>(null);
+const analysis = ref<AnalysisResult | null>(null);
 
-const pending = ref([
+const pendingItems = ref([
   { question: '今天有腿部麻木或无力吗？', options: ['有', '没有', '尚未确认'], value: '' },
-  { question: '报告写“右侧”，你的描述是“左侧”，以你的症状为准？', options: ['左侧', '右侧', '都有 / 不确定'], value: '' },
+  { question: '报告写"右侧"，你的描述是"左侧"，以你的症状为准？', options: ['左侧', '右侧', '都有 / 不确定'], value: '' },
   { question: '与上次相比，症状有变化？', options: ['加重', '差不多', '减轻', '尚未确认'], value: '' },
 ]);
-
-interface Sections {
-  known: Array<{ text: string; source: string | null }>;
-  explained: Array<{ text: string; source: string | null }>;
-  unknown: Array<{ text: string; source: string | null }>;
-  next: Array<{ text: string; source: string | null }>;
-}
-
-const analysis = ref<AnalysisResult>({
-  id: '',
-  episodeId: '',
-  version: 3,
-  modelReleaseId: 'release-1',
-  sections: {
-    已知: [{ text: '报告（2026-08-30）提到 L5/S1 椎间盘向后突出、硬膜囊受压；腰痛约 1 个月，最近一周加重，主要在左侧。', source: '报告' }],
-    解释: [{ text: '影像上的突出与疼痛不是一一对应的关系；“硬膜囊受压”是影像描述，不等于严重程度。', source: 'doc-science-1' }],
-    未知: [{ text: '症状开始日期、是否腿部无力、报告“右侧”与你描述“左侧”是否一致。', source: null }],
-    下一步: [{ text: '把 4 个问题带去复诊；每天记录能坐时长与夜间痛醒次数。', source: null }],
-    视频: [],
-  },
-  retrievalSnapshot: { evidenceDocs: [], modelRelease: 'release-1', contentLibVersion: 'content-c1', rulesetVersion: 'RF-v1' },
-  safetyFlag: '通过',
-  createdAt: '',
-  citations: [],
-});
-
-const sections = ref<Sections>({
-  known: [],
-  explained: [],
-  unknown: [],
-  next: [],
-});
 
 const recentRecords = ref([
   { date: '昨天', tone: 'ok', text: '症状记录 · 加重 · 能坐约 30 分钟' },
@@ -212,7 +183,9 @@ function goReport() {
   router.push({ name: 'timeline' });
 }
 function goAnalysis() {
-  router.push({ name: 'analysis' });
+  if (analysis.value) {
+    router.push({ name: 'analysis', params: { id: analysis.value.id } });
+  }
 }
 function goQa() {
   router.push({ name: 'qa' });
@@ -225,23 +198,28 @@ function onConfirm() {
   toast('已确认并更新当前情况（演示）');
 }
 
+function formatDate(iso: string) {
+  return iso ? iso.slice(0, 10) : '';
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
 onMounted(async () => {
   try {
-    const episodes = await api.get<{ id: string }[]>('/episodes');
+    const episodes = await listEpisodes();
     if (episodes.length > 0) {
-      const latest = await api.get<AnalysisResult | null>(`/analyses/episodes/${episodes[0].id}/latest`);
-      if (latest) {
-        analysis.value = latest;
-        sections.value = {
-          known: latest.sections.已知,
-          explained: latest.sections.解释,
-          unknown: latest.sections.未知,
-          next: latest.sections.下一步,
-        };
-      }
+      episode.value = episodes[0];
+      const latest = await getLatestAnalysis(episodes[0].id);
+      if (latest) analysis.value = latest;
     }
   } catch {
-    // 加载失败不阻塞
+    // 未登录时不阻塞
   }
 });
 </script>
@@ -251,7 +229,7 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .dashboard__title {
   font-size: 20px;
@@ -273,16 +251,6 @@ onMounted(async () => {
   gap: 16px;
   align-items: start;
 }
-@media (max-width: 1100px) {
-  .dashboard__grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-@media (max-width: 700px) {
-  .dashboard__grid {
-    grid-template-columns: 1fr;
-  }
-}
 .dashboard__col {
   display: flex;
   flex-direction: column;
@@ -292,9 +260,6 @@ onMounted(async () => {
   background: var(--surface);
   border-radius: 12px;
   padding: 20px;
-}
-.card--pending {
-  background: rgba(199, 119, 0, 0.06);
 }
 .card__pending-title {
   display: flex;
@@ -346,7 +311,6 @@ onMounted(async () => {
 .card__title {
   font-size: 16px;
   font-weight: 500;
-  margin: 0 0 12px;
 }
 .card__header-tags {
   display: flex;
@@ -370,19 +334,22 @@ onMounted(async () => {
 .analysis__intro {
   font-size: 14px;
   line-height: 1.6;
-  color: var(--text-1);
   margin: 0 0 16px;
 }
 .analysis__item {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   align-items: flex-start;
 }
 .analysis__text {
   font-size: 14px;
   flex: 1;
   line-height: 1.5;
+}
+.analysis__empty {
+  font-size: 14px;
+  color: var(--text-3);
 }
 .recommend {
   display: flex;
@@ -489,22 +456,35 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
 }
-.btn--primary {
-  background: var(--primary);
-  color: #fff;
-}
-.btn--secondary {
-  background: var(--surface);
-  color: var(--primary);
-  border: 1px solid var(--primary);
-}
-.btn--block {
-  width: 100%;
-}
+.btn--primary { background: var(--primary); color: #fff; }
+.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--text {
   background: none;
   color: var(--primary);
   min-height: 32px;
   padding: 0;
+  font-size: 13px;
+}
+@media (max-width: 1100px) {
+  .dashboard__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dashboard__stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .dashboard__quick {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .dashboard__grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dashboard__quick {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

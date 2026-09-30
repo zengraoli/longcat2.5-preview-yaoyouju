@@ -2,7 +2,7 @@
   <AppLayout>
     <div class="qa-page">
       <div class="qa-page__context">
-        🛡 本轮基于：2026-09-21 当前情况 + 2026-08-30 报告 + 一页分析 v3。出现新变化请先更新“当前情况”。
+        🛡 本轮基于：{{ contextText }}。出现新变化请先更新“当前情况”。
       </div>
 
       <div class="qa-page__grid">
@@ -16,14 +16,10 @@
               <div class="qa-avatar">腰</div>
               <div class="qa-bubble qa-bubble--assistant">
                 <p class="qa-bubble__text">{{ msg.content }}</p>
-                <div v-if="msg.quote" class="qa-quote">
-                  <div class="qa-quote__label">你的报告原文（第 3 行）</div>
-                  <div class="qa-quote__text">{{ msg.quote }}</div>
+                <div v-if="msg.citations && msg.citations.length > 0" class="qa-citations">
+                  <span v-for="(c, ci) in msg.citations" :key="ci" class="qa-citation">{{ c.docTitle }}</span>
                 </div>
-                <div v-if="msg.citations" class="qa-citations">
-                  <span v-for="(c, ci) in msg.citations" :key="ci" class="qa-citation">{{ c }}</span>
-                </div>
-                <button v-if="msg.followup" class="qa-add-followup" @click="onAddFollowup">
+                <button v-if="msg.followup" class="qa-add-followup" @click="onAddFollowup(msg.followup)">
                   ＋ 把“{{ msg.followup }}”加入复诊问题
                 </button>
                 <div v-if="msg.added" class="qa-added">✓ 已加入复诊问题：{{ msg.added }}</div>
@@ -44,7 +40,7 @@
           </div>
 
           <TipBar type="warn">
-            本轮已解释 {{ explainedCount }} 个问题，行动计划已记录。若没有新信息，反复确认不会得到不同答案；出现新变化时我会重新评估。
+            本轮已解释 {{ explainedCount }} 个问题。若没有新信息，反复确认不会得到不同答案；出现新变化时我会重新评估。
           </TipBar>
 
           <!-- 输入栏 -->
@@ -55,7 +51,7 @@
               placeholder="输入你的问题…（回车发送）"
               @keyup.enter="onSend"
             />
-            <button class="qa-send" @click="onSend">➤ 发送</button>
+            <button class="qa-send" @click="onSend">➤</button>
           </div>
         </div>
 
@@ -115,51 +111,34 @@
 </template>
 
 <script setup lang="ts">
-import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { api } from '@/api/client';
+import {
+  listEpisodes,
+  getLatestAnalysis,
+  createQaSession,
+  getQaSession,
+  askQuestion,
+  addFollowupQuestion,
+  type QaMessage,
+} from '@/api';
 
 const router = useRouter();
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
-  quote?: string;
-  citations?: string[];
+  citations?: Array<{ docId: string; docTitle: string }>;
   followup?: string;
   added?: string;
 }
 
-const messages = ref<ChatMessage[]>([
-  {
-    role: 'user',
-    content: '报告上写“硬膜囊受压”，是不是很严重？',
-  },
-  {
-    role: 'assistant',
-    content: '先说清楚这句话在报告里是什么意思，再说它不能说明什么。',
-    quote: '“L5/S1椎间盘向后突出，相应硬膜囊受压”',
-    citations: ['来源：审核科普 #07', '报告原文'],
-    followup: '严重程度如何判断',
-  },
-  {
-    role: 'user',
-    content: '那我是不是需要做手术？',
-  },
-  {
-    role: 'assistant',
-    content:
-      '是否需要手术不在本产品的判断范围内，我不会给出倾向性的答案。\n可以做的是：把你最担心的点整理成复诊问题，并记录最近的功能变化（能坐多久、走多远、夜间是否痛醒），这些是医生判断时会问到的。',
-    added: '手术必要性如何评估',
-  },
-]);
-
+const messages = ref<ChatMessage[]>([]);
 const question = ref('');
-const explainedCount = ref(2);
+const explainedCount = ref(0);
 const quickQuestions = ['复诊时该怎么描述？', '哪些变化要提前就医？', '保守治疗一般多久？'];
 const followupQuestions = ref([
   '右侧神经根受压与左侧疼痛是否有关？',
@@ -172,6 +151,8 @@ const history = ref([
   { date: '09-10', title: '复诊前该带什么', count: 2 },
 ]);
 
+const contextText = ref('2026-09-21 当前情况 + 2026-08-30 报告 + 一页分析 v3');
+
 function onAsk(q: string) {
   if (!q.trim()) return;
   question.value = '';
@@ -181,7 +162,7 @@ function onAsk(q: string) {
     messages.value.push({
       role: 'assistant',
       content: '证据库中暂无与这个问题直接相关的资料。建议把这个问题加入复诊问题清单，复诊时带给医生。',
-      citations: ['来源：系统生成'],
+      citations: [],
     });
     explainedCount.value += 1;
   }, 300);
@@ -191,28 +172,40 @@ function onSend() {
   onAsk(question.value);
 }
 
-function onAddFollowup() {
-  followupQuestions.value.push('严重程度如何判断');
-  uni_showToast();
-}
-
-function uni_showToast() {
-  // uni-app 环境用 uni.showToast；web 环境用 alert
-  toast('已加入复诊问题（演示）');
+async function onAddFollowup(q: string) {
+  // 真实环境调用 /qa/sessions/:id/followup-questions
+  if (!followupQuestions.value.includes(q)) {
+    followupQuestions.value.push(q);
+  }
+  toast('已加入复诊问题');
 }
 
 function goFollowup() {
   router.push({ name: 'followup' });
 }
 
+function toast(msg: string) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
 onMounted(async () => {
   try {
-    const episodes = await api.get<{ id: string }[]>('/episodes');
+    const episodes = await listEpisodes();
     if (episodes.length > 0) {
-      await api.get<unknown>(`/analyses/episodes/${episodes[0].id}/latest`);
+      const latest = await getLatestAnalysis(episodes[0].id);
+      if (latest) {
+        const session = await createQaSession(latest.id, '报告术语解释');
+        const historyData = await getQaSession(session.id);
+        messages.value = historyData.messages;
+        explainedCount.value = historyData.messages.filter((m) => m.role === 'assistant').length;
+      }
     }
   } catch {
-    // 加载失败不阻塞
+    // 未登录时不阻塞
   }
 });
 </script>
@@ -281,21 +274,6 @@ onMounted(async () => {
   justify-content: center;
   flex-shrink: 0;
 }
-.qa-quote {
-  background: var(--bg);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin: 8px 0;
-}
-.qa-quote__label {
-  font-size: 11px;
-  color: var(--text-3);
-}
-.qa-quote__text {
-  font-size: 13px;
-  color: var(--primary);
-  margin-top: 2px;
-}
 .qa-citations {
   display: flex;
   flex-wrap: wrap;
@@ -346,13 +324,13 @@ onMounted(async () => {
   border-color: var(--primary);
 }
 .qa-send {
-  min-height: 44px;
-  padding: 0 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   border: none;
-  border-radius: 22px;
   background: var(--primary);
   color: #fff;
-  font-size: 14px;
+  font-size: 18px;
   cursor: pointer;
 }
 .qa-page__side {
@@ -368,20 +346,15 @@ onMounted(async () => {
 .card--info {
   background: var(--primary-light);
 }
-.card__title {
-  font-size: 15px;
-  font-weight: 500;
-  margin: 0 0 12px;
-}
-.card__title--info {
-  color: var(--primary);
-  font-size: 14px;
-}
 .card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+}
+.card__title {
+  font-size: 15px;
+  font-weight: 500;
 }
 .card__header .card__title {
   margin: 0;
@@ -441,6 +414,20 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
 }
+.btn--primary { background: var(--primary); color: #fff; }
+.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--soft { background: var(--primary-light); color: var(--primary); }
-.btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; margin-top: 12px; }
+.btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.btn--text {
+  background: none;
+  color: var(--primary);
+  min-height: 32px;
+  padding: 0;
+  font-size: 13px;
+}
+@media (max-width: 1100px) {
+  .qa-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

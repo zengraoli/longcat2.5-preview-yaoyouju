@@ -63,7 +63,7 @@
                 <span class="print-preview__title">复诊交接摘要</span>
                 <span class="print-preview__logo">腰</span>
               </div>
-              <p class="print-preview__meta">生成于 2026-09-21 · 由用户自述与报告原文整理 · 未经医生核实</p>
+              <p class="print-preview__meta">生成于 {{ today }} · 由用户自述与报告原文整理 · 未经医生核实</p>
               <div v-for="(section, i) in sections" :key="i" class="print-preview__section">
                 <div class="print-preview__section-title">{{ ['一', '二', '三', '四', '五', '六'][i] }}、{{ section.title }}</div>
                 <p class="print-preview__text">{{ section.text }}</p>
@@ -84,12 +84,12 @@
 </template>
 
 <script setup lang="ts">
-import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { api } from '@/api/client';
+import { listEpisodes, previewSummary, exportSummary, saveSummary } from '@/api';
+import type { SummaryContent } from '@/api/types';
 
 const tabs = [
   { key: 'summary', label: '一页交接摘要' },
@@ -113,20 +113,22 @@ const questions = ref([
   '手术必要性如何评估？',
 ]);
 
-function onExport(format: string) {
-  toast(`已导出${format}（演示）`);
+async function onExport(format: string) {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) return;
+    const content = await previewSummary(episodes[0].id);
+    const saved = await saveSummary(episodes[0].id, content);
+    const result = await exportSummary(saved.id, format);
+    if (format === '文本') {
+      // 复制到剪贴板
+    }
+  } catch (e) {
+    // 错误提示
+  }
 }
 
-onMounted(async () => {
-  try {
-    const episodes = await api.get<{ id: string }[]>('/episodes');
-    if (episodes.length > 0) {
-      await api.get<unknown>(`/followup/summary?episodeId=${episodes[0].id}`);
-    }
-  } catch {
-    // 加载失败不阻塞
-  }
-});
+const today = new Date().toISOString().slice(0, 10);
 </script>
 
 <style scoped>
@@ -139,12 +141,12 @@ onMounted(async () => {
 .followup-page__title {
   font-size: 20px;
   font-weight: 500;
-  margin: 0 0 4px;
+  margin: 0;
 }
 .followup-page__meta {
   font-size: 13px;
   color: var(--text-2);
-  margin: 0;
+  margin: 4px 0 0;
 }
 .followup-page__actions {
   display: flex;
@@ -176,15 +178,20 @@ onMounted(async () => {
   gap: 20px;
   align-items: start;
 }
-.followup-page__edit-hint {
-  font-size: 13px;
-  color: var(--text-2);
-  margin: 0 0 12px;
-}
 .followup-page__main {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+.followup-page__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.followup-page__edit-hint {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0 0 12px;
 }
 .card {
   background: var(--surface);
@@ -200,6 +207,10 @@ onMounted(async () => {
 .card__title {
   font-size: 16px;
   font-weight: 500;
+}
+.card__correct {
+  font-size: 13px;
+  color: var(--primary);
 }
 .card__body {
   font-size: 14px;
@@ -313,4 +324,5 @@ onMounted(async () => {
   padding: 0;
   font-size: 13px;
 }
+.btn--block { width: 100%; margin-top: 16px; }
 </style>

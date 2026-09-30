@@ -26,6 +26,14 @@ export interface AnalysisResult {
   citations: Array<{ id: string; evidenceDocId: string; statement: string; supported: number }>;
 }
 
+export interface Episode {
+  id: string;
+  title: string;
+  onsetDate: string | null;
+  onsetCertainty: string;
+  status: string;
+}
+
 export interface ContentItem {
   id: string;
   type: string;
