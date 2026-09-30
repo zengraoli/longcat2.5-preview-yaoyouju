@@ -2,6 +2,8 @@
   <svg
     class="icon"
     :class="`icon--${name}`"
+    :width="size ?? 24"
+    :height="size ?? 24"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -86,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ name: string }>();
+defineProps<{ name: string; size?: number }>();
 </script>
 
 <style scoped>

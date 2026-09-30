@@ -13,7 +13,8 @@
           class="layout__menu-item"
           :class="{ 'layout__menu-item--active': isActive(item.to) }"
         >
-          {{ item.icon }} {{ item.label }}
+          <Icon :name="item.icon" :size="18" />
+          <span>{{ item.label }}</span>
         </router-link>
       </nav>
       <div class="layout__sidebar-footer">
@@ -63,25 +64,42 @@ interface MenuItem {
 }
 
 const allMenu: MenuItem[] = [
-  { to: '/dashboard', label: '仪表盘', icon: '📊', permission: '*' },
-  { to: '/contents', label: '内容库', icon: '📚', permission: 'content:edit' },
-  { to: '/evidence', label: '医学证据库', icon: '🔬', permission: 'evidence:review' },
-  { to: '/feedback', label: '举报与反馈', icon: '⚑', permission: 'feedback:handle' },
-  { to: '/safety', label: '安全与开关', icon: '🛡', permission: 'switch:write' },
-  { to: '/models', label: '模型发布', icon: '🤖', permission: 'model:release' },
-  { to: '/models/eval', label: '评测集', icon: '📋', permission: 'eval:run' },
-  { to: '/users', label: '用户与权限', icon: '👥', permission: '*' },
-  { to: '/audit', label: '审计日志', icon: '📜', permission: 'audit:read' },
-  { to: '/cases', label: '案例投稿', icon: '📝', permission: 'case:review' },
+  { to: '/dashboard', label: '仪表盘', icon: 'dashboard', permission: '' },
+  { to: '/contents', label: '内容库', icon: 'contents', permission: 'content:read' },
+  { to: '/evidence', label: '医学证据库', icon: 'evidence', permission: 'evidence:create' },
+  { to: '/feedback', label: '举报与反馈', icon: 'feedback', permission: 'feedback:triage' },
+  { to: '/safety', label: '安全与开关', icon: 'safety', permission: '' },
+  { to: '/models', label: '模型发布', icon: 'models', permission: 'model:read' },
+  { to: '/models/eval', label: '评测集', icon: 'eval', permission: 'eval:read' },
+  { to: '/users', label: '用户与权限', icon: 'users', permission: 'member:read' },
+  { to: '/audit', label: '审计日志', icon: 'audit', permission: 'audit:read' },
+  { to: '/cases', label: '案例投稿', icon: 'cases', permission: 'case:review' },
 ];
 
 const visibleMenu = computed(() => {
   const perms = auth.session?.permissions ?? [];
   return allMenu.filter((item) => {
-    if (perms.includes('*')) return true;
+    // 仪表盘、安全与开关：所有后台角色可见（安全事件对所有角色可读）
+    if (!item.permission) return true;
     // 内容库：编辑或审定角色都可见
-    if (item.permission === 'content:edit') {
-      return perms.includes('content:edit') || perms.includes('content:review');
+    if (item.permission === 'content:read') {
+      return perms.includes('content:read') || perms.includes('content:edit') || perms.includes('content:review');
+    }
+    // 证据库：录入或核实角色可见
+    if (item.permission === 'evidence:create') {
+      return perms.includes('evidence:create') || perms.includes('evidence:review');
+    }
+    // 举报：初筛或复核角色可见
+    if (item.permission === 'feedback:triage') {
+      return perms.includes('feedback:triage') || perms.includes('feedback:review');
+    }
+    // 模型发布：发布或读取角色可见
+    if (item.permission === 'model:read') {
+      return perms.includes('model:read') || perms.includes('model:release');
+    }
+    // 评测集：运行或读取角色可见
+    if (item.permission === 'eval:read') {
+      return perms.includes('eval:read') || perms.includes('eval:run');
     }
     return perms.includes(item.permission);
   });

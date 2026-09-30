@@ -26,7 +26,7 @@
                   <span class="switch-row__change">最近变更 {{ sw.change }}</span>
                 </div>
               </div>
-              <button class="switch" :class="{ 'switch--on': sw.enabled }" @click="onToggle(sw)" />
+              <button class="switch" :class="{ 'switch--on': sw.enabled }" :disabled="!canWriteSwitch" @click="onToggle(sw)" />
             </div>
             <p v-if="switchPending" class="card__note">开关变更待第二人确认（{{ switchPending }}）</p>
           </div>
@@ -122,6 +122,10 @@ import Modal from '@/components/Modal.vue';
 import { getDashboard, listSwitches, setSwitch, listSafetyEvents } from '@/api';
 import type { DashboardStats } from '@/api/types';
 import { RULES } from '@/utils/rules';
+import { useAuthStore } from '@/stores/auth';
+
+const auth = useAuthStore();
+const canWriteSwitch = computed(() => (auth.session?.permissions ?? []).includes('switch:write'));
 
 const stats = ref<DashboardStats | null>(null);
 const switches = ref<Array<{ key: string; enabled: boolean; reason: string; updatedAt: string; confirmMode: string; confirm: string; change: string }>>([]);
