@@ -5,6 +5,7 @@ import { Inject } from '@nestjs/common';
 import { AdminGuard, RequirePermission } from './admin.guard';
 import { CurrentAdmin } from './current-admin.decorator';
 import { AuditService } from '../audit/audit.service';
+import { RULESET_VERSION } from '../safety/rules';
 
 /** 后台仪表盘聚合数据（所有后台角色可读） */
 @Controller('admin/dashboard')
@@ -80,6 +81,7 @@ export class AdminDashboardController {
       )
       .all();
     return {
+      rulesetVersion: RULESET_VERSION,
       tasks: { total: taskTotal, today: taskToday, failed: taskFailed, blocked: taskBlocked },
       failureRate: {
         window: '15 分钟',

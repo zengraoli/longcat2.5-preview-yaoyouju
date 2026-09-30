@@ -15,9 +15,10 @@ export const RULES: RuleInfo[] = [
   { code: 'RF-04', name: '外伤后腰部剧痛', severity: '高', action: '提示就医', category: 'red-flag' },
   { code: 'RF-05', name: '发热伴腰痛', severity: '高', action: '提示就医', category: 'red-flag' },
   { code: 'RF-06', name: '疼痛剧烈难以忍受', severity: '中', action: '提示就医', category: 'red-flag' },
+  { code: 'RF-07', name: '肿瘤病史', severity: '高', action: '提示就医', category: 'red-flag' },
   { code: 'SC-01', name: '诊断类越界请求', severity: '中', action: '停止个性化分析', category: 'out-of-scope' },
   { code: 'SC-02', name: '手术建议越界请求', severity: '中', action: '停止个性化分析', category: 'out-of-scope' },
   { code: 'SC-03', name: '用药建议越界请求', severity: '中', action: '停止个性化分析', category: 'out-of-scope' },
 ];
 
-export const RULESET_VERSION = 'RF-v3';
+export const RULESET_VERSION = 'RF-v5';

@@ -121,7 +121,7 @@ import TipBar from '@/components/TipBar.vue';
 import Modal from '@/components/Modal.vue';
 import { getDashboard, listSwitches, setSwitch, listSafetyEvents } from '@/api';
 import type { DashboardStats } from '@/api/types';
-import { RULES } from '@/utils/rules';
+import { RULES, RULESET_VERSION } from '@/utils/rules';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
@@ -130,7 +130,7 @@ const canWriteSwitch = computed(() => (auth.session?.permissions ?? []).includes
 const stats = ref<DashboardStats | null>(null);
 const switches = ref<Array<{ key: string; enabled: boolean; reason: string; updatedAt: string; confirmMode: string; confirm: string; change: string }>>([]);
 const events = ref<Array<{ ruleCode: string; severity: string; actionTaken: string; source: string; user: string; createdAt: string }>>([]);
-const rulesetVersion = ref('RF-v3');
+const rulesetVersion = ref(RULESET_VERSION);
 const severityFilter = ref('');
 const search = ref('');
 const switchTarget = ref<{ key: string; enabled: boolean; confirmMode: string } | null>(null);
