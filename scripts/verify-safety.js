@@ -1,7 +1,7 @@
 /**
  * 安全规则复查：50+ 条反馈里没有列出的红旗说法、否定说法与正常报告描述
  */
-const { matchRedFlags, matchOutOfScope } = require('./dist/modules/safety/rules.js');
+const { matchRedFlags, matchOutOfScope } = require('../server/dist/modules/safety/rules.js');
 
 let passed = 0;
 let failed = 0;

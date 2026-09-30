@@ -125,7 +125,7 @@ async function main() {
 
   // 6. 模型发布两轮（先清除种子不通过用例，使门禁可通过）
   console.log('=== 模型发布（双人）===');
-  const adminDb = await import('better-sqlite3').then((m) => new m.default('data/app.db'));
+  const adminDb = await import('file:///D:/myproject/longcat2.5-demo/demo2/server/node_modules/better-sqlite3/lib/index.js').then((m) => new m.default('server/data/app.db'));
   adminDb.prepare("DELETE FROM EVAL_CASE WHERE result = '不通过'").run();
   adminDb.close();
   const rel = await api('POST', '/models/releases', { modelName: 'test-model', promptVersion: 'prompt-p2', retrievalStrategy: 'keyword-v2', contentLibVersion: 'content-c2' }, T['技术-程']);

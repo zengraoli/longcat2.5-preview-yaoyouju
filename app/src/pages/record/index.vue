@@ -180,6 +180,7 @@ function sitMinutesToNumber(opt: string): number | undefined {
 async function onSave(updateCurrent = false) {
   // 先保存记录（红旗信号不阻断记录，记录是用户自己的病程数据）
   let saved = false;
+  let worryText = '';
   try {
     let episodes = await listEpisodes();
     if (episodes.length === 0) {
@@ -199,6 +200,8 @@ async function onSave(updateCurrent = false) {
     });
     saved = true;
     uni.showToast({ title: '已保存', icon: 'success' });
+    // 红旗预检在清表单前进行（否则读不到刚保存的内容）
+    worryText = worry.value.trim();
     // 保存后清空表单（不复用昨日答案）
     sitMinutes.value = '';
     activity.value = '';
@@ -215,7 +218,6 @@ async function onSave(updateCurrent = false) {
     return;
   }
   // 红旗预检：命中红旗时提示就医（记录已保存，不阻断）
-  const worryText = worry.value.trim();
   if (worryText && saved) {
     try {
       const safety = await checkSafety(worryText, 'record');
