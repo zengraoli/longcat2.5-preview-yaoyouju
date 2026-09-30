@@ -41,15 +41,15 @@
           </div>
 
           <!-- 为你推荐 -->
-          <div class="card">
-            <p class="card__section-title">为你推荐（原因：报告提到 L5/S1）</p>
-            <div class="recommend">
+          <div class="card" v-if="recommended.length > 0">
+            <p class="card__section-title">为你推荐</p>
+            <div v-for="item in recommended" :key="item.id" class="recommend">
               <div class="recommend__thumb">▶</div>
               <div class="recommend__body">
-                <div class="recommend__title">腰椎节段位置：L5/S1 在哪里</div>
+                <div class="recommend__title">{{ item.title }}</div>
                 <div class="recommend__meta">
-                  <StatusTag label="已审核 v2" />
-                  <span>2:10 · 字幕</span>
+                  <StatusTag label="已审核" />
+                  <span>{{ item.type === '视频' ? '视频' : '图文' }}</span>
                 </div>
               </div>
             </div>
@@ -115,18 +115,18 @@
             <div class="quick-card" @click="goFollowup">
               <span class="quick-card__icon">📋</span>
               <div class="quick-card__title">复诊准备</div>
-              <div class="quick-card__desc">4 个问题待确认</div>
+              <div class="quick-card__desc">{{ followupQuestionCount }} 个问题待确认</div>
             </div>
           </div>
         </div>
 
         <div class="dashboard__col">
-          <div class="card">
+          <div class="card" v-if="followupDate">
             <div class="card__header">
               <h2 class="card__title">📅 计划复诊</h2>
             </div>
-            <div class="followup__date">2026-10-08（约 17 天后）</div>
-            <p class="followup__source">来源：你录入的医嘱"4 周后复查" · 未经核实</p>
+            <div class="followup__date">{{ followupDate }}（约 {{ daysUntil }} 天后）</div>
+            <p class="followup__source">来源：你录入的医嘱 · 未经核实</p>
             <button class="btn btn--text" @click="goFollowup">修改日期</button>
           </div>
 
@@ -156,21 +156,19 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, getLatestAnalysis, timeline, addEvent } from '@/api';
-import type { AnalysisResult, Episode } from '@/api/types';
+import { listEpisodes, getLatestAnalysis, timeline, addEvent, listPublishedContents } from '@/api';
+import type { AnalysisResult, Episode, ContentItem } from '@/api/types';
 
 const router = useRouter();
 const episode = ref<Episode | null>(null);
 const analysis = ref<AnalysisResult | null>(null);
 
 const pendingItems = ref<Array<{ question: string; options: string[]; value: string }>>([]);
-
-const recentRecords = ref([
-  { date: '昨天', tone: 'ok', text: '症状记录 · 加重 · 能坐约 30 分钟' },
-  { date: '09-18', tone: 'info', text: '一页分析 v2 生成' },
-  { date: '09-10', tone: 'warn', text: '医生建议：保守治疗 4 周后复查（未核实）' },
-  { date: '08-30', tone: 'info', text: 'MRI 报告已录入' },
-]);
+const recentRecords = ref<Array<{ date: string; tone: string; text: string }>>([]);
+const followupDate = ref('');
+const daysUntil = ref(0);
+const recommended = ref<ContentItem[]>([]);
+const followupQuestionCount = ref(0);
 
 function goRecord() {
   router.push({ name: 'timeline' });
