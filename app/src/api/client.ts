@@ -4,6 +4,7 @@
  */
 
 const BASE = '/api';
+const TOKEN_KEY = 'yaoyouju_app_token';
 
 export class ApiError extends Error {
   code: number;
@@ -13,15 +14,23 @@ export class ApiError extends Error {
   }
 }
 
-let authToken: string | null = null;
+let authToken: string | null = uni.getStorageSync(TOKEN_KEY) || null;
 let adminToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
+  if (token) uni.setStorageSync(TOKEN_KEY, token);
+  else uni.removeStorageSync(TOKEN_KEY);
 }
 
 export function getAuthToken() {
   return authToken;
+}
+
+/** 登录过期（1002）时引导回登录页 */
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
 }
 
 export function setAdminToken(token: string | null) {
@@ -46,6 +55,10 @@ async function request<T>(pathname: string, options: RequestInit = {}): Promise<
     message: string;
   };
   if (json.code !== 0) {
+    if (json.code === 1002) {
+      setAuthToken(null);
+      onUnauthorized?.();
+    }
     throw new ApiError(json.code, json.message || '请求失败');
   }
   return json.data;

@@ -133,7 +133,7 @@ import { ref } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, addSymptomLog } from '@/api';
+import { listEpisodes, addSymptomLog, createEpisode } from '@/api';
 
 const today = new Date().toISOString().slice(0, 10);
 const sitOptions = ['<15分钟', '15-30', '30-60', '>60分钟'];
@@ -166,20 +166,34 @@ function goBack() {
   uni.navigateBack();
 }
 
+/** 把“能坐多久”的选项映射为分钟数（取区间中值，>60 记为 90） */
+function sitMinutesToNumber(opt: string): number | undefined {
+  if (!opt) return undefined;
+  if (opt === '<15分钟') return 10;
+  if (opt === '15-30') return 22;
+  if (opt === '30-60') return 45;
+  if (opt === '>60分钟') return 90;
+  const n = parseInt(opt, 10);
+  return Number.isNaN(n) ? undefined : n;
+}
+
 async function onSave(updateCurrent = false) {
   try {
-    const episodes = await listEpisodes();
+    let episodes = await listEpisodes();
     if (episodes.length === 0) {
-      uni.showToast({ title: '请先创建病程', icon: 'none' });
-      return;
+      // 自动创建病程，不阻断记录
+      const ep = await createEpisode('腰痛', undefined, '尚未确认');
+      episodes = [{ id: ep.id, title: '腰痛', onsetDate: null, onsetCertainty: '尚未确认', status: 'active' }];
     }
     await addSymptomLog(episodes[0].id, {
       occurredAt: new Date().toISOString(),
-      sitMinutes: sitMinutes.value ? parseInt(sitMinutes.value) : undefined,
+      sitMinutes: sitMinutesToNumber(sitMinutes.value),
       plannedActivityDone: activity.value || undefined,
       sleepImpact: sleep.value ?? undefined,
       topWorry: worry.value || undefined,
       legChange: leg.value || undefined,
+      changeVsYesterday: change.value || undefined,
+      activitiesDone: done.value.join('、') || undefined,
     });
     uni.showToast({ title: '已保存', icon: 'success' });
     if (updateCurrent) {

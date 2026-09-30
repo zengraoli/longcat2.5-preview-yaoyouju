@@ -333,6 +333,44 @@ export class ContentsService {
       .sort((a, b) => b.score - a.score);
   }
 
+  /** 用户端：内容详情（含脚本、字幕、审核记录、版本） */
+  publishedDetail(itemId: string) {
+    const item = this.appDb
+      .prepare(
+        `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
+                v.script, v.subtitle_text AS subtitleText, v.model_asset_version AS modelAssetVersion,
+                v.published_at AS publishedAt
+         FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
+         WHERE i.id = ? AND i.current_status = '已发布' AND i.offline_switch = 0
+         ORDER BY v.version DESC LIMIT 1`,
+      )
+      .get(itemId) as
+      | {
+          id: string;
+          type: string;
+          title: string;
+          applicableScope: string | null;
+          notApplicable: string | null;
+          script: string | null;
+          subtitleText: string | null;
+          modelAssetVersion: string | null;
+          publishedAt: string | null;
+        }
+      | undefined;
+    if (!item) throw new NotFoundException('内容不存在或已下线');
+    const reviews = this.appDb
+      .prepare(
+        `SELECT r.decision, r.comment, r.reviewed_at AS reviewedAt, au.name AS reviewerName
+         FROM REVIEW_RECORD r LEFT JOIN ADMIN_USER au ON au.id = r.reviewer_id
+         WHERE r.target_id = ? ORDER BY r.reviewed_at ASC`,
+      )
+      .all(itemId) as Array<{ decision: string; string: string; comment: string | null; reviewedAt: string; reviewerName: string | null }>;
+    const versions = this.appDb
+      .prepare('SELECT version, published_at AS publishedAt FROM CONTENT_VERSION WHERE item_id = ? ORDER BY version ASC')
+      .all(itemId) as Array<{ version: number; publishedAt: string | null }>;
+    return { ...item, reviews, versions };
+  }
+
   /** 管理端列表（全部状态） */
   listAll() {
     return this.appDb

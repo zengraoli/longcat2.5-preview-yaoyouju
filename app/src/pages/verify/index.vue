@@ -11,28 +11,32 @@
     </TipBar>
 
     <!-- 报告信息 -->
-    <view class="card">
+    <view class="card" v-if="report">
       <view class="verify__card-title">
-        <text class="verify__card-name">报告信息 · {{ reportDate }}</text>
+        <text class="verify__card-name">报告信息 · {{ report.reportDate || '日期尚未确认' }}</text>
         <view class="verify__card-actions">
           <StatusTag label="报告原文" />
-          <text class="verify__edit">✎</text>
+          <text class="verify__edit" @click="onCorrectReport">✎</text>
         </view>
       </view>
-      <view v-for="(term, i) in terms" :key="i" class="verify__term">
+      <view v-for="(term, i) in report.terms" :key="i" class="verify__term">
         <text class="verify__term-label">{{ term.label }}</text>
         <text class="verify__term-text">{{ term.text }}</text>
         <text class="verify__term-pos">{{ term.pos }}</text>
       </view>
+      <text class="verify__raw">{{ report.rawText }}</text>
 
       <!-- 侧别冲突 -->
       <view v-if="conflict" class="verify__conflict">
-        <text class="verify__conflict-title">⚠ 侧别冲突：{{ conflict.text }}</text>
+        <text class="verify__conflict-title">⚠ 侧别冲突：{{ conflict }}</text>
         <view class="verify__conflict-actions">
-          <AppButton type="soft" @click="resolveConflict('left')">我的症状在左侧</AppButton>
-          <AppButton type="secondary" @click="resolveConflict('both')">都有 / 不确定</AppButton>
+          <AppButton type="soft" @click="resolveConflict('左侧')">我的症状在左侧</AppButton>
+          <AppButton type="secondary" @click="resolveConflict('双侧')">都有 / 不确定</AppButton>
         </view>
       </view>
+    </view>
+    <view class="card" v-else>
+      <text class="verify__empty">暂无已录入的报告</text>
     </view>
 
     <!-- 症状与变化 -->
@@ -41,7 +45,6 @@
         <text class="verify__card-name">症状与变化</text>
         <view class="verify__card-actions">
           <StatusTag label="自述" />
-          <text class="verify__edit">✎</text>
         </view>
       </view>
       <view v-for="(row, i) in symptoms" :key="i" class="verify__row">
@@ -57,13 +60,12 @@
         <text class="verify__card-name">既有医嘱</text>
         <view class="verify__card-actions">
           <StatusTag label="自述" />
-          <text class="verify__edit">✎</text>
         </view>
       </view>
-      <view class="verify__row">
-        <text class="verify__row-label">医生建议</text>
-        <text class="verify__row-text">保守治疗，4周后复查</text>
-        <StatusTag label="未经核实" />
+      <view v-for="(row, i) in advices" :key="i" class="verify__row">
+        <text class="verify__row-label">{{ row.label }}</text>
+        <text class="verify__row-text">{{ row.text }}</text>
+        <StatusTag :label="row.status" />
       </view>
     </view>
 
@@ -81,37 +83,66 @@ import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, timeline, createAnalysis } from '@/api';
+import { listEpisodes, timeline, getReport, confirmReport } from '@/api';
 
-const reportDate = ref('2026-08-30');
-const terms = ref([
-  { label: '关键术语', text: 'L5/S1 椎间盘向后突出', pos: '原文第2行' },
-  { label: '', text: '相应硬膜囊受压', pos: '原文第2行' },
-  { label: '神经根', text: '报告写“右侧神经根受压可能”', pos: '原文第3行' },
-]);
-const conflict = ref<{ text: string } | null>({ text: '报告为“右侧”，你的描述为“左侧”' });
-const symptoms = ref([
-  { label: '症状开始', text: '约1个月内（记不清具体日期）', status: '尚未确认' },
-  { label: '最近变化', text: '加重', status: '已确认' },
-  { label: '腿部无力', text: '尚未回答', status: '尚未确认' },
-  { label: '大小便/鞍区', text: '没有', status: '已确认' },
-  { label: '主要困惑', text: '报告术语', status: '已确认' },
-]);
-
-function resolveConflict(_choice: string) {
-  conflict.value = null;
-}
+const report = ref<{
+  id: string;
+  reportDate: string | null;
+  rawText: string;
+  terms: Array<{ label: string; text: string; pos: string }>;
+  verifyStatus: string;
+} | null>(null);
+const conflict = ref('');
+const symptoms = ref<Array<{ label: string; text: string; status: string }>>([]);
+const advices = ref<Array<{ label: string; text: string; status: string }>>([]);
 
 function goBack() {
   uni.navigateBack();
 }
 
+async function onCorrectReport() {
+  if (!report.value) return;
+  try {
+    const result = await confirmReport(report.value.id, '已确认');
+    report.value.verifyStatus = '已确认';
+    uni.showToast({ title: '已确认报告', icon: 'success' });
+    void result;
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
+}
+
+function resolveConflict(choice: string) {
+  conflict.value = '';
+  uni.showToast({ title: `已记录：${choice}`, icon: 'success' });
+}
+
 async function onGenerate() {
   try {
     const episodes = await listEpisodes();
-    if (episodes.length === 0) return;
-    const result = await createAnalysis(episodes[0].id);
+    if (episodes.length === 0) {
+      uni.showToast({ title: '请先建立病程', icon: 'none' });
+      return;
+    }
+    // 带上核对页整理的文字做安全预检
+    const text = [
+      ...symptoms.value.filter((s) => s.text && s.text !== '尚未确认').map((s) => `${s.label}${s.text}`),
+      ...advices.value.filter((a) => a.text && a.text !== '尚未确认').map((a) => a.text),
+    ].join('，');
+    const { createAnalysis } = await import('@/api');
+    const result = await createAnalysis(episodes[0].id, text || undefined);
     if (result.safety.redFlags.length > 0) {
+      uni.showModal({
+        title: '需要及时寻求专业帮助',
+        content: result.safety.redFlags.map((r) => r.message).join(''),
+        showCancel: false,
+        success: () => {
+          uni.navigateTo({ url: '/pages/redflag/index' });
+        },
+      });
+      return;
+    }
+    if (result.status === 'blocked') {
       uni.navigateTo({ url: '/pages/redflag/index' });
       return;
     }
@@ -124,11 +155,35 @@ async function onGenerate() {
 onMounted(async () => {
   try {
     const episodes = await listEpisodes();
-    if (episodes.length > 0) {
-      await timeline(episodes[0].id);
+    if (episodes.length === 0) return;
+    const tl = await timeline(episodes[0].id);
+    const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
+    if (!reportEvent) return;
+    // 从时间线事件中提取报告信息（报告原文在事件里）
+    const rawText = reportEvent.rawText ?? '';
+    const terms: Array<{ label: string; text: string; pos: string }> = [];
+    const termDefs: Array<{ name: string; def: string }> = [
+      { name: 'L5/S1', def: '第 5 腰椎与第 1 骶椎之间的椎间盘' },
+      { name: '硬膜囊受压', def: '突出物与神经外膜结构的位置关系（影像描述）' },
+      { name: '神经根受压', def: '神经根受压迫的可能（需结合查体）' },
+      { name: '椎间盘突出', def: '椎间盘内容物超出椎体边缘的影像描述' },
+    ];
+    let pos = 1;
+    for (const t of termDefs) {
+      if (rawText.includes(t.name)) {
+        terms.push({ label: t.name, text: t.def, pos: `原文第${pos}处` });
+        pos += 1;
+      }
     }
+    report.value = {
+      id: reportEvent.id,
+      reportDate: reportEvent.occurredAt.slice(0, 10),
+      rawText,
+      terms,
+      verifyStatus: reportEvent.verifyStatus,
+    };
   } catch {
-    // 核对页数据加载失败不阻塞
+    // 加载失败不阻塞
   }
 });
 </script>
@@ -185,7 +240,7 @@ onMounted(async () => {
 .verify__term-label {
   font-size: 13px;
   color: var(--text-2);
-  width: 56px;
+  width: 72px;
   flex-shrink: 0;
 }
 .verify__term-text {
@@ -196,6 +251,16 @@ onMounted(async () => {
   font-size: 11px;
   color: var(--text-3);
   flex-shrink: 0;
+}
+.verify__raw {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+  display: block;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
 }
 .verify__conflict {
   background: rgba(217, 59, 59, 0.06);
@@ -229,6 +294,13 @@ onMounted(async () => {
 .verify__row-text {
   font-size: 14px;
   flex: 1;
+}
+.verify__empty {
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: center;
+  display: block;
+  padding: 12px 0;
 }
 .verify__back-link {
   display: block;

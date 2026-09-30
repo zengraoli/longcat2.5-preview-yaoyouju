@@ -102,7 +102,7 @@ import { ref, computed } from 'vue';
 import TipBar from '@/components/TipBar.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
-import { checkSafety } from '@/api';
+import { checkSafety, listEpisodes, addEvent } from '@/api';
 
 const step = ref(1);
 const changeOptions = ['加重', '差不多', '减轻', '尚未确认'];
@@ -158,11 +158,50 @@ async function onNext() {
   try {
     const result = await checkSafety(text, 'confirm');
     if (!result.passed && result.redFlags.length > 0) {
+      // 记录红旗选择并跳转就医提示
+      uni.setStorageSync('redflagSelected', q2.value);
+      try {
+        const episodes = await listEpisodes();
+        if (episodes.length > 0) {
+          await addEvent(episodes[0].id, {
+            eventType: '症状',
+            occurredAt: new Date().toISOString(),
+            sourceType: '自述',
+            rawText: `确认时选择的红旗项：${q2.value.join('、')}`,
+            verifyStatus: '尚未确认',
+          });
+        }
+      } catch {
+        // 保存失败不阻断就医提示
+      }
       uni.navigateTo({ url: '/pages/redflag/index' });
       return;
     }
   } catch {
     // 预检失败不阻塞流程
+  }
+  // 保存确认结果（自述事件）
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const parts = [
+        q1.value && `与上次相比：${q1.value}`,
+        q3.value && `疼痛涉及：${q3.value}`,
+        q4date.value && `开始日期：${q4date.value}`,
+        q4.value === '记不清' ? '开始日期记不清' : '',
+      ].filter(Boolean).join('；');
+      if (parts) {
+        await addEvent(episodes[0].id, {
+          eventType: '症状',
+          occurredAt: new Date().toISOString(),
+          sourceType: '自述',
+          rawText: `当前关键变化确认：${parts}`,
+          verifyStatus: '尚未确认',
+        });
+      }
+    }
+  } catch {
+    // 保存失败不阻断流程
   }
   uni.navigateTo({ url: '/pages/confusion/index' });
 }

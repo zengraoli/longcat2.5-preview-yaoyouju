@@ -23,15 +23,15 @@
       <text class="feedback__attached-title">📋 关于哪条内容（自动附带）</text>
       <view class="feedback__attached-row">
         <text class="feedback__attached-label">内容</text>
-        <text class="feedback__attached-value">一页分析 v3 · ②-2 “硬膜囊受压”解释</text>
+        <text class="feedback__attached-value">一页分析 {{ analysisVersion || '—' }}</text>
       </view>
       <view class="feedback__attached-row">
         <text class="feedback__attached-label">版本</text>
-        <text class="feedback__attached-value">分析 v3 · 模型 M-2609 · 科普 #07 v1 · 检索策略 R-4</text>
+        <text class="feedback__attached-value">分析 {{ analysisVersion || '—' }} · 模型 {{ analysisModel || '—' }}</text>
       </view>
       <view class="feedback__attached-row">
         <text class="feedback__attached-label">时间</text>
-        <text class="feedback__attached-value">2026-09-21 09:41</text>
+        <text class="feedback__attached-value">{{ analysisTime || '—' }}</text>
       </view>
     </view>
 
@@ -87,7 +87,7 @@ import { ref } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { createErrorReport } from '@/api';
+import { listEpisodes, getLatestAnalysis, createErrorReport, createHelpFeedback } from '@/api';
 
 const tabs = [
   { key: 'help', label: '帮助类型反馈' },
@@ -105,9 +105,13 @@ const problemTypes = [
 ];
 
 const activeTab = ref('report');
-const problems = ref<string[]>(['与我的报告不符', '左右侧/日期混淆']);
+const problems = ref<string[]>([]);
 const description = ref('');
 const authorized = ref(true);
+const analysisId = ref('');
+const analysisVersion = ref('');
+const analysisModel = ref('');
+const analysisTime = ref('');
 
 function toggleProblem(opt: string) {
   const idx = problems.value.indexOf(opt);
@@ -120,18 +124,49 @@ function goBack() {
 }
 
 async function onSubmit() {
+  if (!analysisId.value) {
+    uni.showToast({ title: '请先生成一页分析', icon: 'none' });
+    return;
+  }
+  if (activeTab.value === 'help') {
+    try {
+      await createHelpFeedback(analysisId.value, '都不好', description.value || undefined);
+      uni.showToast({ title: '感谢反馈', icon: 'success' });
+      setTimeout(() => uni.navigateBack(), 1000);
+    } catch (e) {
+      uni.showToast({ title: (e as Error).message, icon: 'none' });
+    }
+    return;
+  }
   if (problems.value.length === 0) {
     uni.showToast({ title: '请选择问题类型', icon: 'none' });
     return;
   }
   try {
-    await createErrorReport('analysis-1', description.value || problems.value.join('、'), '中');
+    await createErrorReport(analysisId.value, description.value || problems.value.join('、'), '中');
     uni.showToast({ title: '已提交举报', icon: 'success' });
     setTimeout(() => uni.navigateBack(), 1000);
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' });
   }
 }
+
+onMounted(async () => {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const analysis = await getLatestAnalysis(episodes[0].id);
+      if (analysis) {
+        analysisId.value = analysis.id;
+        analysisVersion.value = `v${analysis.version}`;
+        analysisModel.value = analysis.modelReleaseId;
+        analysisTime.value = analysis.createdAt.slice(0, 10);
+      }
+    }
+  } catch {
+    // 加载失败不阻塞
+  }
+});
 </script>
 
 <style scoped>

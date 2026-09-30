@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB, IDENTITY_DB } from '../../database/database.module';
-import { encryptField, maskPhone } from '../../database/crypto';
+import { decryptField, encryptField, maskPhone } from '../../database/crypto';
 import { ERR } from '../../common/utils/business-exception';
 
 export const CONSENT_SCOPES = ['健康信息处理', '分享', '产品改进'] as const;
@@ -86,6 +86,19 @@ export class AuthService {
     return { token, user: { id: user.id }, consents: this.getConsents(user.id) };
   }
 
+  /** 当前用户信息（匿名标识 + 脱敏手机号） */
+  me(userId: string): { id: string; maskedPhone: string | null } {
+    const row = this.identityDb
+      .prepare('SELECT phone_enc AS phoneEnc FROM IDENTITY_PROFILE WHERE user_id = ?')
+      .get(userId) as { phoneEnc: string } | undefined;
+    if (!row) return { id: userId, maskedPhone: null };
+    try {
+      return { id: userId, maskedPhone: maskPhone(decryptField(row.phoneEnc)) };
+    } catch {
+      return { id: userId, maskedPhone: null };
+    }
+  }
+
   getConsents(userId: string): ConsentView[] {
     const rows = this.appDb
       .prepare(
@@ -157,6 +170,44 @@ export class AuthService {
   /** 退出登录：服务端销毁会话 */
   logout(token: string): void {
     this.appDb.prepare('DELETE FROM SESSION WHERE token = ?').run(token);
+  }
+
+  /** 注销账户与数据：删除用户的所有数据（病程、事件、报告、分析、反馈、同意、会话） */
+  deleteAccount(userId: string): void {
+    const episodeIds = (
+      this.appDb.prepare('SELECT id FROM EPISODE WHERE user_id = ?').all(userId) as Array<{ id: string }>
+    ).map((r) => r.id);
+    const eventIds = (
+      this.appDb
+        .prepare(`SELECT id FROM CARE_EVENT WHERE episode_id IN (${episodeIds.map(() => '?').join(',') || "''"})`)
+        .all(...episodeIds) as Array<{ id: string }>
+    ).map((r) => r.id);
+    const tx = this.appDb.transaction(() => {
+      // 先删依赖病程的数据，再删病程本身
+      this.appDb.prepare('DELETE FROM ANALYSIS_TASK WHERE episode_id IN (SELECT id FROM EPISODE WHERE user_id = ?)').run(userId);
+      this.appDb.prepare('DELETE FROM ANALYSIS WHERE episode_id IN (SELECT id FROM EPISODE WHERE user_id = ?)').run(userId);
+      this.appDb.prepare('DELETE FROM FOLLOWUP_SUMMARY WHERE episode_id IN (SELECT id FROM EPISODE WHERE user_id = ?)').run(userId);
+      for (const eid of eventIds) {
+        this.appDb.prepare('DELETE FROM REPORT WHERE care_event_id = ?').run(eid);
+        this.appDb.prepare('DELETE FROM SYMPTOM_LOG WHERE care_event_id = ?').run(eid);
+      }
+      if (eventIds.length > 0) {
+        this.appDb
+          .prepare(`DELETE FROM CARE_EVENT WHERE id IN (${eventIds.map(() => '?').join(',')})`)
+          .run(...eventIds);
+      }
+      if (episodeIds.length > 0) {
+        this.appDb
+          .prepare(`DELETE FROM EPISODE WHERE id IN (${episodeIds.map(() => '?').join(',')})`)
+          .run(...episodeIds);
+      }
+      this.appDb.prepare('DELETE FROM FEEDBACK WHERE user_id = ?').run(userId);
+      this.appDb.prepare('DELETE FROM CONSENT WHERE user_id = ?').run(userId);
+      this.appDb.prepare('DELETE FROM SESSION WHERE user_id = ?').run(userId);
+      this.appDb.prepare('DELETE FROM USER WHERE id = ?').run(userId);
+    });
+    tx();
+    this.identityDb.prepare('DELETE FROM IDENTITY_PROFILE WHERE user_id = ?').run(userId);
   }
 
   private findOrCreateUser(phone: string): { id: string } {

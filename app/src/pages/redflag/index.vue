@@ -18,8 +18,8 @@
     <AppButton type="danger" block @click="call120">拨打 120 / 前往急诊</AppButton>
 
     <view class="redflag__actions">
-      <AppButton type="secondary" block>查找附近医院</AppButton>
-      <AppButton type="secondary" block>联系我的主治医生（已保存）</AppButton>
+      <AppButton type="secondary" block @click="goHospital">查找附近医院</AppButton>
+      <AppButton type="secondary" block @click="goDoctor">联系我的主治医生</AppButton>
     </view>
 
     <view class="card">
@@ -51,11 +51,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import TipBar from '@/components/TipBar.vue';
 import AppButton from '@/components/AppButton.vue';
 
-const selectedText = ref('会阴区麻木、双腿进行性无力');
+const selectedText = ref('');
+
+onMounted(() => {
+  // 读取确认页选择的红旗项
+  const selected = uni.getStorageSync('redflagSelected') as string[] | '';
+  if (Array.isArray(selected) && selected.length > 0) {
+    selectedText.value = selected.join('、');
+  } else {
+    selectedText.value = '你选择的变化（记录见病程）';
+  }
+});
 
 function goBack() {
   uni.navigateBack();
@@ -71,6 +81,14 @@ function goSummary() {
 
 function goContents() {
   uni.navigateTo({ url: '/pages/contents/index' });
+}
+
+function goHospital() {
+  uni.showToast({ title: '请前往正规医疗机构急诊', icon: 'none' });
+}
+
+function goDoctor() {
+  uni.showToast({ title: '可在复诊时联系你的主治医生', icon: 'none' });
 }
 </script>
 

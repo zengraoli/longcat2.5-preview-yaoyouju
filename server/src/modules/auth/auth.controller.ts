@@ -55,6 +55,13 @@ export class AuthController {
     return this.auth.getConsents(user.userId);
   }
 
+  /** 当前用户信息（匿名标识 + 脱敏手机号） */
+  @Get('me')
+  @UseGuards(AuthGuard)
+  getMe(@CurrentUser() user: { userId: string }) {
+    return this.auth.me(user.userId);
+  }
+
   /** 单独勾选 / 撤回同意 */
   @Post('consents')
   @UseGuards(AuthGuard)
@@ -72,5 +79,14 @@ export class AuthController {
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
     if (token) this.auth.logout(token);
     return { loggedOut: true };
+  }
+
+  /** 注销账户与数据（不可恢复） */
+  @Post('delete')
+  @UseGuards(AuthGuard)
+  @HttpCode(200)
+  deleteAccount(@CurrentUser() user: { userId: string }) {
+    this.auth.deleteAccount(user.userId);
+    return { deleted: true };
   }
 }

@@ -26,8 +26,21 @@ export function getConsents() {
   return api.get<ConsentView[]>('/auth/consents');
 }
 
+export function getMe() {
+  return api.get<{ id: string; maskedPhone: string | null }>('/auth/me');
+}
+
 export function setConsent(scope: string, granted: boolean) {
   return api.post<ConsentView[]>('/auth/consents', { scope, granted: String(granted) });
+}
+
+export function logout() {
+  return api.post<{ loggedOut: boolean }>('/auth/logout', {});
+}
+
+/** 删除账户与数据（注销） */
+export function deleteAccount() {
+  return api.post<{ deleted: boolean }>('/auth/delete', {});
 }
 
 /* ---------- 安全 ---------- */
@@ -318,6 +331,19 @@ export interface ContentItem {
 
 export function listPublishedContents() {
   return api.get<ContentItem[]>('/contents/published');
+}
+
+export interface ContentDetail extends ContentItem {
+  script: string | null;
+  subtitleText: string | null;
+  modelAssetVersion: string | null;
+  publishedAt: string | null;
+  reviews: Array<{ decision: string; comment: string | null; reviewedAt: string; reviewerName: string | null }>;
+  versions: Array<{ version: number; publishedAt: string | null }>;
+}
+
+export function getContentDetail(id: string) {
+  return api.get<ContentDetail>(`/contents/published/${id}`);
 }
 
 /* ---------- 反馈 ---------- */

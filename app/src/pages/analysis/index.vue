@@ -17,7 +17,10 @@
       <TipBar type="error">
         {{ reason }}。你仍然可以查看已审核资料与复诊摘要。
       </TipBar>
-      <AppButton type="soft" block @click="goContents">查看已审核资料</AppButton>
+      <view class="analysis__actions">
+        <AppButton type="soft" block @click="goContents">查看已审核资料</AppButton>
+        <AppButton type="secondary" block @click="goFallback">查看服务不可用说明</AppButton>
+      </view>
     </view>
 
     <template v-else-if="result">
@@ -27,9 +30,7 @@
       </view>
       <text class="analysis__version">分析版本 v{{ result.version }} · 模型 {{ result.modelReleaseId }}</text>
 
-      <text class="analysis__intro">
-        你上传的报告中提到了 L5/S1；你描述目前腰痛持续约1个月且最近加重。报告日期已确认，症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。
-      </text>
+      <text class="analysis__intro">{{ introText }}</text>
 
       <!-- ① 当前确认的信息与来源 -->
       <view class="card">
@@ -104,6 +105,7 @@
 
       <view class="analysis__actions">
         <AppButton type="secondary" block @click="goTimeline">保存到病程</AppButton>
+        <AppButton type="secondary" block @click="goCompare">原文对照</AppButton>
         <AppButton block @click="goSummary">生成复诊摘要</AppButton>
       </view>
 
@@ -116,6 +118,7 @@
           </AppChip>
         </view>
         <text class="analysis__report-error" @click="onReportError">⚑ 报告错误（会记录分析版本与影响范围）</text>
+        <text class="analysis__report-error" @click="goFeedback">前往“反馈与举报”页</text>
       </view>
 
       <TipBar type="info">
@@ -127,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import AppChip from '@/components/AppChip.vue';
@@ -155,8 +158,26 @@ function sourceLabel(source: string | null) {
 
 function evidenceTitle(source: string | null) {
   if (!source) return '系统生成';
+  const citation = result.value?.citations.find((c) => c.evidenceDocId === source);
+  if (citation?.evidenceDocTitle) return citation.evidenceDocTitle;
   return `审核科普 #${source.slice(-2)}`;
 }
+
+/** 根据分析实际数据生成引言，不写死示例内容 */
+const introText = computed(() => {
+  if (!result.value) return '';
+  const parts: string[] = [];
+  const known = result.value.sections.已知;
+  if (known.length > 0) {
+    parts.push(`已确认 ${known.length} 条信息`);
+  }
+  const unknown = result.value.sections.未知;
+  if (unknown.length > 0) {
+    parts.push(`有 ${unknown.length} 项尚未确认`);
+  }
+  if (parts.length === 0) return '下面按“已知 / 解释 / 未知 / 下一步”整理。';
+  return `下面按“已知 / 解释 / 未知 / 下一步”整理：${parts.join('，')}。`;
+});
 
 function goBack() {
   uni.navigateBack();
@@ -172,6 +193,15 @@ function goFollowup() {
 }
 function goContents() {
   uni.navigateTo({ url: '/pages/contents/index' });
+}
+function goCompare() {
+  uni.navigateTo({ url: '/pages/report-compare/index' });
+}
+function goFeedback() {
+  uni.navigateTo({ url: '/pages/feedback/index' });
+}
+function goFallback() {
+  uni.navigateTo({ url: '/pages/fallback/index' });
 }
 
 async function onFeedback(opt: string) {

@@ -2,7 +2,7 @@
   <view class="detail">
     <view class="detail__header">
       <text class="detail__back" @click="goBack">‹</text>
-      <text class="detail__title">审核视频</text>
+      <text class="detail__title">{{ content?.title || '内容详情' }}</text>
       <text class="detail__share">↑</text>
     </view>
 
@@ -11,7 +11,7 @@
       <view class="detail__play-btn">
         <text class="detail__play-icon">▶</text>
       </view>
-      <text class="detail__player-caption">示意动画：L5/S1 节段位置（非本人影像）</text>
+      <text class="detail__player-caption">示意动画（非本人影像）</text>
       <view class="detail__progress">
         <text class="detail__time">0:00 / 2:10</text>
         <view class="detail__progress-bar">
@@ -22,18 +22,16 @@
     </view>
 
     <view class="detail__body">
-      <text class="detail__title-main">腰椎节段位置：L5/S1 在哪里</text>
       <view class="detail__meta">
-        <StatusTag label="已审核 v2" />
-        <text class="detail__meta-text">临床审定 · 2026-08</text>
+        <StatusTag label="已审核" />
+        <text class="detail__meta-text">临床审定{{ content?.publishedAt ? ' · ' + content.publishedAt.slice(0, 7) : '' }}</text>
       </view>
       <view class="detail__meta">
-        <text class="detail__meta-tag">依据：指南 G-03 · 科普 #12</text>
-        <text class="detail__meta-tag detail__meta-tag--info">字幕 · 文字替代</text>
+        <text class="detail__meta-tag">字幕 · 文字替代</text>
       </view>
 
       <TipBar type="info">
-        为什么推荐给你：你的报告（2026-08-30）提到 L5/S1。示意图不是你的真实病变，不能据此判断本人病因。
+        为什么推荐给你：你的报告或病程中提到了相关内容。示意图不是你的真实病变，不能据此判断本人病因。
       </TipBar>
 
       <!-- 适用范围 -->
@@ -41,20 +39,28 @@
         <text class="card-title">适用范围</text>
         <view class="detail__scope-row">
           <text class="detail__scope-label">适用</text>
-          <text class="detail__scope-text">想了解报告中“L5/S1”“节段”等术语的含义</text>
+          <text class="detail__scope-text">{{ content?.applicableScope || '所有用户' }}</text>
         </view>
         <view class="detail__scope-row">
           <text class="detail__scope-label">不适用</text>
-          <text class="detail__scope-text">判断自己的突出程度、是否需要手术、康复动作选择</text>
+          <text class="detail__scope-text">{{ content?.notApplicable || '无' }}</text>
         </view>
       </view>
 
       <!-- 文字替代 -->
       <view class="card">
         <text class="card-title">文字替代（全文）</text>
-        <text class="detail__transcript">
-          脊柱由一节节椎骨组成，腰椎有 5 节，从上到下叫 L1 到 L5；L5 下面是骶骨 S1。两节骨头之间的软垫叫椎间盘，“L5/S1”就是第 5 腰椎和第 1 骶椎之间的那个椎间盘……
-        </text>
+        <text class="detail__transcript">{{ content?.subtitleText || content?.script || '暂无文字替代' }}</text>
+      </view>
+
+      <!-- 审核记录 -->
+      <view class="card" v-if="content && content.reviews.length > 0">
+        <text class="card-title">审核记录</text>
+        <view v-for="(r, i) in content.reviews" :key="i" class="detail__review">
+          <text class="detail__review-decision">{{ r.decision }}</text>
+          <text class="detail__review-meta">{{ r.reviewerName || '审核人' }} · {{ r.reviewedAt.slice(0, 10) }}</text>
+          <text class="detail__review-comment">{{ r.comment }}</text>
+        </view>
       </view>
 
       <!-- 复述任务 -->
@@ -87,12 +93,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
+import { getContentDetail, listEpisodes, addEvent, type ContentDetail } from '@/api';
 
+const pages = getCurrentPages();
+const currentPage = pages[pages.length - 1] as { options?: Record<string, string> };
+const contentId = currentPage?.options?.id ?? '';
+
+const content = ref<ContentDetail | null>(null);
 const retell = ref('');
 const feedbackOptions = ['看懂了', '没看懂', '内容有误（举报）'];
 
@@ -100,18 +112,51 @@ function goBack() {
   uni.navigateBack();
 }
 
-function onSubmitRetell() {
+async function onSubmitRetell() {
   if (!retell.value.trim()) {
     uni.showToast({ title: '请先填写你的理解', icon: 'none' });
     return;
   }
-  uni.showToast({ title: '已提交，感谢检验', icon: 'success' });
-  retell.value = '';
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      uni.showToast({ title: '请先建立病程', icon: 'none' });
+      return;
+    }
+    // 复述提交到病程（行动事件），用于检验理解
+    await addEvent(episodes[0].id, {
+      eventType: '行动',
+      occurredAt: new Date().toISOString(),
+      sourceType: '自述',
+      rawText: `内容复述（${content.value?.title ?? ''}）：${retell.value}`,
+    });
+    uni.showToast({ title: '已提交，感谢检验', icon: 'success' });
+    retell.value = '';
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
 }
 
 function onFeedback(opt: string) {
+  if (opt === '内容有误（举报）') {
+    uni.showModal({
+      title: '举报内容错误',
+      content: '请前往“反馈与举报”页提交详细描述（会自动附带版本信息）。',
+      showCancel: false,
+    });
+    return;
+  }
   uni.showToast({ title: '感谢反馈', icon: 'success' });
 }
+
+onMounted(async () => {
+  if (!contentId) return;
+  try {
+    content.value = await getContentDetail(contentId);
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
+});
 </script>
 
 <style scoped>
@@ -193,12 +238,6 @@ function onFeedback(opt: string) {
 .detail__body {
   padding: 16px;
 }
-.detail__title-main {
-  font-size: 17px;
-  font-weight: 500;
-  display: block;
-  margin-bottom: 8px;
-}
 .detail__meta {
   display: flex;
   align-items: center;
@@ -215,10 +254,6 @@ function onFeedback(opt: string) {
   background: var(--bg);
   padding: 1px 8px;
   border-radius: 4px;
-}
-.detail__meta-tag--info {
-  color: var(--info);
-  background: rgba(47, 111, 216, 0.1);
 }
 .detail__scope-row {
   display: flex;
@@ -242,6 +277,32 @@ function onFeedback(opt: string) {
   color: var(--text-1);
   display: block;
 }
+.detail__review {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.detail__review:last-child {
+  border-bottom: none;
+}
+.detail__review-decision {
+  font-size: 13px;
+  color: var(--ok);
+  display: block;
+}
+.detail__review-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  display: block;
+  margin-top: 2px;
+}
+.detail__review-comment {
+  font-size: 13px;
+  color: var(--text-2);
+  display: block;
+  margin-top: 4px;
+  line-height: 1.5;
+}
 .detail__retell {
   background: var(--primary-light);
 }
@@ -262,6 +323,7 @@ function onFeedback(opt: string) {
   font-size: 14px;
   line-height: 1.6;
   margin-bottom: 12px;
+  box-sizing: border-box;
 }
 .detail__placeholder {
   color: var(--text-3);
@@ -270,5 +332,17 @@ function onFeedback(opt: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  display: block;
 }
 </style>

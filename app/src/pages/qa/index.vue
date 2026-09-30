@@ -81,9 +81,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import AppChip from '@/components/AppChip.vue';
 import TipBar from '@/components/TipBar.vue';
 import {
+  listEpisodes,
   getLatestAnalysis,
   createQaSession,
   getQaSession,
@@ -137,25 +139,33 @@ function scrollToBottom() {
   });
 }
 
-onMounted(async () => {
+async function loadSession() {
   try {
-    const analysis = await getLatestAnalysis(getEpisodeId());
-    if (analysis) {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      uni.showToast({ title: '请先建立病程', icon: 'none' });
+      return;
+    }
+    const analysis = await getLatestAnalysis(episodes[0].id);
+    if (!analysis) {
+      uni.showToast({ title: '请先生成一页分析', icon: 'none' });
+      return;
+    }
+    if (!sessionId.value) {
       const session = await createQaSession(analysis.id, '报告术语解释');
       sessionId.value = session.id;
       const history = await getQaSession(session.id);
       messages.value = history.messages;
       explainedCount.value = history.messages.filter((m) => m.role === 'assistant').length;
     }
-  } catch {
-    // 未登录或无分析时不阻塞
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
   }
-});
-
-function getEpisodeId(): string {
-  // 从首页缓存或重新获取；这里简化处理
-  return (uni.getStorageSync('episodeId') as string) || '';
 }
+
+onMounted(loadSession);
+// 切回本页时刷新（可能已有新分析）
+onShow(loadSession);
 </script>
 
 <style scoped>

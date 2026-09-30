@@ -3,18 +3,34 @@
     <view class="timeline__header">
       <text class="timeline__title">病程</text>
       <view class="timeline__header-actions">
-        <text class="timeline__filter">▽</text>
-        <text class="timeline__add">＋</text>
+        <text class="timeline__filter" @click="showFilter = !showFilter">▽</text>
+        <text class="timeline__add" @click="goAdd">＋</text>
+      </view>
+    </view>
+
+    <!-- 筛选 -->
+    <view v-if="showFilter" class="card">
+      <view class="timeline__filter-chips">
+        <AppChip
+          v-for="f in filters"
+          :key="f"
+          :state="activeFilter === f ? 'selected' : 'unselected'"
+          @click="activeFilter = f"
+        >
+          {{ f }}
+        </AppChip>
       </view>
     </view>
 
     <!-- 本次发作 -->
-    <view class="card">
+    <view class="card" v-if="episode">
       <view class="timeline__episode-title">
-        <text class="card-title">本次发作</text>
-        <text class="timeline__episode-tag">保守治疗中</text>
+        <text class="card-title">{{ episode.title }}</text>
+        <text class="timeline__episode-tag">{{ episode.status === 'active' ? '进行中' : episode.status }}</text>
       </view>
-      <text class="timeline__episode-onset">起点：约 2026-08 中旬（自述，具体日期尚未确认）</text>
+      <text class="timeline__episode-onset">
+        起点：{{ episode.onsetDate ? `${episode.onsetDate}（${episode.onsetCertainty}）` : '尚未确认' }}
+      </text>
       <view class="timeline__stats">
         <view class="timeline__stat">
           <text class="timeline__stat-num">{{ stats.records }}</text>
@@ -29,14 +45,14 @@
           <text class="timeline__stat-label">次分析</text>
         </view>
         <view class="timeline__stat">
-          <text class="timeline__stat-num">{{ stats.questions }}</text>
-          <text class="timeline__stat-label">个复诊问题</text>
+          <text class="timeline__stat-num">{{ stats.logs }}</text>
+          <text class="timeline__stat-label">次记录</text>
         </view>
       </view>
     </view>
 
     <!-- 最近 14 天 -->
-    <view class="card">
+    <view class="card" v-if="chartData.length > 0">
       <view class="timeline__chart-title">
         <text class="card-title">最近 14 天 · 每天能坐多久</text>
         <text class="timeline__chart-unit">分钟</text>
@@ -51,8 +67,8 @@
         />
       </view>
       <view class="timeline__chart-labels">
-        <text>09-08</text>
-        <text>09-21</text>
+        <text>{{ chartLabels[0] }}</text>
+        <text>{{ chartLabels[1] }}</text>
       </view>
       <text class="timeline__chart-disclaimer">
         图中变化只反映你的记录，不代表影像变化或病情恶化。
@@ -61,68 +77,197 @@
 
     <!-- 记录时间线 -->
     <text class="timeline__section-title">记录（按事件，保留来源与核实状态）</text>
-    <view class="timeline__timeline">
-      <view v-for="(event, i) in events" :key="i" class="timeline__event">
-        <view class="timeline__event-rail">
-          <view class="timeline__event-dot" :class="`timeline__event-dot--${event.tone}`" />
-          <view v-if="i < events.length - 1" class="timeline__event-line" />
+    <view v-if="filteredEvents.length === 0" class="card">
+      <text class="timeline__empty">暂无记录</text>
+    </view>
+    <view v-for="(event, i) in filteredEvents" :key="event.id" class="timeline__event">
+      <view class="timeline__event-rail">
+        <view class="timeline__event-dot" :class="`timeline__event-dot--${toneOf(event)}`" />
+        <view v-if="i < filteredEvents.length - 1" class="timeline__event-line" />
+      </view>
+      <view class="timeline__event-card">
+        <view class="timeline__event-header">
+          <text class="timeline__event-date">{{ formatEventDate(event.occurredAt) }}</text>
+          <text class="timeline__event-type" :class="`timeline__event-type--${toneOf(event)}`">
+            {{ event.eventType }}
+          </text>
+          <text class="timeline__event-more" @click="onEventMore(event)">⋯</text>
         </view>
-        <view class="timeline__event-card">
-          <view class="timeline__event-header">
-            <text class="timeline__event-date">{{ event.date }}</text>
-            <text class="timeline__event-type" :class="`timeline__event-type--${event.tone}`">
-              {{ event.type }}
-            </text>
-            <text class="timeline__event-more">⋯</text>
-          </view>
-          <text class="timeline__event-text">{{ event.text }}</text>
-          <view class="timeline__event-tags">
-            <StatusTag v-for="(tag, ti) in event.tags" :key="ti" :label="tag" />
-          </view>
+        <text class="timeline__event-text">{{ event.rawText || '（无原文）' }}</text>
+        <view class="timeline__event-tags">
+          <StatusTag :label="event.sourceType" />
+          <StatusTag :label="event.verifyStatus" />
         </view>
       </view>
     </view>
 
+    <!-- 新增事件弹层 -->
+    <view v-if="showAdd" class="mask" @click="showAdd = false">
+      <view class="dialog" @click.stop>
+        <text class="dialog__title">新增记录</text>
+        <picker :range="eventTypes" :value="addTypeIndex" @change="onAddTypeChange">
+          <view class="dialog__picker">{{ eventTypes[addTypeIndex] }}</view>
+        </picker>
+        <picker mode="date" :value="addDate" @change="onAddDateChange">
+          <view class="dialog__picker">{{ addDate || '选择日期' }}</view>
+        </picker>
+        <textarea
+          v-model="addText"
+          class="dialog__textarea"
+          placeholder="记录原文（如报告片段、医嘱、症状变化）"
+          placeholder-class="dialog__placeholder"
+          :maxlength="2000"
+        />
+        <AppButton block @click="onAddEvent">保存</AppButton>
+        <text class="dialog__cancel" @click="showAdd = false">取消</text>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import StatusTag from '@/components/StatusTag.vue';
-import { listEpisodes, timeline } from '@/api';
+import AppChip from '@/components/AppChip.vue';
+import AppButton from '@/components/AppButton.vue';
+import { listEpisodes, timeline, addEvent, type CareEvent } from '@/api';
 
-const stats = ref({ records: 12, reports: 1, analyses: 3, questions: 4 });
-const chartData = ref(
-  Array.from({ length: 14 }, (_, i) => ({
-    height: 30 + Math.round(Math.abs(Math.sin(i * 1.7)) * 60),
-    warn: i >= 11,
-  })),
-);
-const events = ref<Array<{
-  date: string;
-  type: string;
-  tone: string;
-  text: string;
-  tags: string[];
-}>>([
-  { date: '2026-09-21 · 今天', type: '症状记录', tone: 'ok', text: '与上周相比加重；能坐约 30 分钟；夜间痛醒 1 次；今天最担心“会不会越来越严重”。', tags: ['自述', '腿部无力：尚未确认'] },
-  { date: '2026-09-18', type: '一页分析 v2', tone: 'info', text: '生成于模型 M-2609；使用报告 2026-08-30 与 9 条症状记录。', tags: ['系统生成', '可查看当时版本'] },
-  { date: '2026-09-10', type: '医生建议', tone: 'warn', text: '医生建议保守治疗，4 周后复查。', tags: ['自述转述', '未经核实'] },
-  { date: '2026-08-30', type: '检查报告', tone: 'info', text: '腰椎 MRI：L5/S1 椎间盘向后突出，相应硬膜囊受压…', tags: ['报告原文', '已录入'] },
-  { date: '约 2026-08-15', type: '症状开始', tone: 'warn', text: '腰痛开始，起初以久坐后酸痛为主。', tags: ['自述', '日期尚未确认'] },
-]);
+const episode = ref<{ id: string; title: string; onsetDate: string | null; onsetCertainty: string; status: string } | null>(null);
+const events = ref<CareEvent[]>([]);
+const symptomLogs = ref<Array<{ occurredAt: string; sitMinutes: number | '尚未确认' }>>([]);
+const stats = ref({ records: 0, reports: 0, analyses: 0, logs: 0 });
+const showFilter = ref(false);
+const activeFilter = ref('全部');
+const filters = ['全部', '报告', '症状', '医嘱', '行动'];
+const showAdd = ref(false);
+const eventTypes = ['报告', '症状', '医嘱', '行动', '结局'];
+const addTypeIndex = ref(0);
+const addDate = ref('');
+const addText = ref('');
 
+const filteredEvents = computed(() => {
+  if (activeFilter.value === '全部') return events.value;
+  return events.value.filter((e) => e.eventType === activeFilter.value);
+});
 
-onMounted(async () => {
+const chartData = computed(() => {
+  // 最近 14 天，每天能坐多久（分钟）
+  const days: Array<{ date: string; minutes: number | null }> = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push({ date: d.toISOString().slice(0, 10), minutes: null });
+  }
+  for (const log of symptomLogs.value) {
+    const day = days.find((d) => d.date === log.occurredAt.slice(0, 10));
+    if (day && typeof log.sitMinutes === 'number') day.minutes = log.sitMinutes;
+  }
+  return days.map((d) => ({
+    height: d.minutes === null ? 0 : Math.min(100, Math.round((d.minutes / 90) * 100)),
+    warn: d.minutes !== null && d.minutes < 15,
+  }));
+});
+
+const chartLabels = computed(() => {
+  const fmt = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - offset);
+    return d.toISOString().slice(5, 10);
+  };
+  return [fmt(13), fmt(0)];
+});
+
+function toneOf(event: CareEvent): string {
+  if (event.sourceType === '报告原文') return 'info';
+  if (event.verifyStatus === '尚未确认') return 'warn';
+  return 'ok';
+}
+
+function formatEventDate(iso: string) {
+  return iso ? iso.slice(0, 10) : '';
+}
+
+function goAdd() {
+  addDate.value = new Date().toISOString().slice(0, 10);
+  showAdd.value = true;
+}
+
+function onAddTypeChange(e: { detail: { value: number } }) {
+  addTypeIndex.value = e.detail.value;
+}
+function onAddDateChange(e: { detail: { value: string } }) {
+  addDate.value = e.detail.value;
+}
+
+async function onAddEvent() {
+  if (!episode.value || !addText.value.trim()) {
+    uni.showToast({ title: '请填写记录内容', icon: 'none' });
+    return;
+  }
+  try {
+    await addEvent(episode.value.id, {
+      eventType: eventTypes[addTypeIndex.value],
+      occurredAt: new Date(addDate.value).toISOString(),
+      sourceType: addTypeIndex.value === 0 ? '报告原文' : '自述',
+      rawText: addText.value,
+    });
+    showAdd.value = false;
+    addText.value = '';
+    uni.showToast({ title: '已保存', icon: 'success' });
+    await load();
+  } catch (e) {
+    uni.showToast({ title: (e as Error).message, icon: 'none' });
+  }
+}
+
+function onEventMore(event: CareEvent) {
+  uni.showActionSheet({
+    itemList: ['删除'],
+    success: async (res) => {
+      if (res.tapIndex === 0) {
+        uni.showModal({
+          title: '删除记录',
+          content: '确定删除这条记录吗？',
+          success: async (confirmRes) => {
+            if (confirmRes.confirm) {
+              try {
+                const { deleteEvent } = await import('@/api');
+                await deleteEvent(event.id);
+                uni.showToast({ title: '已删除', icon: 'success' });
+                await load();
+              } catch (e) {
+                uni.showToast({ title: (e as Error).message, icon: 'none' });
+              }
+            }
+          },
+        });
+      }
+    },
+  });
+}
+
+async function load() {
   try {
     const episodes = await listEpisodes();
-    if (episodes.length > 0) {
-      await timeline(episodes[0].id);
-    }
+    if (episodes.length === 0) return;
+    episode.value = episodes[0];
+    const tl = await timeline(episodes[0].id);
+    events.value = tl.events;
+    symptomLogs.value = tl.symptomLogs.map((l) => ({ occurredAt: l.occurredAt, sitMinutes: l.sitMinutes }));
+    stats.value = {
+      records: tl.events.length,
+      reports: tl.events.filter((e) => e.eventType === '报告').length,
+      analyses: 0,
+      logs: tl.symptomLogs.length,
+    };
   } catch {
     // 加载失败不阻塞
   }
-});
+}
+
+onMounted(load);
+onShow(load);
 </script>
 
 <style scoped>
@@ -146,6 +291,11 @@ onMounted(async () => {
 }
 .timeline__filter { color: var(--text-2); font-size: 16px; }
 .timeline__add { color: var(--text-1); font-size: 22px; }
+.timeline__filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 .timeline__episode-title {
   display: flex;
   align-items: center;
@@ -209,7 +359,7 @@ onMounted(async () => {
   flex: 1;
   background: var(--primary);
   border-radius: 3px 3px 0 0;
-  min-height: 8px;
+  min-height: 4px;
 }
 .timeline__bar--warn {
   background: var(--warn);
@@ -231,6 +381,13 @@ onMounted(async () => {
   font-weight: 500;
   display: block;
   margin: 16px 0 12px;
+}
+.timeline__empty {
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: center;
+  display: block;
+  padding: 12px 0;
 }
 .timeline__event {
   display: flex;
@@ -297,5 +454,65 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 32px;
+}
+.dialog {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+}
+.dialog__title { font-size: 16px; font-weight: 500; margin-bottom: 12px; }
+.dialog__picker {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 14px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.dialog__textarea {
+  width: 100%;
+  min-height: 100px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+.dialog__placeholder { color: var(--text-3); }
+.dialog__cancel {
+  display: block;
+  text-align: center;
+  font-size: 14px;
+  color: var(--primary);
+  margin-top: 12px;
+  min-height: 44px;
+  line-height: 44px;
+}
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 500;
 }
 </style>

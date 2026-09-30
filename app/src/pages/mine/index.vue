@@ -9,8 +9,8 @@
     <view class="card mine__user">
       <view class="mine__avatar">U</view>
       <view class="mine__user-body">
-        <text class="mine__phone">{{ maskedPhone }}</text>
-        <text class="mine__uid">匿名内部标识 {{ anonymousId }}（分析内容与身份信息分离存储）</text>
+        <text class="mine__phone">{{ maskedPhone || '未登录' }}</text>
+        <text class="mine__uid">匿名内部标识 {{ anonymousId }}{{ anonymousId ? '（分析内容与身份信息分离存储）' : '' }}</text>
       </view>
     </view>
 
@@ -21,7 +21,7 @@
         <text class="mine__row-icon">🛡</text>
         <view class="mine__row-body">
           <text class="mine__row-title">我的同意记录</text>
-          <text class="mine__row-desc">健康信息处理：已同意 2026-09-01 · 分享/产品改进：未开启</text>
+          <text class="mine__row-desc">{{ consentSummary }}</text>
         </view>
         <text class="mine__row-tag">可撤回</text>
         <text class="mine__row-arrow">›</text>
@@ -46,7 +46,7 @@
         <text class="mine__row-icon mine__row-icon--danger">🗑</text>
         <view class="mine__row-body">
           <text class="mine__row-title mine__row-title--danger">删除账户与数据</text>
-          <text class="mine__row-desc">覆盖公开卡片、索引、向量、缓存与派生摘要</text>
+          <text class="mine__row-desc">删除病程、报告、分析、反馈与身份信息，不可恢复</text>
         </view>
         <text class="mine__row-arrow">›</text>
       </view>
@@ -97,7 +97,7 @@
         <text class="mine__row-icon">⚙</text>
         <view class="mine__row-body">
           <text class="mine__row-title">版本信息</text>
-          <text class="mine__row-desc">App v0.1.0 · 分析模型 M-2609 · 内容库 2026-09</text>
+          <text class="mine__row-desc">App v0.1.0 · 分析模型 local-mock-v1 · 内容库 content-c1</text>
         </view>
         <text class="mine__row-arrow">›</text>
       </view>
@@ -108,6 +108,19 @@
     <TipBar type="warn">
       删除会覆盖公开卡片、搜索索引、向量、缓存和派生摘要；备份与依法需要保留的信息按政策管理，不承诺瞬时全网删除。
     </TipBar>
+
+    <!-- 同意记录弹层 -->
+    <view v-if="showConsents" class="mask" @click="showConsents = false">
+      <view class="dialog" @click.stop>
+        <text class="dialog__title">我的同意记录</text>
+        <view v-for="(c, i) in consents" :key="i" class="dialog__consent">
+          <text class="dialog__consent-scope">{{ c.scope }}</text>
+          <text class="dialog__consent-state">{{ c.granted ? '已同意' : '未同意' }}</text>
+          <text class="dialog__consent-time">{{ c.grantedAt ? formatTime(c.grantedAt) : '—' }}</text>
+        </view>
+        <AppButton block @click="showConsents = false">关闭</AppButton>
+      </view>
+    </view>
 
     <!-- 就医提示弹层 -->
     <view v-if="showEmergency" class="mask" @click="showEmergency = false">
@@ -126,28 +139,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { getSafetyTips, setAuthToken, getAuthToken } from '@/api';
+import { getSafetyTips, getMe, getConsents, setConsent, logout, deleteAccount, setAuthToken, type ConsentView } from '@/api';
 
-const maskedPhone = ref('138****1234');
-const anonymousId = ref('U-8F3K…');
+const maskedPhone = ref('');
+const anonymousId = ref('');
+const consents = ref<ConsentView[]>([]);
+const showConsents = ref(false);
 const showEmergency = ref(false);
 const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
 
+const consentSummary = computed(() => {
+  const c = consents.value.find((x) => x.scope === '健康信息处理');
+  if (!c) return '健康信息处理：未开启';
+  return c.granted
+    ? `健康信息处理：已同意 ${formatTime(c.grantedAt)} · 分享/产品改进：未开启`
+    : '健康信息处理：未开启';
+});
 
-function goConsents() {
-  uni.showToast({ title: '同意记录可在数据与授权中查看', icon: 'none' });
+function formatTime(iso: string | null) {
+  return iso ? iso.slice(0, 10) : '—';
 }
 
-function onRevoke() {
+function goConsents() {
+  showConsents.value = true;
+}
+
+async function onRevoke() {
   uni.showModal({
     title: '撤回同意',
     content: '撤回后将停止个性化分析，已审核科普与已导出摘要仍可用。确定撤回吗？',
-    success: (res) => {
-      if (res.confirm) {
-        uni.showToast({ title: '已撤回（演示）', icon: 'success' });
+    success: async (res) => {
+      if (!res.confirm) return;
+      try {
+        const result = await setConsent('健康信息处理', false);
+        consents.value = result;
+        uni.showToast({ title: '已撤回', icon: 'success' });
+      } catch (e) {
+        uni.showToast({ title: (e as Error).message, icon: 'none' });
       }
     },
   });
@@ -158,24 +189,41 @@ function onDelete() {
     title: '删除账户与数据',
     content: '删除会覆盖公开卡片、搜索索引、向量、缓存和派生摘要，不承诺瞬时全网删除。确定删除吗？',
     confirmColor: '#D93B3B',
-    success: (res) => {
-      if (res.confirm) {
+    success: async (res) => {
+      if (!res.confirm) return;
+      try {
+        await deleteAccount();
         setAuthToken(null);
         uni.reLaunch({ url: '/pages/login/index' });
+      } catch (e) {
+        uni.showToast({ title: (e as Error).message, icon: 'none' });
       }
     },
   });
 }
 
-function onLogout() {
+async function onLogout() {
+  try {
+    await logout();
+  } catch {
+    // 本地仍清除
+  }
   setAuthToken(null);
   uni.reLaunch({ url: '/pages/login/index' });
 }
 
 onMounted(async () => {
-  if (!getAuthToken()) {
-    uni.reLaunch({ url: '/pages/login/index' });
-    return;
+  try {
+    const me = await getMe();
+    maskedPhone.value = me.maskedPhone ?? '';
+    anonymousId.value = me.id.slice(0, 6) + '…';
+  } catch {
+    // 未登录
+  }
+  try {
+    consents.value = await getConsents();
+  } catch {
+    // 未登录
   }
   try {
     const tips = await getSafetyTips();
@@ -276,6 +324,16 @@ onMounted(async () => {
   font-size: 18px;
   flex-shrink: 0;
 }
+.dialog__consent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.dialog__consent-scope { font-size: 14px; flex: 1; }
+.dialog__consent-state { font-size: 13px; color: var(--text-2); }
+.dialog__consent-time { font-size: 12px; color: var(--text-3); }
 .mask {
   position: fixed;
   inset: 0;
@@ -297,4 +355,15 @@ onMounted(async () => {
 .dialog__dot { color: var(--error); }
 .dialog__text { font-size: 14px; flex: 1; }
 .dialog__note { font-size: 12px; color: var(--text-2); margin: 12px 0 16px; }
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
 </style>

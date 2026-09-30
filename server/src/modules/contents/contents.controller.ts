@@ -66,6 +66,12 @@ export class ContentsController {
     return this.contents.recommend(null);
   }
 
+  /** 用户端：内容详情（含脚本、字幕、审核记录、版本） */
+  @Get('published/:id')
+  publishedDetail(@Param('id') id: string) {
+    return this.contents.publishedDetail(id);
+  }
+
   /** 管理端：全部内容 */
   @Get()
   @UseGuards(AdminGuard)

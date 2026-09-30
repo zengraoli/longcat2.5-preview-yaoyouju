@@ -45,12 +45,11 @@
     </view>
 
     <!-- 全部内容 -->
-    <text class="contents__section-title">全部内容（{{ all.length }} / 12）</text>
+    <text class="contents__section-title">全部内容（{{ all.length }}）</text>
     <view
       v-for="item in all"
       :key="item.id"
       class="contents__card"
-      :class="{ 'contents__card--offline': item.offline }"
       @click="goDetail(item)"
     >
       <view class="contents__thumb">
@@ -58,10 +57,10 @@
       </view>
       <view class="contents__body">
         <text class="contents__item-title">{{ item.title }}</text>
-        <text class="contents__item-meta">{{ item.type === '视频' ? '视频' : '图文' }} · {{ item.type === '视频' ? '3:05' : '4分钟阅读' }}</text>
+        <text class="contents__item-meta">{{ item.type === '视频' ? '视频' : '图文' }}</text>
         <view class="contents__tags">
-          <StatusTag :label="item.offline ? '已下线 · 更正中' : '已审核 v1'" />
-          <text class="contents__scope">适用：{{ item.applicableScope }}</text>
+          <StatusTag label="已审核" />
+          <text class="contents__scope">适用：{{ item.applicableScope || '所有用户' }}</text>
         </view>
       </view>
     </view>
@@ -82,7 +81,7 @@ import { listPublishedContents, type ContentItem } from '@/api';
 const filters = ['全部', '报告术语', '节段位置', '医生会观察什么', '信息来源怎么看', '生活影响'];
 const activeFilter = ref('全部');
 const recommended = ref<ContentItem[]>([]);
-const all = ref<Array<ContentItem & { offline?: boolean }>>([]);
+const all = ref<ContentItem[]>([]);
 
 
 function goBack() {
@@ -97,10 +96,7 @@ onMounted(async () => {
   try {
     const items = await listPublishedContents();
     recommended.value = items.slice(0, 2);
-    all.value = items.slice(2).map((item, i) => ({
-      ...item,
-      offline: i === 2, // 演示：一条已下线内容
-    }));
+    all.value = items.slice(2);
   } catch {
     // 加载失败不阻塞
   }

@@ -1,10 +1,10 @@
 <template>
   <view class="home">
     <!-- 待确认项 -->
-    <view v-if="pendingCount > 0" class="home__pending card">
+    <view v-if="pendingItems.length > 0" class="home__pending card">
       <view class="home__pending-title">
         <text class="home__pending-icon">⚠</text>
-        <text class="home__pending-text">有 {{ pendingCount }} 项信息尚未确认</text>
+        <text class="home__pending-text">有 {{ pendingItems.length }} 项信息尚未确认</text>
       </view>
       <view v-for="(item, i) in pendingItems" :key="i" class="home__pending-item">
         <text class="home__pending-dot">•</text>
@@ -40,7 +40,7 @@
       <AppButton v-if="analysis" type="soft" block @click="goAnalysis">查看完整分析</AppButton>
     </view>
 
-    <!-- 快捷入口 -->
+    <!-- 快捷入口（2×2） -->
     <view class="home__grid">
       <view class="home__grid-item" @click="goRecord">
         <text class="home__grid-icon">✎</text>
@@ -57,7 +57,7 @@
         <text class="home__grid-title">问与解释</text>
         <text class="home__grid-desc">基于当前上下文</text>
       </view>
-      <view class="home__grid-item" @click="goFollowup">
+      <view class="home__grid-item" @click="goSummary">
         <text class="home__grid-icon">📋</text>
         <text class="home__grid-title">复诊摘要</text>
         <text class="home__grid-desc">{{ followupQuestionCount }} 个问题待确认</text>
@@ -65,27 +65,27 @@
     </view>
 
     <!-- 复诊倒计时 -->
-    <view class="card home__countdown">
+    <view class="card home__countdown" v-if="followupDate">
       <text class="home__countdown-icon">📅</text>
       <view class="home__countdown-body">
         <text class="home__countdown-title">计划复诊：{{ followupDate }}（约 {{ daysUntil }} 天后）</text>
-        <text class="home__countdown-desc">来源：你录入的医嘱“4 周后复查” · 未经核实</text>
+        <text class="home__countdown-desc">来源：你录入的医嘱 · 未经核实</text>
       </view>
       <text class="home__countdown-arrow">›</text>
     </view>
 
     <!-- 为你推荐 -->
-    <view class="card">
-      <text class="card-title">为你推荐（原因：报告提到 L5/S1）</text>
-      <view v-for="item in recommended" :key="item.id" class="home__recommend">
+    <view class="card" v-if="recommended.length > 0">
+      <text class="card-title">为你推荐</text>
+      <view v-for="item in recommended" :key="item.id" class="home__recommend" @click="goContentDetail(item)">
         <view class="home__recommend-thumb">
           <text class="home__recommend-play">▶</text>
         </view>
         <view class="home__recommend-body">
           <text class="home__recommend-title">{{ item.title }}</text>
           <view class="home__recommend-meta">
-            <StatusTag label="已审核 v2" />
-            <text class="home__recommend-duration">2:10</text>
+            <StatusTag label="已审核" />
+            <text class="home__recommend-duration">{{ item.type === '视频' ? '视频' : '图文' }}</text>
           </view>
         </view>
       </view>
@@ -110,6 +110,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import AppButton from '@/components/AppButton.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import EmergencyBar from '@/components/EmergencyBar.vue';
@@ -122,14 +123,13 @@ import {
   type ContentItem,
 } from '@/api';
 
-const pendingCount = ref(0);
 const pendingItems = ref<string[]>([]);
 const pendingDismissed = ref(false);
 const analysis = ref<AnalysisResult | null>(null);
 const recommended = ref<ContentItem[]>([]);
 const followupQuestionCount = ref(0);
-const followupDate = ref('2026-10-08');
-const daysUntil = ref(17);
+const followupDate = ref('');
+const daysUntil = ref(0);
 const showEmergency = ref(false);
 const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
 
@@ -145,25 +145,67 @@ function goReport() {
 function goQa() {
   uni.switchTab({ url: '/pages/qa/index' });
 }
-function goFollowup() {
-  uni.switchTab({ url: '/pages/followup/index' });
+function goSummary() {
+  uni.navigateTo({ url: '/pages/summary/index' });
 }
 function goAnalysis() {
   if (analysis.value) {
     uni.navigateTo({ url: `/pages/analysis/index?id=${analysis.value.id}` });
   }
 }
+function goContentDetail(item: ContentItem) {
+  uni.navigateTo({ url: `/pages/content-detail/index?id=${item.id}` });
+}
 
 function formatDate(iso: string) {
   return iso ? iso.slice(0, 10) : '';
 }
 
-onMounted(async () => {
+/** 从医嘱中解析“N 周后复查”推算计划复诊日期 */
+function parseFollowupDate(events: Array<{ eventType: string; rawText: string | null }>): string | null {
+  for (const e of events) {
+    if (e.eventType !== '医嘱' || !e.rawText) continue;
+    const m = e.rawText.match(/(\d+)\s*周后复查/);
+    if (m) {
+      const weeks = parseInt(m[1], 10);
+      const d = new Date();
+      d.setDate(d.getDate() + weeks * 7);
+      return d.toISOString().slice(0, 10);
+    }
+  }
+  return null;
+}
+
+async function load() {
   try {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
       const latest = await getLatestAnalysis(episodes[0].id);
       analysis.value = latest;
+      // 待确认项：尚未确认的事件 + 症状记录中的缺失字段
+      const { timeline } = await import('@/api');
+      const tl = await timeline(episodes[0].id);
+      const pending: string[] = [];
+      for (const e of tl.events) {
+        if (e.verifyStatus === '尚未确认' && e.rawText) {
+          pending.push(e.rawText.slice(0, 30) + (e.rawText.length > 30 ? '…' : ''));
+        }
+      }
+      for (const log of tl.symptomLogs) {
+        if (log.legChange === '尚未确认') pending.push('今天是否有腿部麻木或无力：尚未确认');
+        if (log.plannedActivityDone === '尚未确认') pending.push('能否完成原本计划的活动：尚未确认');
+      }
+      pendingItems.value = pending;
+      // 复诊日期：从医嘱解析
+      const events = tl.events;
+      const date = parseFollowupDate(events);
+      if (date) {
+        followupDate.value = date;
+        const diff = Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
+        daysUntil.value = Math.max(0, diff);
+      } else {
+        followupDate.value = '';
+      }
     }
   } catch {
     // 未登录时不阻塞
@@ -180,7 +222,11 @@ onMounted(async () => {
   } catch {
     // 预取失败不阻塞
   }
-});
+}
+
+onMounted(load);
+// 切回首页时刷新（服务端可能已有新版本分析）
+onShow(load);
 </script>
 
 <style scoped>
@@ -245,6 +291,7 @@ onMounted(async () => {
   background: var(--surface);
   border-radius: 12px;
   padding: 16px;
+  box-sizing: border-box;
 }
 .home__grid-icon {
   font-size: 24px;
@@ -292,6 +339,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .home__recommend-play { color: var(--primary); font-size: 20px; }
 .home__recommend-body { flex: 1; }
