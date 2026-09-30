@@ -390,6 +390,8 @@ export class AdminController {
       if (!approved) {
         throw ERR.FORBIDDEN('导出审计日志需要 audit:export 权限，或先发起导出申请并由超管批准');
       }
+      // 一次审批对应一次导出：导出后标记为已使用，下次需重新申请
+      this.appDb.prepare("UPDATE AUDIT_EXPORT_REQUEST SET status = '已使用' WHERE id = ?").run(approved.id);
     }
     const logs = this.audit.list(100000);
     const header = '时间,操作人,角色,动作,对象,请求ID,哈希';
