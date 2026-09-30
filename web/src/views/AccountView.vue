@@ -156,6 +156,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { useAuthStore } from '@/stores/auth';
 import { getMe, getConsents, setConsent, logout, deleteAccount, exportMyData, listEpisodes } from '@/api';
+import { formatBeijing } from '@/utils/time';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -239,7 +240,7 @@ async function loadAccount() {
       content: f.unsolvedQuestion || f.helpType || '—',
       type: f.isErrorReport ? '错误举报' : '帮助类型',
       status: f.status ?? '已提交',
-      time: f.createdAt.slice(0, 16).replace('T', ' '),
+      time: formatBeijing(f.createdAt),
     }));
   } catch {
     // 加载失败不阻塞
@@ -249,7 +250,7 @@ async function loadAccount() {
 const feedbackRows = ref<Array<{ id: string; content: string; type: string; status: string; time: string }>>([]);
 
 function formatTime(iso: string | null) {
-  return iso ? iso.slice(0, 16).replace('T', ' ') : '—';
+  return formatBeijing(iso);
 }
 
 async function onRevoke() {

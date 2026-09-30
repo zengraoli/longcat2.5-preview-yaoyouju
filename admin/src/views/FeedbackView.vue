@@ -160,6 +160,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listFeedback, authorizeFeedback, handleFeedback } from '@/api';
+import { formatBeijing } from '@/utils/time';
 
 const tabs = [
   { key: 'reports', label: '错误举报' },
@@ -253,7 +254,7 @@ function mapTicket(item: {
     user: item.userId ? item.userId.slice(0, 8) : '匿名',
     severity: item.severity ?? '—',
     status: item.status ?? '待处理',
-    time: item.createdAt.slice(5, 16).replace('T', ' '),
+    time: formatBeijing(item.createdAt),
     analysisVersion: item.analysisVersion != null ? `v${item.analysisVersion}` : (item.analysisId ? `${item.analysisId.slice(0, 8)}` : '—'),
     modelVersion: item.modelVersion ?? '—',
     contentVersion: item.contentVersion ?? '—',
@@ -261,7 +262,7 @@ function mapTicket(item: {
     description: item.unsolvedQuestion || '用户提交的反馈',
     authorized: !!item.authorized,
     problemTypes: item.problemTypes ? (JSON.parse(item.problemTypes) as string[]) : [],
-    records: item.resolution ? [{ time: item.createdAt.slice(5, 16).replace('T', ' '), text: item.resolution }] : [],
+    records: item.resolution ? [{ time: formatBeijing(item.createdAt), text: item.resolution }] : [],
   };
 }
 

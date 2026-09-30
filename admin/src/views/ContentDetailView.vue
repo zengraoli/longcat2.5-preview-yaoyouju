@@ -96,7 +96,7 @@
               <div class="review-record__dot" />
               <div>
                 <div class="review-record__title">{{ r.reviewerName || '审核人' }} · {{ r.decision }}</div>
-                <div class="review-record__meta">{{ r.reviewedAt.slice(0, 16).replace('T', ' ') }}<span v-if="r.comment"> · {{ r.comment }}</span></div>
+                <div class="review-record__meta">{{ formatBeijing(r.reviewedAt) }}<span v-if="r.comment"> · {{ r.comment }}</span></div>
               </div>
             </div>
             <p v-if="reviewRecords.length === 0" class="card__note">暂无审核记录</p>
@@ -107,7 +107,7 @@
             <div v-for="(v, i) in versions" :key="i" class="version-item">
               <span class="version-item__num">v{{ v.version }}</span>
               <StatusTag :label="v.publishedAt ? '已发布' : '未发布'" />
-              <span class="version-item__desc">{{ v.publishedAt ? v.publishedAt.slice(0, 10) : '—' }}</span>
+              <span class="version-item__desc">{{ v.publishedAt ? formatBeijing(v.publishedAt).slice(0, 10) : '—' }}</span>
             </div>
             <p v-if="versions.length === 0" class="card__note">暂无版本</p>
           </div>
@@ -130,6 +130,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { formatBeijing } from '@/utils/time';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';

@@ -12,3 +12,12 @@ export function formatBeijingDate(value: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return '—';
   return new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 }
+
+/** 北京时间日期时间，格式 YYYY-MM-DD HH:mm */
+export function formatBeijing(value: string | null | undefined): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  const bj = new Date(d.getTime() + 8 * 3600 * 1000);
+  return `${bj.toISOString().slice(0, 10)} ${bj.toISOString().slice(11, 16)}`;
+}

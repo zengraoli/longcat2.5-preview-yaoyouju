@@ -103,6 +103,7 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
+import { formatBeijingDate } from '@/utils/time';
 import {
   listEpisodes,
   getLatestAnalysis,
@@ -230,7 +231,7 @@ onMounted(async () => {
       }
       // 历史会话（含真实提问数）
       history.value = existing.map((s) => ({
-        date: s.createdAt.slice(0, 10),
+        date: formatBeijingDate(s.createdAt),
         title: s.title ?? '会话',
         count: s.messageCount ?? 0,
       }));

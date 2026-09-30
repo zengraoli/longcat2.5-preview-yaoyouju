@@ -77,7 +77,7 @@
               <td>{{ req.requesterName ?? '—' }}</td>
               <td>{{ req.reason }}</td>
               <td><StatusTag :label="req.status" /></td>
-              <td>{{ req.createdAt.slice(0, 10) }}</td>
+              <td>{{ formatBeijing(req.createdAt).slice(0, 10) }}</td>
               <td>
                 <button v-if="req.status === '待审批'" class="btn btn--text" @click="onApprove(req.id)">批准</button>
                 <span v-else class="table__muted">已处理</span>

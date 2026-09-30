@@ -53,7 +53,7 @@
               <td><StatusTag :label="item.currentStatus" /></td>
               <td>v{{ item.version ?? '—' }}</td>
               <td>{{ item.reviewer ?? '—' }}</td>
-              <td>{{ item.publishedAt ? item.publishedAt.slice(0, 10) : '—' }}</td>
+              <td>{{ item.publishedAt ? formatBeijing(item.publishedAt).slice(0, 10) : '—' }}</td>
               <td>{{ item.refCount }}</td>
               <td>
                 <input type="checkbox" class="table__check" :checked="selected.has(item.id)" @change="toggleSelect(item.id)" />
@@ -121,6 +121,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { formatBeijing } from '@/utils/time';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
