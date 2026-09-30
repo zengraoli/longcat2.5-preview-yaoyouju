@@ -156,18 +156,14 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, getLatestAnalysis } from '@/api';
+import { listEpisodes, getLatestAnalysis, timeline, addEvent } from '@/api';
 import type { AnalysisResult, Episode } from '@/api/types';
 
 const router = useRouter();
 const episode = ref<Episode | null>(null);
 const analysis = ref<AnalysisResult | null>(null);
 
-const pendingItems = ref([
-  { question: '今天有腿部麻木或无力吗？', options: ['有', '没有', '尚未确认'], value: '' },
-  { question: '报告写"右侧"，你的描述是"左侧"，以你的症状为准？', options: ['左侧', '右侧', '都有 / 不确定'], value: '' },
-  { question: '与上次相比，症状有变化？', options: ['加重', '差不多', '减轻', '尚未确认'], value: '' },
-]);
+const pendingItems = ref<Array<{ question: string; options: string[]; value: string }>>([]);
 
 const recentRecords = ref([
   { date: '昨天', tone: 'ok', text: '症状记录 · 加重 · 能坐约 30 分钟' },
@@ -194,8 +190,31 @@ function goFollowup() {
   router.push({ name: 'followup' });
 }
 
-function onConfirm() {
-  toast('已确认并更新当前情况（演示）');
+async function onConfirm() {
+  const answered = pendingItems.value.filter((i) => i.value);
+  if (answered.length === 0) {
+    toast('请先回答上面的问题');
+    return;
+  }
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      toast('请先建立病程');
+      return;
+    }
+    const text = answered.map((i) => `${i.question}→${i.value}`).join('；');
+    await addEvent(episodes[0].id, {
+      eventType: '症状',
+      occurredAt: new Date().toISOString(),
+      sourceType: '自述',
+      rawText: `工作台确认：${text}`,
+      verifyStatus: '尚未确认',
+    });
+    toast('已确认并更新当前情况');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function formatDate(iso: string) {
@@ -210,18 +229,34 @@ function toast(msg: string) {
   setTimeout(() => el.remove(), 2000);
 }
 
-onMounted(async () => {
+async function load() {
   try {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
       episode.value = episodes[0];
       const latest = await getLatestAnalysis(episodes[0].id);
       if (latest) analysis.value = latest;
+      // 待确认项：来自病程中尚未确认的记录
+      const tl = await timeline(episodes[0].id);
+      const pending: Array<{ question: string; options: string[]; value: string }> = [];
+      for (const e of tl.events) {
+        if (e.verifyStatus === '尚未确认' && e.rawText) {
+          pending.push({ question: e.rawText.slice(0, 24), options: ['已确认', '有冲突'], value: '' });
+        }
+      }
+      for (const log of tl.symptomLogs) {
+        if (log.legChange === '尚未确认') {
+          pending.push({ question: '今天有腿部麻木或无力吗？', options: ['有', '没有', '尚未确认'], value: '' });
+        }
+      }
+      pendingItems.value = pending;
     }
   } catch {
     // 未登录时不阻塞
   }
-});
+}
+
+onMounted(load);
 </script>
 
 <style scoped>

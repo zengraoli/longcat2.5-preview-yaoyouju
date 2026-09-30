@@ -115,16 +115,10 @@
         <div class="analysis-page__side">
           <div class="card">
             <div class="report__header">
-              <span class="report__title">📄 报告原文 · 2026-08-30 · 腰椎MRI</span>
+              <span class="report__title">📄 报告原文{{ reportDate ? ' · ' + reportDate : '' }}</span>
               <StatusTag label="未修改" />
             </div>
-            <p class="report__raw">
-              检查所见：腰椎生理曲度存在，各椎体形态、信号未见明显异常。<br />
-              L4/5椎间盘轻度膨出。<br />
-              <mark>L5/S1椎间盘向后突出，相应硬膜囊受压，右侧神经根受压可能。</mark><br />
-              椎管未见明显狭窄。<br />
-              印象：L5/S1椎间盘突出；L4/5椎间盘膨出。
-            </p>
+            <p class="report__raw">{{ rawText || '暂无报告原文' }}</p>
             <div class="report__legend">
               <span class="report__legend-item">
                 <span class="report__legend-dot report__legend-dot--ok" />当前选中解释引用的原文（点击左侧任一解释可切换高亮）
@@ -138,7 +132,7 @@
           <div class="card card--warn">
             <div class="card__title card__title--warn">报告未提及</div>
             <p class="card__text">
-              神经根水肿 · 椎管狭窄程度 · 马尾相关描述。这些内容报告中没有描述，不会被写成"已排除"。
+              报告中没有描述的内容不会被写成“已排除”，而会标为“报告未提及”。
             </p>
           </div>
 
@@ -156,32 +150,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, getLatestAnalysis, createHelpFeedback } from '@/api';
+import { listEpisodes, getLatestAnalysis, createHelpFeedback, timeline } from '@/api';
 import type { AnalysisResult } from '@/api/types';
 
 const router = useRouter();
 const today = new Date().toISOString().slice(0, 10);
 const analysis = ref<AnalysisResult | null>(null);
+const rawText = ref('');
+const reportDate = ref('');
 
-const terms = ref([
-  { name: '硬膜囊', def: '包裹脊髓和神经根的膜性结构在影像上的名称。' },
-  { name: '神经根', def: '从脊髓分出、经椎间孔走行的神经起始段。' },
-  { name: '椎间盘突出', def: '椎间盘内容物超出椎体边缘的影像描述，程度与症状不一定对应。' },
-]);
+const terms = ref<Array<{ name: string; def: string }>>([]);
+
+const introText = computed(() => {
+  if (!analysis.value) return '';
+  const parts: string[] = [];
+  if (analysis.value.sections.已知.length > 0) parts.push(`已确认 ${analysis.value.sections.已知.length} 条信息`);
+  if (analysis.value.sections.未知.length > 0) parts.push(`有 ${analysis.value.sections.未知.length} 项尚未确认`);
+  if (parts.length === 0) return '下面按“已知 / 解释 / 未知 / 下一步”整理。';
+  return `下面按“已知 / 解释 / 未知 / 下一步”整理：${parts.join('，')}。`;
+});
 
 function evidenceTitle(source: string | null) {
   if (!source) return '系统生成';
-  const docTitles: Record<string, string> = {
-    'doc-science-1': '审核科普 #12',
-    'doc-guide-2': '指南 G-03',
-    'doc-research-2': '研究 S-02',
-  };
-  return docTitles[source] ?? source;
+  const citation = analysis.value?.citations.find((c) => c.evidenceDocId === source);
+  if (citation?.evidenceDocTitle) return citation.evidenceDocTitle;
+  return `审核科普 #${source.slice(-2)}`;
 }
 
 function onFeedback(opt: string) {
@@ -208,6 +206,21 @@ onMounted(async () => {
     if (episodes.length > 0) {
       const latest = await getLatestAnalysis(episodes[0].id);
       if (latest) analysis.value = latest;
+      // 加载报告原文（用于原文对照）
+      const tl = await timeline(episodes[0].id);
+      const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
+      if (reportEvent) {
+        rawText.value = reportEvent.rawText ?? '';
+        reportDate.value = reportEvent.occurredAt.slice(0, 10);
+        const termDefs: Array<{ name: string; def: string }> = [
+          { name: 'L5/S1', def: '第 5 腰椎与第 1 骶椎之间的椎间盘' },
+          { name: '硬膜囊', def: '包裹脊髓和神经根的膜性结构在影像上的名称。' },
+          { name: '神经根', def: '从脊髓分出、经椎间孔走行的神经起始段。' },
+          { name: '椎间盘突出', def: '椎间盘内容物超出椎体边缘的影像描述，程度与症状不一定对应。' },
+          { name: '椎间盘膨出', def: '椎间盘外层完整、整体超出椎体边缘的影像描述。' },
+        ];
+        terms.value = termDefs.filter((t) => rawText.value.includes(t.name));
+      }
     }
   } catch {
     // 未登录时不阻塞

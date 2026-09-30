@@ -18,8 +18,7 @@
       </nav>
       <div class="layout__actions">
         <button class="layout__emergency" @click="showEmergency = true">⚠ 紧急就医提示</button>
-        <span class="layout__bell">🔔</span>
-        <router-link to="/account" class="layout__avatar">U</router-link>
+        <router-link to="/account" class="layout__account">账户与数据</router-link>
       </div>
     </header>
     <main class="layout__main">
@@ -56,6 +55,7 @@ const menu = [
   { to: '/timeline', label: '病程' },
   { to: '/followup', label: '复诊准备' },
   { to: '/contents', label: '审核内容库' },
+  { to: '/account', label: '账户与数据' },
 ];
 
 function isActive(to: string) {
@@ -140,22 +140,38 @@ onMounted(async () => {
   padding: 6px 12px;
   cursor: pointer;
 }
-.layout__bell { font-size: 16px; }
-.layout__avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--primary-light);
-  color: var(--primary);
+.layout__account {
   font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--text-2);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.layout__account:hover {
+  color: var(--primary);
+  background: var(--primary-light);
 }
 .layout__main {
   padding: 24px 40px;
   max-width: 1440px;
   margin: 0 auto;
+}
+@media (max-width: 700px) {
+  .layout__nav {
+    padding: 0 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 56px;
+  }
+  .layout__menu {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+  }
+  .layout__main {
+    padding: 16px;
+  }
 }
 .mask {
   position: fixed;

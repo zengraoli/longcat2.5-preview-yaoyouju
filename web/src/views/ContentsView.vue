@@ -47,22 +47,21 @@
             </div>
           </div>
 
-          <p class="contents-page__section-title">全部内容（{{ all.length }} / 12）</p>
+          <p class="contents-page__section-title">全部内容（{{ all.length }}）</p>
           <div class="contents-page__cards">
             <div
               v-for="item in all"
               :key="item.id"
               class="content-card"
-              :class="{ 'content-card--offline': item.offline }"
               @click="selected = item"
             >
               <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
               <div class="content-card__body">
                 <div class="content-card__title">{{ item.title }}</div>
-                <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }} · {{ item.type === '视频' ? '3:05' : '4分钟阅读' }}</div>
+                <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }}</div>
                 <div class="content-card__tags">
-                  <StatusTag :label="item.offline ? '已下线 · 更正中' : '已审核 v1'" />
-                  <span class="content-card__scope">适用：{{ item.applicableScope }}</span>
+                  <StatusTag label="已审核" />
+                  <span class="content-card__scope">适用：{{ item.applicableScope || '所有用户' }}</span>
                 </div>
               </div>
             </div>
@@ -147,13 +146,13 @@ const filters = ['全部', '报告术语', '节段位置', '医生会观察什�
 const activeFilter = ref('全部');
 const selected = ref<ContentItem | null>(null);
 const recommended = ref<ContentItem[]>([]);
-const all = ref<Array<ContentItem & { offline?: boolean }>>([]);
+const all = ref<ContentItem[]>([]);
 
 onMounted(async () => {
   try {
     const items = await api.get<ContentItem[]>('/contents/published');
     recommended.value = items.slice(0, 3);
-    all.value = items.slice(3, 6).map((item, i) => ({ ...item, offline: i === 2 }));
+    all.value = items.slice(3);
   } catch {
     // 加载失败不阻塞
   }

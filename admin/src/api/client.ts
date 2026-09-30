@@ -4,6 +4,7 @@
  */
 
 const BASE = '/api';
+const TOKEN_KEY = 'yaoyouju_admin_token';
 
 export class ApiError extends Error {
   code: number;
@@ -13,10 +14,12 @@ export class ApiError extends Error {
   }
 }
 
-let adminToken: string | null = null;
+let adminToken: string | null = localStorage.getItem(TOKEN_KEY);
 
 export function setAdminToken(token: string | null) {
   adminToken = token;
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
 }
 
 export function getAdminToken() {

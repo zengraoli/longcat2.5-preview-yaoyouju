@@ -8,22 +8,9 @@
         </div>
         <div class="followup-page__actions">
           <button class="btn btn--primary" @click="onExport('PDF')">📄 导出 PDF</button>
-          <button class="btn btn--secondary" @click="onExport('PDF')">🖨 打印</button>
+          <button class="btn btn--secondary" @click="onPrint">🖨 打印</button>
           <button class="btn btn--secondary" @click="onExport('文本')">⧉ 复制文本</button>
         </div>
-      </div>
-
-      <!-- 页签 -->
-      <div class="followup-page__tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="followup-page__tab"
-          :class="{ 'followup-page__tab--active': activeTab === tab.key }"
-          @click="activeTab = tab.key"
-        >
-          {{ tab.label }}
-        </button>
       </div>
 
       <div class="followup-page__grid">
@@ -31,26 +18,28 @@
         <div class="followup-page__main">
           <p class="followup-page__edit-hint">编辑摘要（每段可纠正，纠正后重新生成）</p>
 
-          <div class="card" v-for="(section, i) in sections" :key="i">
+          <div class="card" v-for="section in sections" :key="section.key">
             <div class="card__header">
               <div class="card__title">{{ section.title }}</div>
-              <button class="btn btn--text">✎ 纠正</button>
+              <button class="btn btn--text" @click="onCorrect(section.key)">✎ 纠正</button>
             </div>
-            <div class="card__body">{{ section.text }}</div>
+            <div v-for="(item, i) in section.items" :key="i" class="card__body">
+              {{ item.text }}
+            </div>
+            <div v-if="section.items.length === 0" class="card__body card__body--empty">尚未确认</div>
             <div class="card__tags">
               <StatusTag v-for="(tag, ti) in section.tags" :key="ti" :label="tag" />
             </div>
           </div>
 
-          <!-- 问题清单排序 -->
+          <!-- 问题清单 -->
           <div class="card">
-            <div class="card__title">最希望解决的问题（可拖拽排序）</div>
+            <div class="card__title">最希望解决的问题（{{ questions.length }}）</div>
             <div v-for="(q, i) in questions" :key="i" class="question-item">
-              <span class="question-item__drag">⠿</span>
               <span class="question-item__num">{{ i + 1 }}.</span>
               <span class="question-item__text">{{ q }}</span>
-              <span class="question-item__remove">✕</span>
             </div>
+            <p v-if="questions.length === 0" class="card__body card__body--empty">暂无复诊问题，可在“问与解释”中加入</p>
           </div>
         </div>
 
@@ -66,16 +55,19 @@
               <p class="print-preview__meta">生成于 {{ today }} · 由用户自述与报告原文整理 · 未经医生核实</p>
               <div v-for="(section, i) in sections" :key="i" class="print-preview__section">
                 <div class="print-preview__section-title">{{ ['一', '二', '三', '四', '五', '六'][i] }}、{{ section.title }}</div>
-                <p class="print-preview__text">{{ section.text }}</p>
+                <p class="print-preview__text">
+                  <span v-for="(item, ii) in section.items" :key="ii">{{ item.text }}<br /></span>
+                  <span v-if="section.items.length === 0">尚未确认</span>
+                </p>
               </div>
               <p class="print-preview__footer">
-                🛡 本摘要整理已有信息，保留时间来源与未核实项，不含诊断结论。腰有据 · 用户自述与报告原文整理 · 未经医生核实
+                🛡 未经医生核实 · 不含诊断结论 · 本摘要仅整理你已录入的信息，供复诊时参考。
               </p>
             </div>
           </div>
 
           <TipBar type="info">
-            导出后由你自行决定是否分享给医生；本产品不会主动把你的健康资料发送给任何第三方。导出文件链接 24 小时内有效。
+            导出后由你自行决定是否分享给医生；本产品不会主动把你的健康资料发送给任何第三方。
           </TipBar>
         </div>
       </div>
@@ -84,51 +76,98 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listEpisodes, previewSummary, exportSummary, saveSummary } from '@/api';
 import type { SummaryContent } from '@/api/types';
 
-const tabs = [
-  { key: 'summary', label: '一页交接摘要' },
-  { key: 'questions', label: '问题清单 (4)' },
-  { key: 'bring', label: '带什么' },
-];
-const activeTab = ref('summary');
+const content = ref<SummaryContent | null>(null);
+const summaryId = ref('');
+const correcting = ref('');
+const correctText = ref('');
 
-const sections = ref([
-  { title: '本次发作起点', text: '约 2026 年 8 月中旬开始腰痛，具体日期不确定（自述）；起初以久坐后酸痛为主。', tags: ['自述', '日期尚未确认'] },
-  { title: '主要症状与变化', text: '腰痛持续约 1 个月，最近 1 周加重；主要在左侧；能坐约 30 分钟；夜间痛醒 1 次/晚。腿部无力：尚未确认。无大小便或鞍区异常。', tags: ['自述 · 12 条记录', '腿部无力：尚未确认'] },
-  { title: '相关检查原文', text: '2026-08-30 腰椎 MRI：“L5/S1 椎间盘向后突出，相应硬膜囊受压，右侧神经根受压可能。”', tags: ['报告原文', '与自述侧别不一致'] },
-  { title: '已经接受的专业建议', text: '保守治疗，4 周后复查（2026-09-10 就诊时医生口头建议）。', tags: ['自述转述', '未经核实'] },
-  { title: '已采取的行动', text: '每日步行约 20 分钟、热敷；避免久坐；未使用药物。', tags: ['自述'] },
-]);
+const today = new Date().toISOString().slice(0, 10);
 
-const questions = ref([
-  '报告的右侧神经根受压与我左侧疼痛是否有关？',
-  '保守治疗期间哪些变化要提前复诊？',
-  '活动、久坐和睡姿要怎么调整？',
-  '手术必要性如何评估？',
-]);
+const questions = computed(() => content.value?.复诊问题 ?? []);
 
-async function onExport(format: string) {
+const sections = computed(() => {
+  if (!content.value) return [];
+  return [
+    { key: '当前情况', title: '本次发作起点与当前情况', items: content.value.当前情况, tags: ['自述'] },
+    { key: '报告要点', title: '相关检查原文', items: content.value.报告要点, tags: ['报告原文'] },
+    { key: '医嘱要点', title: '已经接受的专业建议', items: content.value.医嘱要点, tags: ['医生记录'] },
+    { key: '尚未确认', title: '尚未确认', items: content.value.尚未确认, tags: ['未经核实'] },
+    { key: '下一步', title: '下一步', items: content.value.下一步, tags: [] },
+  ];
+});
+
+async function load() {
   try {
     const episodes = await listEpisodes();
-    if (episodes.length === 0) return;
-    const content = await previewSummary(episodes[0].id);
-    const saved = await saveSummary(episodes[0].id, content);
-    const result = await exportSummary(saved.id, format);
-    if (format === '文本') {
-      // 复制到剪贴板
+    if (episodes.length > 0) {
+      content.value = await previewSummary(episodes[0].id);
     }
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
   }
 }
 
-const today = new Date().toISOString().slice(0, 10);
+async function onExport(format: '文本' | 'PDF' | '图片') {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      toast('请先建立病程');
+      return;
+    }
+    if (!content.value) {
+      toast('请先生成摘要');
+      return;
+    }
+    const saved = await saveSummary(episodes[0].id, content.value);
+    summaryId.value = saved.id;
+    const result = await exportSummary(saved.id, format);
+    if (format === '文本') {
+      try {
+        await navigator.clipboard.writeText(result.text);
+        toast('已复制文本');
+      } catch {
+        toast('复制失败，请手动选择文本');
+      }
+    } else {
+      toast('PDF 通过浏览器打印生成，本接口返回文本内容。');
+    }
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+function onPrint() {
+  window.print();
+}
+
+function onCorrect(key: string) {
+  correcting.value = key;
+  const section = content.value?.[key as keyof SummaryContent];
+  if (Array.isArray(section) && section.length > 0 && typeof section[0] === 'object') {
+    correctText.value = (section[0] as { text: string }).text;
+  } else {
+    correctText.value = '';
+  }
+  // 简化：直接提示在摘要页编辑
+  toast('请在摘要内容上直接修改后重新保存');
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+onMounted(load);
 </script>
 
 <style scoped>
@@ -151,26 +190,6 @@ const today = new Date().toISOString().slice(0, 10);
 .followup-page__actions {
   display: flex;
   gap: 10px;
-}
-.followup-page__tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-.followup-page__tab {
-  min-height: 40px;
-  padding: 0 20px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: 14px;
-  color: var(--text-2);
-  cursor: pointer;
-}
-.followup-page__tab--active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
 }
 .followup-page__grid {
   display: grid;
@@ -208,50 +227,44 @@ const today = new Date().toISOString().slice(0, 10);
   font-size: 16px;
   font-weight: 500;
 }
-.card__correct {
-  font-size: 13px;
-  color: var(--primary);
-}
 .card__body {
   font-size: 14px;
   line-height: 1.6;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+.card__body--empty {
+  color: var(--text-3);
+  font-size: 13px;
 }
 .card__tags {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
+  flex-wrap: wrap;
 }
 .question-item {
   display: flex;
-  align-items: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 8px 12px;
-  background: var(--bg);
-  border-radius: 10px;
   margin-bottom: 8px;
+  font-size: 14px;
 }
-.question-item__drag { color: var(--text-3); }
-.question-item__num { font-size: 14px; color: var(--text-2); }
-.question-item__text { font-size: 14px; flex: 1; }
-.question-item__remove { color: var(--text-3); }
-.print-preview {
-  position: sticky;
-  top: 80px;
+.question-item__num {
+  color: var(--primary);
+  font-weight: 500;
+}
+.question-item__text {
+  flex: 1;
 }
 .print-preview__label {
-  text-align: center;
   font-size: 12px;
   color: var(--text-3);
   margin-bottom: 8px;
 }
 .print-preview__page {
-  background: var(--surface);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(27, 34, 48, 0.08);
-  padding: 32px;
-  min-height: 600px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 24px;
+  font-size: 12px;
 }
 .print-preview__header {
   display: flex;
@@ -260,43 +273,39 @@ const today = new Date().toISOString().slice(0, 10);
   margin-bottom: 8px;
 }
 .print-preview__title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
 }
 .print-preview__logo {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   background: var(--primary);
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .print-preview__meta {
-  font-size: 12px;
-  color: var(--text-2);
-  margin: 0 0 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-3);
+  margin: 0 0 16px;
 }
 .print-preview__section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .print-preview__section-title {
-  font-size: 14px;
   font-weight: 500;
   margin-bottom: 4px;
 }
 .print-preview__text {
-  font-size: 13px;
-  line-height: 1.6;
   color: var(--text-2);
+  line-height: 1.6;
   margin: 0;
 }
 .print-preview__footer {
-  margin-top: 24px;
+  margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
   font-size: 11px;
@@ -324,5 +333,9 @@ const today = new Date().toISOString().slice(0, 10);
   padding: 0;
   font-size: 13px;
 }
-.btn--block { width: 100%; margin-top: 16px; }
+@media (max-width: 1100px) {
+  .followup-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

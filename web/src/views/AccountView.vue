@@ -3,7 +3,7 @@
     <div class="account-page">
       <div class="account-page__header">
         <h1 class="account-page__title">账户与数据</h1>
-        <p class="account-page__meta">138****1234 · 匿名内部标识 U-8F3K…（分析内容与身份信息分离存储）</p>
+        <p class="account-page__meta">{{ maskedPhone || '—' }} · 匿名内部标识 {{ anonymousId }}（分析内容与身份信息分离存储）</p>
       </div>
 
       <div class="account-page__grid">
@@ -133,12 +133,17 @@
 
 <script setup lang="ts">
 import { toast } from "@/utils/toast";
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { useAuthStore } from '@/stores/auth';
+import { getMe, getConsents, setConsent, logout, deleteAccount } from '@/api';
 
 const auth = useAuthStore();
+
+const maskedPhone = ref('');
+const anonymousId = ref('');
+const consentRows = ref<Array<{ scope: string; status: string; time: string; version: string; action: string; actionText: string }>>([]);
 
 const navItems = [
   { key: 'account', label: '账户', icon: '👤' },
@@ -150,31 +155,71 @@ const navItems = [
 ];
 const activeNav = ref('consents');
 
-const consentRows = ref([
-  { scope: '用户协议与隐私政策（必需）', status: '已同意', time: '2026-09-01 10:12', version: 'v1.0', action: '', actionText: '查看' },
-  { scope: '处理健康信息（单独同意，敏感个人信息）', status: '已同意', time: '2026-09-01 10:12', version: 'v1.0', action: '撤回', actionText: '' },
-  { scope: '分享与案例投稿（二期）', status: '未开启', time: '—', version: '—', action: '', actionText: '尚未开放' },
-  { scope: '产品改进用途', status: '未开启', time: '—', version: 'v1.0', action: '开启', actionText: '' },
-  { scope: '模型训练用途', status: '首版不提供', time: '—', version: '—', action: '', actionText: '—' },
-]);
+const feedbackRows = ref<Array<{ id: string; content: string; type: string; status: string; time: string }>>([]);
 
-const feedbackRows = ref([
-  { id: '#ER-0213', content: '一页分析 v3 · ②-2 解释', type: '与我的报告不符 · 左右侧混淆', status: '临床复核中', time: '2026-09-21 09:41' },
-  { id: '#FB-0198', content: '视频：硬膜囊受压是在说什么', type: '帮助类型：看懂了', status: '已记录', time: '2026-09-18 20:05' },
-]);
+function formatTime(iso: string | null) {
+  return iso ? iso.slice(0, 16).replace('T', ' ') : '—';
+}
 
-function onRevoke() {
+async function onRevoke() {
   if (activeNav.value === 'logout') {
+    try {
+      await logout();
+    } catch {
+      // 本地仍清除
+    }
     auth.logout();
     window.location.href = '/login';
     return;
   }
-  toast('已撤回同意（演示）');
+  try {
+    const result = await setConsent('健康信息处理', false);
+    consentRows.value = result.map((c: { scope: string; granted: boolean; grantedAt: string | null }) => ({
+      scope: c.scope,
+      status: c.granted ? '已同意' : '未同意',
+      time: formatTime(c.grantedAt),
+      version: 'v1.0',
+      action: c.scope === '健康信息处理' && c.granted ? '撤回' : '',
+      actionText: c.granted ? '' : '开启',
+    }));
+    toast('已撤回同意');
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function onDelete() {
-  toast('删除账户需要验证码二次确认（演示）');
+  if (!confirm('确定删除账户与数据吗？此操作不可恢复。')) return;
+  deleteAccount()
+    .then(() => {
+      auth.logout();
+      window.location.href = '/login';
+    })
+    .catch((e: unknown) => toast((e as Error).message));
 }
+
+onMounted(async () => {
+  try {
+    const me = await getMe();
+    maskedPhone.value = me.maskedPhone ?? '';
+    anonymousId.value = me.id.slice(0, 6) + '…';
+  } catch {
+    // 未登录
+  }
+  try {
+    const consents = await getConsents();
+    consentRows.value = consents.map((c: { scope: string; granted: boolean; grantedAt: string | null }) => ({
+      scope: c.scope,
+      status: c.granted ? '已同意' : '未同意',
+      time: formatTime(c.grantedAt),
+      version: 'v1.0',
+      action: c.scope === '健康信息处理' && c.granted ? '撤回' : '',
+      actionText: c.granted ? '' : '开启',
+    }));
+  } catch {
+    // 未登录
+  }
+});
 </script>
 
 <style scoped>

@@ -274,10 +274,27 @@ onMounted(async () => {
 }
 .login__card {
   width: 440px;
+  max-width: 100%;
   background: var(--surface);
   border-radius: 12px;
   padding: 32px;
   box-shadow: 0 2px 12px rgba(27, 34, 48, 0.06);
+}
+@media (max-width: 900px) {
+  .login {
+    flex-direction: column;
+  }
+  .login__brand {
+    padding: 32px 24px;
+  }
+  .login__main {
+    width: 100%;
+    padding: 24px 16px;
+  }
+  .login__card {
+    width: 100%;
+    padding: 24px 20px;
+  }
 }
 .login__title {
   font-size: 20px;

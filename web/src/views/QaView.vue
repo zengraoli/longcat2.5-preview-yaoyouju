@@ -59,24 +59,10 @@
         <div class="qa-page__side">
           <div class="card">
             <div class="card__title">本轮上下文</div>
-            <div class="context-item">
-              <span class="context-item__label">当前情况</span>
-              <span class="context-item__value">2026-09-21 · 加重 · 左侧</span>
-              <StatusTag label="已确认" />
-            </div>
-            <div class="context-item">
-              <span class="context-item__label">报告</span>
-              <span class="context-item__value">2026-08-30 腰椎 MRI</span>
-              <StatusTag label="原文" />
-            </div>
-            <div class="context-item">
-              <span class="context-item__label">主要困惑</span>
-              <span class="context-item__value">报告术语</span>
-            </div>
-            <div class="context-item">
-              <span class="context-item__label">腿部无力</span>
-              <span class="context-item__value">尚未回答</span>
-              <StatusTag label="尚未确认" />
+            <div v-for="(item, i) in contextItems" :key="i" class="context-item">
+              <span class="context-item__label">{{ item.label }}</span>
+              <span class="context-item__value">{{ item.value }}</span>
+              <StatusTag v-if="item.tag" :label="item.tag" />
             </div>
           </div>
 
@@ -139,33 +125,33 @@ interface ChatMessage {
 const messages = ref<ChatMessage[]>([]);
 const question = ref('');
 const explainedCount = ref(0);
+const sessionId = ref('');
 const quickQuestions = ['复诊时该怎么描述？', '哪些变化要提前就医？', '保守治疗一般多久？'];
-const followupQuestions = ref([
-  '右侧神经根受压与左侧疼痛是否有关？',
-  '保守治疗期间哪些变化需提前复诊？',
-  '活动、久坐和睡姿要怎么调整？',
-  '手术必要性如何评估？',
-]);
-const history = ref([
-  { date: '09-18', title: '关于“椎间盘膨出”', count: 3 },
-  { date: '09-10', title: '复诊前该带什么', count: 2 },
-]);
+const followupQuestions = ref<string[]>([]);
+const history = ref<Array<{ date: string; title: string; count: number }>>([]);
+const contextText = ref('正在加载…');
+const contextItems = ref<Array<{ label: string; value: string; tag?: string }>>([]);
 
-const contextText = ref('2026-09-21 当前情况 + 2026-08-30 报告 + 一页分析 v3');
-
-function onAsk(q: string) {
-  if (!q.trim()) return;
+async function onAsk(q: string) {
+  if (!q.trim() || !sessionId.value) return;
   question.value = '';
   messages.value.push({ role: 'user', content: q });
-  // 模拟回复（真实环境调用 /qa/sessions/:id/messages）
-  setTimeout(() => {
-    messages.value.push({
+  try {
+    const result = await askQuestion(sessionId.value, q);
+    const msg: ChatMessage = {
       role: 'assistant',
-      content: '证据库中暂无与这个问题直接相关的资料。建议把这个问题加入复诊问题清单，复诊时带给医生。',
-      citations: [],
-    });
+      content: result.message.content,
+      citations: (result.message.citations ?? []).map((c: { docId: string; docTitle: string }) => ({ docId: c.docId, docTitle: c.docTitle })),
+    };
+    // 红旗或越界时提供加入复诊问题的入口
+    if (result.outOfScope && result.outOfScope.length > 0) {
+      msg.followup = q;
+    }
+    messages.value.push(msg);
     explainedCount.value += 1;
-  }, 300);
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function onSend() {
@@ -199,9 +185,22 @@ onMounted(async () => {
       const latest = await getLatestAnalysis(episodes[0].id);
       if (latest) {
         const session = await createQaSession(latest.id, '报告术语解释');
+        sessionId.value = session.id;
         const historyData = await getQaSession(session.id);
-        messages.value = historyData.messages;
-        explainedCount.value = historyData.messages.filter((m) => m.role === 'assistant').length;
+        messages.value = historyData.messages.map((m: { role: string; content: string; citations: Array<{ docId: string; docTitle: string }> }) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          citations: (m.citations ?? []).map((c: { docId: string; docTitle: string }) => ({ docId: c.docId, docTitle: c.docTitle })),
+        }));
+        explainedCount.value = historyData.messages.filter((m: { role: string }) => m.role === 'assistant').length;
+        contextText.value = `基于一页分析 v${latest.version}（${latest.createdAt.slice(0, 10)}）`;
+        contextItems.value = [
+          { label: '分析版本', value: `v${latest.version}`, tag: '系统生成' },
+          { label: '模型', value: latest.modelReleaseId },
+          { label: '病程', value: episodes[0].title },
+        ];
+      } else {
+        contextText.value = '尚未生成分析';
       }
     }
   } catch {

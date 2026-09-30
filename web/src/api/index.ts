@@ -1,10 +1,22 @@
-export { api } from './client';
+import { api } from './client';
+import type {
+  AnalysisResult,
+  ContentItem,
+  ContentDetail,
+  Episode,
+  DashboardStats,
+  SummaryContent,
+} from './types';
+
+export { api };
 export type {
   AnalysisResult,
   ContentItem,
+  ContentDetail,
   Episode,
   DashboardStats,
-} from './types';
+  SummaryContent,
+};
 
 /* ---------- 授权 ---------- */
 export function sendSmsCode(phone: string) {
@@ -22,8 +34,20 @@ export function getConsents() {
   return api.get<Array<{ scope: string; granted: boolean; grantedAt: string | null; revokedAt: string | null }>>('/auth/consents');
 }
 
+export function getMe() {
+  return api.get<{ id: string; maskedPhone: string | null }>('/auth/me');
+}
+
+export function logout() {
+  return api.post<{ loggedOut: boolean }>('/auth/logout', {});
+}
+
+export function deleteAccount() {
+  return api.post<{ deleted: boolean }>('/auth/delete', {});
+}
+
 export function setConsent(scope: string, granted: boolean) {
-  return api.post<Array<{ scope: string; granted: boolean }>>('/auth/consents', {
+  return api.post<Array<{ scope: string; granted: boolean; grantedAt: string | null; revokedAt: string | null }>>('/auth/consents', {
     scope,
     granted: String(granted),
   });
@@ -61,16 +85,28 @@ export function deleteEvent(eventId: string) {
 }
 
 export function timeline(episodeId: string) {
-  return api.get<{ events: Array<{
-    id: string;
-    occurredAt: string;
-    eventType: string;
-    typeLabel: string;
-    tone: string;
-    rawText: string;
-    sourceType: string;
-    verifyStatus: string;
-  }> }>(`/episodes/${episodeId}/timeline`);
+  return api.get<{
+    events: Array<{
+      id: string;
+      episodeId: string;
+      eventType: string;
+      occurredAt: string;
+      reportedAt: string;
+      sourceType: string;
+      rawText: string | null;
+      verifyStatus: string;
+    }>;
+    symptomLogs: Array<{
+      id: string;
+      careEventId: string;
+      occurredAt: string;
+      sitMinutes: number | '尚未确认';
+      plannedActivityDone: string | '尚未确认';
+      sleepImpact: number | '尚未确认';
+      topWorry: string | '尚未确认';
+      legChange: string | '尚未确认';
+    }>;
+  }>(`/episodes/${episodeId}/timeline`);
 }
 
 export function addSymptomLog(episodeId: string, input: {
@@ -147,25 +183,37 @@ export function getAnalysis(id: string) {
   }>(`/analyses/${id}`);
 }
 
+export function getLatestAnalysis(episodeId: string) {
+  return api.get<AnalysisResult | null>(`/analyses/episodes/${episodeId}/latest`);
+}
+
+export interface QaMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  citations: Array<{ docId: string; docTitle: string; content: string }>;
+  createdAt: string;
+}
+
 /* ---------- 问答 ---------- */
 export function createQaSession(analysisId: string, title: string) {
   return api.post<{ id: string }>('/qa/sessions', { analysisId, title });
 }
 
 export function getQaSession(id: string) {
-  return api.get<{ id: string; messages: Array<{ id: string; role: string; content: string; citations: unknown[]; createdAt: string }> }>(`/qa/sessions/${id}`);
+  return api.get<{ id: string; messages: Array<{ id: string; role: string; content: string; citations: Array<{ docId: string; docTitle: string; content: string }>; createdAt: string }> }>(`/qa/sessions/${id}`);
 }
 
 export function askQuestion(sessionId: string, question: string) {
   return api.post<{
-    message: { id: string; role: string; content: string; citations: unknown[]; createdAt: string };
+    message: { id: string; role: string; content: string; citations: Array<{ docId: string; docTitle: string; content: string }>; createdAt: string };
     outOfScope: Array<{ code: string; name: string; message: string }>;
     roundEnded: boolean;
-  }>(`/qa/sessions/${sessionIdId}/messages`, { question });
+  }>(`/qa/sessions/${sessionId}/messages`, { question });
 }
 
 export function addFollowupQuestion(sessionId: string, question: string) {
-  return api.post<{ added: boolean }>(`/qa/sessions/${sessionIdId}/followup-questions`, { question });
+  return api.post<{ added: boolean }>(`/qa/sessions/${sessionId}/followup-questions`, { question });
 }
 
 /* ---------- 复诊摘要 ---------- */
@@ -187,6 +235,10 @@ export function exportSummary(id: string, format: '文本' | 'PDF' | '图片') {
 /* ---------- 内容库 ---------- */
 export function listPublishedContents() {
   return api.get<ContentItem[]>('/contents/published');
+}
+
+export function getContentDetail(id: string) {
+  return api.get<ContentDetail>(`/contents/published/${id}`);
 }
 
 /* ---------- 反馈 ---------- */

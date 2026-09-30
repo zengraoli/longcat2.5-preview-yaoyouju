@@ -155,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { listEpisodes, timeline, addSymptomLog } from '@/api';
@@ -171,6 +171,25 @@ const events = ref<Array<{
   sourceType: string;
   tags: string[];
 }>>([]);
+const symptomLogs = ref<Array<{ occurredAt: string; sitMinutes: number | '尚未确认' }>>([]);
+
+/** 最近 14 天柱状图：每天能坐多久（分钟） */
+const chartData = computed(() => {
+  const days: Array<{ label: string; height: number; failHeight: number }> = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const log = symptomLogs.value.find((l) => l.occurredAt.slice(0, 10) === key);
+    const minutes = log && typeof log.sitMinutes === 'number' ? log.sitMinutes : null;
+    days.push({
+      label: key.slice(5),
+      height: minutes === null ? 0 : Math.min(100, Math.round((minutes / 90) * 100)),
+      failHeight: minutes !== null && minutes < 15 ? 20 : 0,
+    });
+  }
+  return days;
+});
 
 const sitOptions = [
   { label: '<15分钟', value: 10 },
@@ -206,10 +225,10 @@ async function onSave(updateCurrent = false) {
     if (episodes.length === 0) return;
     await addSymptomLog(episodes[0].id, {
       occurredAt: new Date().toISOString(),
-      sitMinutes: sitMinutes.value,
-      plannedActivityDone: activity.value,
-      legChange: leg.value,
-      changeVsYesterday: change.value,
+      sitMinutes: sitMinutes.value ?? undefined,
+      plannedActivityDone: activity.value ?? undefined,
+      legChange: leg.value ?? undefined,
+      changeVsYesterday: change.value ?? undefined,
       activitiesDone: done.value.length > 0 ? done.value.join('、') : undefined,
       topWorry: worry.value || undefined,
     });
@@ -220,7 +239,30 @@ async function onSave(updateCurrent = false) {
 }
 
 function onAdd() {
-  toast('新增事件（演示）');
+  const text = prompt('记录原文（如报告片段、医嘱、症状变化）');
+  if (!text || !text.trim()) return;
+  addEvent(text.trim());
+}
+
+async function addEvent(text: string) {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      toast('请先建立病程');
+      return;
+    }
+    const { addEvent: createEvent } = await import('@/api');
+    await createEvent(episodes[0].id, {
+      eventType: '症状',
+      occurredAt: new Date().toISOString(),
+      sourceType: '自述',
+      rawText: text,
+    });
+    toast('已保存');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function toast(msg: string) {
@@ -231,13 +273,13 @@ function toast(msg: string) {
   setTimeout(() => el.remove(), 2000);
 }
 
-onMounted(async () => {
+async function load() {
   try {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
       episode.value = episodes[0];
       const data = await timeline(episodes[0].id);
-      events.value = data.events.map((e: { id: string; occurredAt: string; eventType: string; tone: string; rawText: string; sourceType: string; tags: string[]; verifyStatus: string }) => ({
+      events.value = data.events.map((e: { id: string; occurredAt: string; eventType: string; rawText: string | null; sourceType: string; verifyStatus: string }) => ({
         id: e.id,
         occurredAt: e.occurredAt,
         typeLabel: e.eventType,
@@ -246,11 +288,14 @@ onMounted(async () => {
         sourceType: e.sourceType,
         tags: e.verifyStatus === '已确认' ? [] : [e.verifyStatus],
       }));
+      symptomLogs.value = data.symptomLogs.map((l: { occurredAt: string; sitMinutes: number | '尚未确认' }) => ({ occurredAt: l.occurredAt, sitMinutes: l.sitMinutes }));
     }
   } catch {
     // 未登录时不阻塞
   }
-});
+}
+
+onMounted(load);
 </script>
 
 <style scoped>
