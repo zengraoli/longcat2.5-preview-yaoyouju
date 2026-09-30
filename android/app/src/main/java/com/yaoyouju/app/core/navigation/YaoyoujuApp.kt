@@ -27,8 +27,11 @@ import com.yaoyouju.app.feature.confirm.ConfirmRoute
 import com.yaoyouju.app.feature.confusion.ConfusionRoute
 import com.yaoyouju.app.feature.home.HomeRoute
 import com.yaoyouju.app.feature.login.LoginRoute
+import com.yaoyouju.app.feature.qa.QaRoute
+import com.yaoyouju.app.feature.record.RecordRoute
 import com.yaoyouju.app.feature.redflag.RedFlagRoute
 import com.yaoyouju.app.feature.report.ReportRoute
+import com.yaoyouju.app.feature.timeline.TimelineRoute
 import com.yaoyouju.app.feature.verify.VerifyRoute
 
 /**
@@ -160,9 +163,19 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
                 )
             }
             composable(Routes.ReportCompare) { CompareRoute(onBack = back) }
-            composable(Routes.Qa) { PlaceholderScreen(Routes.Qa) }
-            composable(Routes.Timeline) { PlaceholderScreen(Routes.Timeline) }
-            composable(Routes.Record) { PlaceholderScreen(Routes.Record, back) }
+            composable(Routes.Qa) { QaRoute(onSelectTab = onSelectTab) }
+            composable(Routes.Timeline) {
+                TimelineRoute(
+                    onSelectTab = onSelectTab,
+                    onRedFlag = { navController.navigate(Routes.RedFlag) },
+                )
+            }
+            composable(Routes.Record) {
+                RecordRoute(
+                    onBack = back,
+                    onSaved = { back() },
+                )
+            }
             composable(Routes.Summary) { PlaceholderScreen(Routes.Summary) }
             composable(Routes.Contents) { PlaceholderScreen(Routes.Contents, back) }
             composable(Routes.Home) {

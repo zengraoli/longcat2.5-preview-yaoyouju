@@ -7,6 +7,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.yaoyouju.app.core.design.YaoyoujuTheme
 import com.yaoyouju.app.core.components.TabDestination
+import com.yaoyouju.app.data.QaCitation
+import com.yaoyouju.app.data.QaMessage
 import com.yaoyouju.app.feature.analysis.AnalysisScreen
 import com.yaoyouju.app.feature.analysis.AnalysisUiState
 import com.yaoyouju.app.feature.compare.CompareScreen
@@ -25,6 +27,15 @@ import com.yaoyouju.app.feature.redflag.RedFlagScreen
 import com.yaoyouju.app.feature.redflag.RedFlagUiState
 import com.yaoyouju.app.feature.report.ReportScreen
 import com.yaoyouju.app.feature.report.ReportUiState
+import com.yaoyouju.app.feature.qa.QaScreen
+import com.yaoyouju.app.feature.qa.QaUiState
+import com.yaoyouju.app.feature.record.RecordScreen
+import com.yaoyouju.app.feature.record.RecordUiState
+import com.yaoyouju.app.feature.timeline.ChartBar
+import com.yaoyouju.app.feature.timeline.TimelineItem
+import com.yaoyouju.app.feature.timeline.TimelineScreen
+import com.yaoyouju.app.feature.timeline.TimelineTone
+import com.yaoyouju.app.feature.timeline.TimelineUiState
 import com.yaoyouju.app.feature.verify.VerifyRow
 import com.yaoyouju.app.feature.verify.VerifyScreen
 import com.yaoyouju.app.feature.verify.VerifyTermRow
@@ -238,6 +249,127 @@ class AllScreensScreenshotTest {
             evidenceTitle = { source ->
                 DemoData.analysis.citations.firstOrNull { it.evidenceDocId == source }?.evidenceDocTitle ?: "证据库"
             },
+        )
+    }
+
+    /* ---------- A09 问与解释 ---------- */
+    @Test
+    fun a09Qa() = capture("A09-qa") {
+        val assistant2 = QaMessage(
+            id = "m-4",
+            role = "assistant",
+            content = "是否需要手术不在本产品的判断范围内，我不会给出倾向性的答案。\n\n可以做的是：把你最担心的点整理成复诊问题，并记录最近的功能变化（能坐多久、走多远、夜间是否痛醒），这些是医生判断时会问到的。",
+            createdAt = "2026-09-21T02:10:00Z",
+        )
+        QaScreen(
+            state = QaUiState(
+                loading = false,
+                contextText = "本轮基于：2026-09-21 当前情况 + 2026-08-30 报告。出现新变化请先更新“当前情况”。",
+                messages = listOf(
+                    QaMessage("m-1", "user", "报告上写“硬膜囊受压”，是不是很严重？", emptyList(), "2026-09-21T02:05:00Z"),
+                    QaMessage(
+                        "m-2",
+                        "assistant",
+                        "先说清楚这句话在报告里是什么意思，再说它不能说明什么。\n\n一般含义：这是影像上对位置关系的描述——突出的椎间盘接触或推压了包裹神经的硬膜囊。\n\n不能据此判断：严重程度、是否需要手术、疼痛是否由它引起。这些需要医生结合查体和你的症状变化判断。",
+                        listOf(QaCitation("doc-2", "审核科普 #07", "硬膜囊受压是影像描述")),
+                        "2026-09-21T02:05:10Z",
+                    ),
+                    QaMessage("m-3", "user", "那我是不是需要做手术？", emptyList(), "2026-09-21T02:09:00Z"),
+                    assistant2,
+                ),
+                outOfScopeMessageIds = setOf("m-4"),
+                explainedCount = 2,
+            ),
+            onSelectTab = {},
+            onInputChange = {},
+            onSend = {},
+            onQuickAsk = {},
+            onAddFollowup = {},
+        )
+    }
+
+    /* ---------- A10 病程时间线 ---------- */
+    @Test
+    fun a10Timeline() = capture("A10-timeline") {
+        TimelineScreen(
+            state = TimelineUiState(
+                loading = false,
+                episode = DemoData.episode,
+                onsetLabel = "约 2026-08 中旬",
+                recordCount = 12,
+                reportCount = 1,
+                analysisCount = 3,
+                questionCount = 4,
+                chart = listOf(
+                    ChartBar(0.6f, false), ChartBar(0.52f, false), ChartBar(0.66f, false),
+                    ChartBar(0.4f, false), ChartBar(0.58f, false), ChartBar(0.5f, false),
+                    ChartBar(0.46f, false), ChartBar(0.36f, false), ChartBar(0.8f, false),
+                    ChartBar(0.9f, false), ChartBar(0.44f, false), ChartBar(0.3f, false),
+                    ChartBar(0.22f, true), ChartBar(0.24f, true),
+                ),
+                chartStart = "09-08",
+                chartEnd = "09-21",
+                items = listOf(
+                    TimelineItem(
+                        "e1", "2026-09-21 · 今天", "症状记录", TimelineTone.Warn,
+                        "与上周相比加重；能坐约30分钟；夜间痛醒1次；今天最担心“会不会越来越严重”。",
+                        listOf("自述", "腿部无力：尚未确认"), "e1", "症状",
+                    ),
+                    TimelineItem(
+                        "a2", "2026-09-18", "一页分析 v2", TimelineTone.Info,
+                        "生成于模型 M-2609；使用报告 2026-08-30 与 9 条症状记录。",
+                        listOf("系统生成", "可查看当时版本"), null, "分析",
+                    ),
+                    TimelineItem(
+                        "e2", "2026-09-10", "医生建议", TimelineTone.Warn,
+                        "医生建议保守治疗，4 周后复查。",
+                        listOf("自述转述", "未经核实"), "e2", "医嘱",
+                    ),
+                    TimelineItem(
+                        "e3", "2026-08-30", "检查报告", TimelineTone.Info,
+                        "腰椎 MRI：L5/S1 椎间盘向后突出，相应硬膜囊受压…",
+                        listOf("报告原文", "已录入"), "e3", "报告",
+                    ),
+                    TimelineItem(
+                        "e4", "约 2026-08-15", "症状开始", TimelineTone.Warn,
+                        "腰痛开始，起初以久坐后酸痛为主。",
+                        listOf("自述", "日期尚未确认"), "e4", "症状",
+                    ),
+                ),
+            ),
+            onSelectTab = {},
+            onToggleFilter = {},
+            onSelectFilter = {},
+            onShowAdd = {},
+            onAddTypeIndex = {},
+            onAddDate = {},
+            onAddText = {},
+            onSaveEvent = {},
+            onDeleteEvent = {},
+        )
+    }
+
+    /* ---------- A11 记录今天 ---------- */
+    @Test
+    fun a11Record() = capture("A11-record") {
+        RecordScreen(
+            state = RecordUiState(
+                date = "2026-09-21",
+                sitMinutes = "15-30",
+                plannedActivityDone = "部分",
+                sleepImpact = 1,
+                changeVsYesterday = "加重",
+                activities = listOf("步行", "热敷"),
+            ),
+            onBack = {},
+            onSelectSit = {},
+            onSelectPlanned = {},
+            onSelectSleep = {},
+            onSelectChange = {},
+            onSelectLeg = {},
+            onToggleActivity = {},
+            onTopWorryChange = {},
+            onSave = {},
         )
     }
 
