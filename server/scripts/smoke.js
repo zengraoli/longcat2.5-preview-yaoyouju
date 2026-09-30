@@ -56,32 +56,48 @@ async function waitForHealth(timeoutMs = 60000) {
   return false;
 }
 
-function startProcess(command, args, logFile) {
+function startProcess(command, args, logFile, env) {
   const out = fs.openSync(logFile, 'a');
   const child = spawn(command, args, {
     cwd: ROOT,
     stdio: ['ignore', out, out],
     shell: true,
+    env: { ...process.env, ...env },
   });
   return child;
 }
 
 function stopProcess(child) {
-  if (child && !child.killed) {
-    child.kill('SIGTERM');
+  if (!child || child.killed) return;
+  try {
+    if (process.platform === 'win32') {
+      // Windows：同步结束整个进程树，避免子进程残留占端口
+      require('node:child_process').execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore' });
+    } else {
+      child.kill('SIGTERM');
+    }
+  } catch {
+    // 忽略
   }
 }
 
 async function main() {
-  console.log('冒烟测试：启动 API 与 Worker');
-  // 清理旧数据，保证冒烟可重复（文件被占用时跳过，种子数据幂等）
+  console.log('冒烟测试：启动 API 与 Worker（使用独立冒烟数据库）');
+  // 使用独立的冒烟数据库，不删除开发数据
+  const smokeDir = path.join(ROOT, 'data-smoke');
   try {
-    fs.rmSync(path.join(ROOT, 'data'), { recursive: true, force: true });
+    fs.rmSync(smokeDir, { recursive: true, force: true });
   } catch {
-    // 数据目录被占用时使用现有数据
+    // 忽略
   }
-  const server = startProcess('node', ['dist/main.js'], path.join(ROOT, 'data-server.log'));
-  const worker = startProcess('node', ['dist/worker/worker.js'], path.join(ROOT, 'data-worker.log'));
+  fs.mkdirSync(smokeDir, { recursive: true });
+  const dbEnv = {
+    PORT,
+    DB_PATH: path.join(smokeDir, 'app.db'),
+    IDENTITY_DB_PATH: path.join(smokeDir, 'identity.db'),
+  };
+  const server = startProcess('node', ['dist/main.js'], path.join(ROOT, 'data-server.log'), dbEnv);
+  const worker = startProcess('node', ['dist/worker/worker.js'], path.join(ROOT, 'data-worker.log'), dbEnv);
   try {
     const healthy = await waitForHealth();
     check('服务启动 /health', healthy);
@@ -159,7 +175,7 @@ async function main() {
       plannedActivityDone: '完成',
       sleepImpact: 2,
       topWorry: '担心影像恶化',
-      legChange: '无',
+      legChange: '没有',
     }, token);
     check('记录今天', log.status === 201 && log.json?.data?.sitMinutes === 40, JSON.stringify(log.json).slice(0, 200));
 

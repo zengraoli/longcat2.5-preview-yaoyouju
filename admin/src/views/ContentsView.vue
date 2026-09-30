@@ -4,7 +4,7 @@
       <div class="contents__header">
         <h1 class="contents__title">内容库</h1>
         <div class="contents__search">
-          <input class="contents__search-input" placeholder="🔍 搜索内容 / 工单 / 匿名标识" />
+          <input class="contents__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
         </div>
       </div>
 

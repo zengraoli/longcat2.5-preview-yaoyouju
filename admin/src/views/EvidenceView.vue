@@ -4,7 +4,7 @@
       <div class="evidence__header">
         <h1 class="evidence__title">医学证据库</h1>
         <div class="evidence__search">
-          <input class="evidence__search-input" placeholder="🔍 搜索内容 / 工单 / 匿名标识" />
+          <input class="evidence__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
         </div>
       </div>
 

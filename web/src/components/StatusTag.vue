@@ -17,9 +17,9 @@ const props = withDefaults(defineProps<Props>(), {
 // 根据标签文案推断色调（三端语义一致）
 const tone = computed(() => {
   if (props.tone !== 'neutral') return props.tone;
-  if (['已确认', '已审核 v2', '自述'].includes(props.label)) return 'ok';
-  if (['尚未确认', '未经核实'].includes(props.label)) return 'warn';
-  if (['有冲突', '已下线 · 更正中'].includes(props.label)) return 'error';
+  if (['已确认', '已审核 v2', '已审核', '已发布', '通过'].includes(props.label)) return 'ok';
+  if (['尚未确认', '未经核实', '待确认', '待审'].includes(props.label)) return 'warn';
+  if (['有冲突', '已下线 · 更正中', '已撤回'].includes(props.label)) return 'error';
   if (['系统生成', '不作诊断', '报告原文'].includes(props.label)) return 'info';
   return 'neutral';
 });

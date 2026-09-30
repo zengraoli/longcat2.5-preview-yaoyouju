@@ -37,10 +37,12 @@
         <input
           v-model="code"
           class="login__input login__input--code"
-          type="number"
+          type="text"
+          inputmode="numeric"
           maxlength="6"
           placeholder="6位验证码"
           placeholder-class="login__placeholder"
+          @input="onCodeInput"
         />
         <text class="login__code-btn" :class="{ 'login__code-btn--disabled': countdown > 0 }" @click="onSendCode">
           {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
@@ -103,6 +105,11 @@ const consented = ref(false);
 const countdown = ref(0);
 const showEmergency = ref(false);
 const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
+
+/** 验证码只保留数字，避免快速输入时丢字符 */
+function onCodeInput() {
+  code.value = code.value.replace(/\D/g, '').slice(0, 6);
+}
 
 async function onSendCode() {
   if (!/^1\d{10}$/.test(phone.value)) {

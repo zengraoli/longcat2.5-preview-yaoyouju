@@ -4,7 +4,7 @@
       <div class="eval__header">
         <h1 class="eval__title">模型与评测 › 评测集与回归</h1>
         <div class="eval__search">
-          <input class="eval__search-input" placeholder="🔍 搜索内容 / 工单 / 匿名标识" />
+          <input class="eval__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
         </div>
       </div>
 

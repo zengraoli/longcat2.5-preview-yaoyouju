@@ -4,7 +4,7 @@
       <div class="feedback__header">
         <h1 class="feedback__title">举报与反馈</h1>
         <div class="feedback__search">
-          <input class="feedback__search-input" placeholder="🔍 搜索内容 / 工单 / 匿名标识" />
+          <input class="feedback__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
         </div>
       </div>
 

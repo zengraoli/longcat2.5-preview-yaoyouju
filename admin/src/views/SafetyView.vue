@@ -4,7 +4,7 @@
       <div class="safety__header">
         <h1 class="safety__title">安全与开关</h1>
         <div class="safety__search">
-          <input class="safety__search-input" placeholder="🔍 搜索内容 / 工单 / 匿名标识" />
+          <input class="safety__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
         </div>
       </div>
 

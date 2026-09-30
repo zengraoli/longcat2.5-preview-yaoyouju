@@ -45,6 +45,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import Icon from '@/components/Icon.vue';
 
 const route = useRoute();
 const router = useRouter();
