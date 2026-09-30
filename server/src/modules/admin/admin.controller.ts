@@ -130,13 +130,16 @@ export class AdminController {
       .all();
   }
 
-  /** 停用 / 启用后台账号 */
+  /** 停用 / 启用后台账号（不能停用自己） */
   @Post('users/:id/status')
   @UseGuards(AdminGuard)
   @RequirePermission('*')
   setUserStatus(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { status: string }) {
     if (!['active', 'disabled'].includes(body.status)) {
       throw new BadRequestException('状态不合法');
+    }
+    if (id === admin.adminId) {
+      throw new BadRequestException('不能停用当前登录的账号');
     }
     const target = this.appDb.prepare('SELECT id FROM ADMIN_USER WHERE id = ?').get(id) as { id: string } | undefined;
     if (!target) throw new NotFoundException('账号不存在');
