@@ -3,7 +3,7 @@
     <aside class="layout__sidebar">
       <div class="layout__brand">
         <span class="layout__logo">腰</span>
-        <span class="layout__brand-name">腰有据 · 后台</span>
+        <span class="layout__brand-name">腰有据 · 管理后台</span>
       </div>
       <nav class="layout__menu">
         <router-link
@@ -31,7 +31,7 @@
       <header class="layout__topbar">
         <span class="layout__env">生产环境</span>
         <div class="layout__topbar-actions">
-          <span class="layout__bell">🔔</span>
+          <span class="layout__role">角色：{{ userRole }}</span>
         </div>
       </header>
       <main class="layout__main">
@@ -209,6 +209,13 @@ function onLogout() {
   color: var(--error);
   background: rgba(217, 59, 59, 0.1);
   padding: 1px 8px;
+  border-radius: 4px;
+}
+.layout__role {
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--bg);
+  padding: 2px 10px;
   border-radius: 4px;
 }
 .layout__bell { font-size: 16px; }

@@ -115,9 +115,8 @@
               </div>
             </div>
             <div class="detail-actions">
-              <button class="btn btn--secondary btn--sm">发送编辑建议给用户</button>
-              <button class="btn btn--secondary btn--sm">退回</button>
-              <button class="btn btn--primary btn--sm" disabled>发布（功能未开启）</button>
+              <button class="btn btn--secondary btn--sm" @click="onReview('退回')">退回</button>
+              <button class="btn btn--primary btn--sm" :disabled="selected?.status !== '待审'" @click="onReview('发布')">发布</button>
             </div>
           </div>
 
@@ -131,10 +130,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
+import { api } from '@/api/client';
+import { reviewCase } from '@/api';
 
 interface CaseRow {
   id: string;
@@ -145,13 +146,46 @@ interface CaseRow {
   status: string;
 }
 
-const cases = ref<CaseRow[]>([
-  { id: '#CS-0003', summary: '保守治疗 6 周后的复诊记录与结果（片段 2/5）', scope: '发表 + 产品改进', thirdParty: '检测到 2 处', thirdPartyTone: 'error', status: '待审' },
-  { id: '#CS-0002', summary: '第一次拿到 MRI 报告时的困惑与后来的理解', scope: '仅发表', thirdParty: '已清除', thirdPartyTone: 'ok', status: '待审' },
-  { id: '#CS-0001', summary: '（用户已撤回投稿）', scope: '—', thirdParty: '—', thirdPartyTone: 'neutral', status: '已撤回' },
-]);
+const cases = ref<CaseRow[]>([]);
+const selected = ref<CaseRow | null>(null);
 
-const selected = ref<CaseRow>(cases.value[0]);
+async function onReview(decision: string) {
+  if (!selected.value) return;
+  try {
+    await reviewCase(selected.value.id, decision);
+    toast(decision === '发布' ? '已发布' : '已退回');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+async function load() {
+  try {
+    const items = await api.get<Array<{ id: string; editedContent: string; consentScope: string; status: string }>>('/admin/cases');
+    cases.value = items.map((item) => ({
+      id: item.id,
+      summary: item.editedContent.slice(0, 40) + (item.editedContent.length > 40 ? '…' : ''),
+      scope: item.consentScope || '—',
+      thirdParty: '—',
+      thirdPartyTone: 'neutral' as const,
+      status: item.status,
+    }));
+    if (cases.value.length > 0 && !selected.value) selected.value = cases.value[0];
+  } catch {
+    // 加载失败不阻塞
+  }
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+}
+
+onMounted(load);
 </script>
 
 <style scoped>

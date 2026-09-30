@@ -378,18 +378,24 @@ export class ContentsService {
         `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
                 i.current_status AS currentStatus, i.offline_switch AS offlineSwitch,
                 (SELECT MAX(v.version) FROM CONTENT_VERSION v WHERE v.item_id = i.id) AS version,
-                (SELECT r.reviewer_id FROM REVIEW_RECORD r WHERE r.target_id = i.id ORDER BY r.reviewed_at DESC, r.rowid DESC LIMIT 1) AS reviewer
+                (SELECT au.name FROM REVIEW_RECORD r JOIN ADMIN_USER au ON au.id = r.reviewer_id
+                 WHERE r.target_id = i.id ORDER BY r.reviewed_at DESC, r.rowid DESC LIMIT 1) AS reviewer,
+                (SELECT v.published_at FROM CONTENT_VERSION v WHERE v.item_id = i.id AND v.published_at IS NOT NULL
+                 ORDER BY v.version DESC LIMIT 1) AS publishedAt,
+                (SELECT COUNT(DISTINCT a.id) FROM ANALYSIS a
+                 WHERE a.sections LIKE '%' || i.id || '%') AS refCount
          FROM CONTENT_ITEM i ORDER BY i.rowid ASC`,
       )
       .all();
   }
 
-  /** 审核记录 */
+  /** 审核记录（含审核人姓名） */
   reviewRecords(itemId: string) {
     return this.appDb
       .prepare(
-        `SELECT id, reviewer_id AS reviewerId, decision, review_scope AS reviewScope, comment, reviewed_at AS reviewedAt
-         FROM REVIEW_RECORD WHERE target_id = ? ORDER BY reviewed_at ASC, rowid ASC`,
+        `SELECT r.id, au.name AS reviewerName, r.decision, r.review_scope AS reviewScope, r.comment, r.reviewed_at AS reviewedAt
+         FROM REVIEW_RECORD r LEFT JOIN ADMIN_USER au ON au.id = r.reviewer_id
+         WHERE r.target_id = ? ORDER BY r.reviewed_at ASC, r.rowid ASC`,
       )
       .all(itemId);
   }

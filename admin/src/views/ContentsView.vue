@@ -41,15 +41,18 @@
               <td>{{ item.type }}</td>
               <td><StatusTag :label="item.currentStatus" /></td>
               <td>v{{ item.version ?? '—' }}</td>
-              <td>{{ item.reviewerName ?? '—' }}</td>
+              <td>{{ item.reviewer ?? '—' }}</td>
               <td>{{ item.publishedAt ?? '—' }}</td>
               <td>{{ item.refCount }}</td>
               <td>
-                <span class="switch" :class="{ 'switch--on': item.offlineSwitch }" />
+                <input type="checkbox" class="table__check" :checked="selected.has(item.id)" @change="toggleSelect(item.id)" />
               </td>
               <td class="table__actions">
                 <button class="btn btn--text" @click="goDetail(item)">详情</button>
                 <button class="btn btn--text" @click="onCorrect(item)">更正</button>
+                <button class="btn btn--text" :class="{ 'btn--danger': item.offlineSwitch }" @click="onToggleOffline(item)">
+                  {{ item.offlineSwitch ? '取消下线' : '下线' }}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -76,11 +79,12 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listContents, offlineContent, batchOffline, createContent } from '@/api';
+import { listContents, offlineContent, batchOffline, createContent, transitionContent } from '@/api';
 import type { ContentItem } from '@/api/types';
 
 const router = useRouter();
-const items = ref<Array<ContentItem & { reviewerName?: string; publishedAt?: string | null; refCount?: number }>>([]);
+const items = ref<ContentItem[]>([]);
+const selected = ref<Set<string>>(new Set());
 
 const statusStats = computed(() => {
   const count = (s: string) => items.value.filter((i) => i.currentStatus === s).length;
@@ -97,32 +101,61 @@ function goDetail(item: ContentItem) {
   router.push({ name: 'content-detail', params: { id: item.id } });
 }
 
+function toggleSelect(id: string) {
+  if (selected.value.has(id)) selected.value.delete(id);
+  else selected.value.add(id);
+}
+
 async function onBatchOffline() {
-  const published = items.value.filter((i) => i.currentStatus === '已发布');
-  if (published.length === 0) return;
+  if (selected.value.size === 0) {
+    toast('请先勾选要下线的内容');
+    return;
+  }
   try {
-    await batchOffline(published.map((i) => i.id));
+    const result = await batchOffline([...selected.value]);
+    toast(result.status === '已下线' ? '已下线（双人确认完成）' : '已发起，待第二人确认');
+    selected.value.clear();
     await load();
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
   }
 }
 
 async function onCreate() {
+  const title = prompt('内容标题');
+  if (!title) return;
   try {
-    await createContent({ type: '视频', title: '新内容', script: '脚本', subtitleText: '字幕' });
+    await createContent({ type: '视频', title, script: '脚本内容', subtitleText: '字幕' });
+    toast('已创建草稿');
     await load();
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
   }
 }
 
 async function onCorrect(item: ContentItem) {
   try {
-    await offlineContent(item.id);
+    await transitionContent(item.id, '更正');
+    toast('已提交更正');
     await load();
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
+  }
+}
+
+async function onToggleOffline(item: ContentItem) {
+  try {
+    if (item.offlineSwitch) {
+      // 取消下线：仅在已下线状态可恢复
+      await transitionContent(item.id, '更正');
+      toast('已恢复');
+    } else {
+      await offlineContent(item.id);
+      toast('已下线');
+    }
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
   }
 }
 
@@ -132,6 +165,14 @@ async function load() {
   } catch {
     // 加载失败不阻塞
   }
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(load);

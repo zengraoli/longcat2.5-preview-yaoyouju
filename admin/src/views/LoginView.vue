@@ -12,28 +12,30 @@
       </div>
       <p class="login__subtitle">仅限受邀成员；不提供自助注册。登录需账号密码 + 动态验证码（MFA）。</p>
 
-      <label class="login__label">账号</label>
-      <div class="login__input-wrap">
-        <span class="login__input-icon">👁</span>
-        <input v-model="name" class="login__input" placeholder="工作邮箱" @keyup.enter="onLogin" />
-      </div>
+      <form @submit.prevent="onLogin">
+        <label class="login__label">账号</label>
+        <div class="login__input-wrap">
+          <span class="login__input-icon">👁</span>
+          <input v-model="name" class="login__input" placeholder="工作邮箱" @keyup.enter="onLogin" />
+        </div>
 
-      <label class="login__label">密码</label>
-      <div class="login__input-wrap">
-        <span class="login__input-icon">🔒</span>
-        <input v-model="password" type="password" class="login__input" placeholder="••••••••••" @keyup.enter="onLogin" />
-      </div>
+        <label class="login__label">密码</label>
+        <div class="login__input-wrap">
+          <span class="login__input-icon">🔒</span>
+          <input v-model="password" type="password" class="login__input" placeholder="••••••••••" @keyup.enter="onLogin" />
+        </div>
 
-      <label class="login__label">动态验证码（TOTP）</label>
-      <div class="login__input-wrap">
-        <span class="login__input-icon">🛡</span>
-        <input v-model="totp" class="login__input" maxlength="6" placeholder="6 位验证码" @keyup.enter="onLogin" />
-      </div>
+        <label class="login__label">动态验证码（TOTP）</label>
+        <div class="login__input-wrap">
+          <span class="login__input-icon">🛡</span>
+          <input v-model="totp" class="login__input" maxlength="6" placeholder="6 位验证码" @keyup.enter="onLogin" />
+        </div>
 
-      <button class="login__submit" @click="onLogin">登录</button>
+        <button type="submit" class="login__submit" @click="onLogin">登录</button>
+      </form>
 
       <TipBar type="info">
-        连续失败 5 次锁定 30 分钟；会话 30 分钟无操作过期；所有登录与敏感操作写入审计日志。
+        连续失败 5 次锁定 15 分钟；会话 30 分钟过期；所有登录与敏感操作写入审计日志。
       </TipBar>
 
       <p class="login__help">忘记密码或未绑定 MFA？请联系超级管理员重置。</p>

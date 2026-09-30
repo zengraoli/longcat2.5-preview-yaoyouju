@@ -11,7 +11,7 @@
           <div class="card__title">成员（{{ members.length }}）</div>
           <div class="card__header-tags">
             <span class="card__tag">与用户体系隔离 · 仅受邀加入</span>
-            <button class="btn btn--primary btn--sm">＋ 邀请成员</button>
+            <button class="btn btn--primary btn--sm" @click="onInvite">＋ 邀请成员</button>
           </div>
         </div>
         <table class="table">
@@ -27,9 +27,10 @@
               <td>{{ m.lastLoginAt ?? '—' }}</td>
               <td><StatusTag :label="m.status" /></td>
               <td class="table__actions">
-                <button class="btn btn--text">改角色</button>
-                <button class="btn btn--text">重置 MFA</button>
-                <button class="btn btn--text btn--danger">停用</button>
+                <button class="btn btn--text" @click="onChangeRole(m)">改角色</button>
+                <button class="btn btn--text" @click="onToggleStatus(m)">
+                  {{ m.status === '正常' ? '停用' : '启用' }}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -69,16 +70,16 @@
           <div class="card">
             <div class="card__header">
               <div class="card__title">👁 单条授权（明文查看）</div>
-              <span class="card__tag card__tag--ok">有效 {{ authorizations.filter((a) => a.active).length }}</span>
+              <span class="card__tag card__tag--ok">{{ authorizations.length }} 条</span>
             </div>
             <div v-for="(a, i) in authorizations" :key="i" class="auth-item">
               <div class="auth-item__header">
-                <span class="auth-item__title">{{ a.who }} → {{ a.target }}</span>
-                <StatusTag :label="a.status" />
+                <span class="auth-item__title">{{ a.adminName || '—' }} → {{ a.targetType }}:{{ a.targetId }}</span>
               </div>
               <div class="auth-item__meta">{{ a.reason }}</div>
-              <div class="auth-item__meta">{{ a.expiry }} · {{ a.reads }}</div>
+              <div class="auth-item__meta">{{ a.createdAt.slice(0, 16).replace('T', ' ') }}</div>
             </div>
+            <p v-if="authorizations.length === 0" class="card__note">暂无授权记录</p>
             <p class="card__note">
               授权由用户在举报单内勾选或临床审核申请、超管审批；每次读取写审计；用户可随时撤回。
             </p>
@@ -102,10 +103,11 @@
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { listAdminUsers } from '@/api';
+import { listAdminUsers, listAuthorizations, setUserStatus, setUserRole } from '@/api';
 import type { AdminUser } from '@/api/types';
 
 const members = ref<Array<AdminUser & { email: string; roleName: string; roleTone: 'ok' | 'warn' | 'error' | 'info' | 'neutral'; mfaEnabled: boolean; lastLoginAt: string | null; status: string }>>([]);
+const authorizations = ref<Array<{ id: string; adminName: string | null; targetType: string; targetId: string; reason: string; createdAt: string }>>([]);
 
 const permissionMatrix = ref([
   { point: '内容：编辑草稿 / 提交', values: ['✓', '—', '—', '—', '✓'] },
@@ -120,11 +122,7 @@ const permissionMatrix = ref([
   { point: '成员与角色 / 审计导出审批', values: ['—', '—', '—', '◐', '✓'] },
 ]);
 
-const authorizations = ref([
-  { who: '李医生', target: 'U-8F3K…', status: '有效', reason: '举报 #ER-0213 涉及的报告与记录', expiry: '至 09-28', reads: '已读取 2 次（审计 A-3390, A-3391）', active: true },
-  { who: '李医生', target: 'U-2Q9A…', status: '有效', reason: '举报 #ER-0212 涉及的对话', expiry: '至 09-25', reads: '未读取', active: true },
-  { who: '张医生', target: 'U-9PQR…', status: '已过期', reason: '举报 #ER-0209（已关闭）', expiry: '已过期 09-20', reads: '读取 1 次', active: false },
-]);
+
 
 const dualConfirm = ref([
   { name: '内容发布', value: '运营编辑发起 + 临床审核确认' },
@@ -133,22 +131,66 @@ const dualConfirm = ref([
   { name: '模型激活 / 回滚', value: '技术负责人 + 超管' },
 ]);
 
-onMounted(async () => {
+async function onToggleStatus(member: typeof members.value[number]) {
+  const next = member.status === '正常' ? 'disabled' : 'active';
+  try {
+    await setUserStatus(member.id, next);
+    toast(next === 'disabled' ? '已停用' : '已启用');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+async function onChangeRole(member: typeof members.value[number]) {
+  const roleId = prompt('角色 ID（role-ops/role-clinical/role-tech/role-compliance/role-super）', member.roleId);
+  if (!roleId) return;
+  try {
+    await setUserRole(member.id, roleId);
+    toast('已修改角色');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+function onInvite() {
+  const name = prompt('成员姓名');
+  if (!name) return;
+  toast('演示环境不支持自助注册，请联系超级管理员添加');
+}
+
+async function load() {
   try {
     const users = await listAdminUsers();
     members.value = users.map((u) => ({
       ...u,
       email: `${u.name}@example.com`,
-      roleName: u.roleId === 'role-super' ? '超级管理员' : u.roleId === 'role-clinical' ? '临床审核' : u.roleId === 'role-ops' ? '运营编辑' : u.roleId === 'role-tech' ? '技术负责人' : '合规支持（只读）',
+      roleName: u.roleName,
       roleTone: u.roleId === 'role-super' ? 'error' as const : u.roleId === 'role-clinical' ? 'info' as const : u.roleId === 'role-ops' ? 'ok' as const : u.roleId === 'role-tech' ? 'warn' as const : 'neutral' as const,
       mfaEnabled: !!u.mfaEnabled,
       lastLoginAt: u.lastLoginAt,
-      status: u.status === 'active' ? '正常' : '待绑定 MFA',
+      status: u.status === 'active' ? '正常' : '已停用',
     }));
   } catch {
     // 加载失败不阻塞
   }
-});
+  try {
+    authorizations.value = await listAuthorizations();
+  } catch {
+    // 加载失败不阻塞
+  }
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+}
+
+onMounted(load);
 </script>
 
 <style scoped>

@@ -76,6 +76,14 @@ export function batchOffline(itemIds: string[]) {
   return api.post<{ status: string; results: unknown[] }>('/contents/batch-offline', { itemIds });
 }
 
+export function getContentReviews(id: string) {
+  return api.get<Array<{ id: string; decision: string; comment: string | null; reviewedAt: string; reviewerName: string | null }>>(`/contents/${id}/reviews`);
+}
+
+export function getContentVersions(id: string) {
+  return api.get<Array<{ id: string; version: number; script: string | null; subtitleText: string | null; publishedAt: string | null }>>(`/contents/${id}/versions`);
+}
+
 /* ---------- 证据库 ---------- */
 export function listEvidence() {
   return api.get<EvidenceDoc[]>('/evidence/docs');
@@ -97,9 +105,17 @@ export function deactivateEvidence(id: string) {
 }
 
 export function getEvidenceImpact(id: string) {
-  return api.get<{ docId: string; title: string; analyses: unknown[]; contents: unknown[] }>(
+  return api.get<{ docId: string; title: string; analyses: Array<{ analysisId: string; episodeId: string }>; contents: Array<{ itemId: string; title: string }> }>(
     `/evidence/docs/${id}/impact`,
   );
+}
+
+export function getEvidencePipeline() {
+  return api.get<Array<{ docId: string; title: string; status: string; chunkCount: number }>>('/evidence/pipeline');
+}
+
+export function searchEvidence(q: string) {
+  return api.get<Array<{ id: string; docId: string; docTitle: string; content: string; position: number }>>(`/evidence/search?q=${encodeURIComponent(q)}`);
 }
 
 /* ---------- 反馈 ---------- */
@@ -168,6 +184,10 @@ export function listAdminUsers() {
   return api.get<AdminUser[]>('/admin/users');
 }
 
+export function reviewCase(id: string, decision: string, comment?: string) {
+  return api.post<{ id: string; status: string }>(`/admin/cases/${id}/review`, { decision, comment });
+}
+
 /* ---------- 审计 ---------- */
 export function listAuditLogs() {
   return api.get<AuditLog[]>('/admin/audit-logs');
@@ -180,4 +200,16 @@ export function verifyAuditLogs() {
 /* ---------- 授权 ---------- */
 export function createAuthorization(input: { targetType: string; targetId: string; reason: string }) {
   return api.post('/admin/authorizations', input);
+}
+
+export function listAuthorizations() {
+  return api.get<Array<{ id: string; adminId: string; adminName: string | null; targetType: string; targetId: string; reason: string; createdAt: string }>>('/admin/authorizations');
+}
+
+export function setUserStatus(id: string, status: string) {
+  return api.post<{ id: string; status: string }>(`/admin/users/${id}/status`, { status });
+}
+
+export function setUserRole(id: string, roleId: string) {
+  return api.post<{ id: string; roleId: string }>(`/admin/users/${id}/role`, { roleId });
 }

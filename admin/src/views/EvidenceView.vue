@@ -14,8 +14,7 @@
         <select class="evidence__select"><option>许可：全部</option><option>可引用</option><option>待确认</option></select>
         <select class="evidence__select"><option>状态：全部</option><option>已核实</option><option>已停用</option></select>
         <div class="evidence__filter-actions">
-          <button class="btn btn--secondary">＋ 导入指南/文献</button>
-          <button class="btn btn--primary">＋ 新建证据条目</button>
+          <button class="btn btn--secondary" @click="onCreate">＋ 新建证据条目</button>
         </div>
       </div>
 
@@ -38,15 +37,14 @@
             <tbody>
               <tr v-for="doc in docs" :key="doc.id">
                 <td class="table__id">{{ doc.id }}</td>
-                <td class="table__title">{{ doc.title }}<span class="table__source">（{{ doc.reviewer }} · {{ doc.chunkCount }} 片段）</span></td>
+                <td class="table__title">{{ doc.title }}<span class="table__source">（{{ doc.chunkCount }} 片段）</span></td>
                 <td>{{ doc.sourceType }}</td>
-                <td><StatusTag :label="doc.license ?? ''" /></td>
-                <td>{{ doc.year }}</td>
+                <td><StatusTag :label="doc.license ?? '—'" /></td>
+                <td>{{ doc.verifiedAt ? doc.verifiedAt.slice(0, 4) : '—' }}</td>
                 <td>{{ doc.verifiedAt ?? '—' }}</td>
 
                 <td class="table__actions">
-                  <button class="btn btn--text">详情</button>
-                  <button class="btn btn--text btn--danger" @click="selected = doc">停用</button>
+                  <button class="btn btn--text" @click="onDeactivate(doc)" :disabled="!doc.active">停用</button>
                 </td>
               </tr>
             </tbody>
@@ -56,35 +54,30 @@
         <!-- 右：管线与停用影响 -->
         <div class="evidence__side">
           <div class="card">
-            <div class="card__title">入库管线 · {{ pipeline.docId }}（{{ pipeline.status }}）</div>
-            <div v-for="(step, i) in pipeline.steps" :key="i" class="pipeline-step">
-              <span class="pipeline-step__dot" :class="`pipeline-step__dot--${step.tone}`" />
+            <div class="card__title">入库管线</div>
+            <div v-for="(p, i) in pipeline" :key="i" class="pipeline-step">
+              <span class="pipeline-step__dot" :class="`pipeline-step__dot--${p.status === '已入库' ? 'ok' : 'warn'}`" />
               <div class="pipeline-step__body">
-                <div class="pipeline-step__name">{{ step.name }}</div>
-                <div class="pipeline-step__desc">{{ step.desc }}</div>
+                <div class="pipeline-step__name">{{ p.title }}</div>
+                <div class="pipeline-step__desc">{{ p.status }} · {{ p.chunkCount }} 片段</div>
               </div>
             </div>
-            <button class="btn btn--primary btn--block" :disabled="pipeline.steps[0]?.tone !== 'ok'">
-              标记许可已确认（临床审核）
-            </button>
+            <p v-if="pipeline.length === 0" class="card__note">暂无入库管线记录</p>
           </div>
 
           <div v-if="selected" class="card card--danger">
             <div class="card__title card__title--danger">⚠ 停用影响预览 · {{ selected.id }}</div>
             <p class="card__note">停用后立即从检索中剔除。以下内容曾引用该文档，需临床审核决定是否更正：</p>
-            <div class="impact-section">
-              <div class="impact-section__label">已发布内容</div>
-              <div class="impact-section__item">影像上的突出与疼痛为什么不是一回事 v1</div>
+            <div class="impact-section" v-if="impact && impact.contents.length > 0">
+              <div class="impact-section__label">引用内容</div>
+              <div v-for="(c, i) in impact.contents" :key="i" class="impact-section__item">{{ c.title }}</div>
             </div>
-            <div class="impact-section">
-              <div class="impact-section__label">近 90 天检索</div>
-              <div class="impact-section__item">142 条（脱敏统计）</div>
+            <div class="impact-section" v-if="impact && impact.analyses.length > 0">
+              <div class="impact-section__label">被引用的分析</div>
+              <div v-for="(a, i) in impact.analyses" :key="i" class="impact-section__item">分析 {{ a.analysisId.slice(0, 8) }}（脱敏）</div>
             </div>
-            <div class="impact-section">
-              <div class="impact-section__label">解释模板</div>
-              <div class="impact-section__item">②-3 “影像与症状不一一对应”</div>
-            </div>
-            <button class="btn btn--danger btn--block" @click="onDeactivate">确认停用（写入审计）</button>
+            <p v-if="impact && impact.analyses.length === 0 && impact.contents.length === 0" class="card__note">暂无引用</p>
+            <button class="btn btn--danger btn--block" @click="onConfirmDeactivate">确认停用（写入审计）</button>
           </div>
         </div>
       </div>
@@ -98,49 +91,76 @@
 
 <script setup lang="ts">
 import { toast } from "@/utils/toast";
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { api } from '@/api/client';
+import { listEvidence, createEvidence, deactivateEvidence, getEvidenceImpact, getEvidencePipeline } from '@/api';
 import type { EvidenceDoc } from '@/api/types';
 
-const docs = ref<Array<EvidenceDoc & { reviewer: string; year: string }>>([]);
-const selected = ref<(EvidenceDoc & { reviewer: string; year: string }) | null>(null);
+const docs = ref<Array<EvidenceDoc>>([]);
+const selected = ref<EvidenceDoc | null>(null);
+const impact = ref<{ analyses: Array<{ analysisId: string; episodeId: string }>; contents: Array<{ itemId: string; title: string }> } | null>(null);
+const pipeline = ref<Array<{ docId: string; title: string; status: string; chunkCount: number }>>([]);
 
-const stats = [
-  { label: '指南', count: 6, tone: 'info' },
-  { label: '研究', count: 4, tone: 'info' },
-  { label: '审核科普', count: 12, tone: 'ok' },
-  { label: '许可待确认', count: 2, tone: 'warn' },
-  { label: '已停用', count: 1, tone: 'error' },
-];
-
-const pipeline = ref({
-  docId: 'G-07',
-  status: '待确认',
-  steps: [
-    { name: '许可检查', desc: '待确认：出版方授权条款未取得', tone: 'warn' },
-    { name: '文本清理', desc: '已完成 · 去页眉页脚与页码', tone: 'ok' },
-    { name: '切分', desc: '已完成 · 约 500 tokens / 重叠 50 · 31 片段', tone: 'ok' },
-    { name: '向量化', desc: '等待许可通过后执行（embedding v3）', tone: 'neutral' },
-    { name: '建索引', desc: '—', tone: 'neutral' },
-  ],
+const stats = computed(() => {
+  const count = (s: string) => docs.value.filter((d) => d.sourceType === s).length;
+  return [
+    { label: '指南', count: count('指南'), tone: 'info' },
+    { label: '研究', count: count('研究'), tone: 'info' },
+    { label: '审核科普', count: count('审核科普'), tone: 'ok' },
+    { label: '已停用', count: docs.value.filter((d) => !d.active).length, tone: 'error' },
+  ];
 });
 
-function onDeactivate() {
-  if (!selected.value) return;
-  toast(`已停用 ${selected.value.id}（演示）`);
-  selected.value = null;
+async function onDeactivate(doc: EvidenceDoc) {
+  try {
+    impact.value = await getEvidenceImpact(doc.id);
+    selected.value = doc;
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
-onMounted(async () => {
+async function onConfirmDeactivate() {
+  if (!selected.value) return;
   try {
-    docs.value = await api.get<Array<EvidenceDoc & { reviewer: string; year: string }>>('/evidence/docs');
+    await deactivateEvidence(selected.value.id);
+    toast('已停用');
+    selected.value = null;
+    impact.value = null;
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+async function onCreate() {
+  const title = prompt('证据标题');
+  if (!title) return;
+  const sourceType = prompt('来源类型（指南/研究/审核科普）') ?? '审核科普';
+  const content = prompt('证据内容');
+  if (!content) return;
+  try {
+    await createEvidence({ title, sourceType, content });
+    toast('已创建');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+async function load() {
+  try {
+    docs.value = await listEvidence();
+    pipeline.value = await getEvidencePipeline();
   } catch {
     // 加载失败不阻塞
   }
-});
+}
+
+onMounted(load);
 </script>
 
 <style scoped>

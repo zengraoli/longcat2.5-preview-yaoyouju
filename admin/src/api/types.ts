@@ -17,7 +17,7 @@ export interface DashboardStats {
     source: string;
     createdAt: string;
   }>;
-  switches: Array<{ key: string; enabled: number; reason: string; updatedAt: string }>;
+  switches: Array<{ key: string; enabled: boolean; reason: string; updatedAt: string }>;
   evalRuns: Array<{
     id: string;
     modelReleaseId: string;
@@ -37,6 +37,8 @@ export interface ContentItem {
   offlineSwitch: boolean;
   version: number | null;
   reviewer: string | null;
+  publishedAt: string | null;
+  refCount: number;
 }
 
 export interface EvidenceDoc {
@@ -52,14 +54,20 @@ export interface EvidenceDoc {
 
 export interface FeedbackItem {
   id: string;
+  userId: string | null;
   analysisId: string | null;
   helpType: string | null;
   unsolvedQuestion: string | null;
   isErrorReport: boolean;
   createdAt: string;
+  severity: string | null;
+  status: string | null;
+  resolution: string | null;
 }
 
 export interface SafetyEvent {
+  id: string;
+  userId: string | null;
   ruleCode: string;
   severity: string;
   actionTaken: string;
@@ -99,6 +107,7 @@ export interface AdminUser {
   id: string;
   name: string;
   roleId: string;
+  roleName: string;
   mfaEnabled: boolean;
   status: string;
   failedAttempts: number;
@@ -109,6 +118,8 @@ export interface AdminUser {
 export interface AuditLog {
   id: string;
   actorId: string | null;
+  actorName: string | null;
+  actorRole: string | null;
   action: string;
   target: string | null;
   diff: unknown;

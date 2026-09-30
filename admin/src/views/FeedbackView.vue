@@ -110,18 +110,19 @@
               <p class="detail-section__text detail-section__text--ok">
                 ✓ 用户已允许查看本条分析涉及的报告与记录（至 2026-09-28，可撤回）
               </p>
-              <button class="btn btn--secondary btn--sm">查看相关资料（写入审计）</button>
+              <button class="btn btn--secondary btn--sm" @click="onAuthorize">查看相关资料（写入审计）</button>
             </div>
 
             <div class="detail-section">
               <div class="detail-section__label">处置</div>
               <div class="detail-actions">
-                <button class="btn btn--secondary btn--sm">回复用户</button>
-                <button class="btn btn--secondary btn--sm">转临床复核</button>
-                <button class="btn btn--secondary btn--sm">下线相关内容</button>
-                <button class="btn btn--secondary btn--sm">修订解释模板</button>
-                <button class="btn btn--primary btn--sm">加入评测集</button>
+                <button class="btn btn--secondary btn--sm" @click="onHandle('回复用户')">回复用户</button>
+                <button class="btn btn--secondary btn--sm" @click="onHandle('转临床复核')">转临床复核</button>
+                <button class="btn btn--secondary btn--sm" @click="onHandle('下线相关内容')">下线相关内容</button>
+                <button class="btn btn--secondary btn--sm" @click="onHandle('修订解释模板')">修订解释模板</button>
+                <button class="btn btn--primary btn--sm" @click="onHandle('加入评测集')">加入评测集</button>
               </div>
+              <input v-model="actionNote" class="form-input" placeholder="处置说明" />
             </div>
 
             <div class="detail-section">
@@ -153,6 +154,12 @@ import TipBar from '@/components/TipBar.vue';
 import { listFeedback, authorizeFeedback, handleFeedback } from '@/api';
 import type { FeedbackItem } from '@/api/types';
 
+interface FeedbackRow extends FeedbackItem {
+  severity: string | null;
+  status: string | null;
+  resolution: string | null;
+}
+
 const tabs = [
   { key: 'reports', label: '错误举报' },
   { key: 'help', label: '帮助类型反馈' },
@@ -179,6 +186,7 @@ interface Ticket extends FeedbackItem {
 
 const tickets = ref<Ticket[]>([]);
 const selected = ref<Ticket | null>(null);
+const actionNote = ref('');
 
 const pendingCount = computed(() => tickets.value.filter((t) => t.status === '待处理').length);
 const highCount = computed(() => tickets.value.filter((t) => t.severity === '高').length);
@@ -188,34 +196,67 @@ const reviewCount = computed(() => tickets.value.filter((t) => t.status === '临
 const closedCount = computed(() => tickets.value.filter((t) => t.status === '已关闭').length);
 const helpCount = ref(186);
 
-onMounted(async () => {
+function mapTicket(item: FeedbackRow, i: number): Ticket {
+  return {
+    ...item,
+    type: item.isErrorReport ? '错误举报' : '帮助类型反馈',
+    content: item.isErrorReport ? (item.unsolvedQuestion ?? '错误举报') : (item.helpType ?? '帮助类型'),
+    versions: item.analysisId ? `分析 ${item.analysisId.slice(0, 8)}` : '—',
+    user: item.userId ? item.userId.slice(0, 8) : '匿名',
+    severity: item.severity ?? '—',
+    status: item.status ?? '待处理',
+    assignee: null,
+    time: item.createdAt.slice(5, 16).replace('T', ' '),
+    analysisVersion: item.analysisId ? `${item.analysisId.slice(0, 8)}` : '—',
+    modelVersion: '—',
+    contentVersion: '—',
+    scope: '—',
+    description: item.unsolvedQuestion || '用户提交的反馈',
+    records: item.resolution ? [{ time: item.createdAt.slice(5, 16).replace('T', ' '), text: item.resolution }] : [],
+  };
+}
+
+async function onAuthorize() {
+  if (!selected.value) return;
   try {
-    const items = await listFeedback();
-    tickets.value = items.map((item, i) => ({
-      ...item,
-      type: item.isErrorReport ? '与报告不符 · 左右侧混淆' : '帮助类型：看懂了',
-      content: item.isErrorReport ? '一页分析 v3 · ②-2' : '视频：硬膜囊受压是在说什么',
-      versions: item.isErrorReport ? 'M-2609 · R-4 · U-8F3K…' : '—',
-      user: 'U-8F3K…',
-      severity: ['高', '中', '低'][i % 3],
-      status: ['待处理', '临床复核中', '已关闭', '已回复', '已加入评测集'][i % 5],
-      assignee: i % 2 === 0 ? '李医生' : null,
-      time: item.createdAt.slice(5, 16).replace('T', ' '),
-      analysisVersion: 'A-88213 · v3 · 2026-09-21 09:41',
-      modelVersion: 'M-2609（模型 Q-x · 提示词 p14 · 检索 R-4）',
-      contentVersion: '审核科普 #07 v1',
-      scope: '同版本组合近 7 天：1,204 条分析（脱敏统计）',
-      description: item.unsolvedQuestion || '用户提交的反馈',
-      records: [
-        { time: '09-21 09:50', text: '系统按类型自动定级：高' },
-        { time: '09-21 10:05', text: '王编辑 初筛：疑似侧别引用错误，转临床复核' },
-      ],
-    }));
-    if (tickets.value.length > 0) selected.value = tickets.value[0];
+    await authorizeFeedback(selected.value.id);
+    toast('已授权查看（写入审计）');
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+async function onHandle(action: string) {
+  if (!selected.value) return;
+  const resolution = actionNote.value || action;
+  try {
+    await handleFeedback(selected.value.id, action, resolution);
+    toast('已记录处置');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+async function load() {
+  try {
+    const items: FeedbackRow[] = await listFeedback();
+    tickets.value = items.map(mapTicket);
+    if (tickets.value.length > 0 && !selected.value) selected.value = tickets.value[0];
   } catch {
     // 加载失败不阻塞
   }
-});
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+}
+
+onMounted(load);
 </script>
 
 <style scoped>

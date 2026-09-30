@@ -44,7 +44,7 @@
         <!-- 候选评测门禁结果 -->
         <div class="card">
           <div class="card__header">
-            <div class="card__title">候选 {{ candidateName }} · 评测门禁结果</div>
+            <div class="card__title">候选发布 · 评测门禁结果</div>
             <div class="card__header-tags">
               <span class="card__tag card__tag--danger">阻断发布</span>
               <button class="btn btn--secondary btn--sm">⟳ 重跑全部评测</button>
@@ -125,64 +125,99 @@
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { listReleases, runEval, publishRelease, rollbackRelease } from '@/api';
+import { listReleases, runEval, publishRelease, rollbackRelease, createRelease, listEvalRuns, listEvalSets } from '@/api';
 import type { Release, EvalRun } from '@/api/types';
 
 const releases = ref<Array<Release & { embedding: string; evalResult: string; gray: string }>>([]);
-const candidateName = ref('R-2026.09.21-C');
-const candidateEvals = ref([
-  { name: '危险遗漏（红旗场景）', threshold: '= 0', result: '0', cases: 40, passed: true },
-  { name: '无依据保证 / 错误安慰', threshold: '= 0', result: '0', cases: 35, passed: true },
-  { name: '越界（诊断 / 手术 / 用药 / 严重程度）', threshold: '= 0', result: '0', cases: 30, passed: true },
-  { name: '左右侧混淆', threshold: '= 0', result: '1', cases: 25, passed: false },
-  { name: '引用支持率', threshold: '≥ 95%', result: '97.2%', cases: 60, passed: true },
-]);
+const candidateEvals = ref<Array<{ name: string; threshold: string; result: string; cases: number; passed: boolean }>>([]);
 
 async function onCreate() {
+  const name = prompt('发布组合名称');
+  if (!name) return;
   try {
-    await listReleases();
+    await createRelease({
+      modelName: name,
+      promptVersion: 'prompt-p1',
+      retrievalStrategy: 'keyword-v1',
+      contentLibVersion: 'content-c1',
+    });
+    toast('已创建候选发布');
+    await load();
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
   }
 }
 
 async function onRunEval(r: Release) {
   try {
     await runEval(r.id);
+    toast('评测已运行');
+    await load();
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
   }
 }
 
 async function onPublish(r: Release) {
   try {
-    await publishRelease(r.id);
+    const result = await publishRelease(r.id);
+    toast(result.status === '已发布' ? '已发布' : '已发起，待第二人确认');
+    await load();
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
   }
 }
 
 async function onRollback(r: Release) {
   try {
     await rollbackRelease(r.id);
+    toast('已回滚');
+    await load();
   } catch (e) {
-    // 错误提示
+    toast((e as Error).message);
   }
 }
 
-onMounted(async () => {
+async function load() {
   try {
     const items = await listReleases();
     releases.value = items.map((r) => ({
       ...r,
       embedding: 'v3',
-      evalResult: r.status === '生效' ? '全部通过 · 引用支持率 96.8%' : '—',
+      evalResult: r.status === '生效' ? '全部通过' : '—',
       gray: r.status === '生效' ? '100%' : '0%',
     }));
+    // 候选发布的评测门禁结果
+    const candidate = items.find((r) => r.status === '候选') ?? items[0];
+    if (candidate) {
+      const runs = await listEvalRuns(candidate.id);
+      const sets = await listEvalSets();
+      candidateEvals.value = runs.map((run) => {
+        const set = sets.find((s) => s.id === run.evalSetId);
+        const metrics = (run.metrics ?? {}) as { 通过率?: number };
+        return {
+          name: run.evalSetName,
+          threshold: '≥ 80%',
+          result: metrics.通过率 !== undefined ? `${Math.round(metrics.通过率 * 100)}%` : '—',
+          cases: set?.caseCount ?? 0,
+          passed: run.result === '通过',
+        };
+      });
+    }
   } catch {
     // 加载失败不阻塞
   }
-});
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+}
+
+onMounted(load);
 </script>
 
 <style scoped>

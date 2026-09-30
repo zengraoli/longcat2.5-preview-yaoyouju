@@ -94,8 +94,8 @@ onMounted(async () => {
     const items = await listAuditLogs();
     logs.value = items.map((l) => ({
       time: l.createdAt.slice(0, 16).replace('T', ' '),
-      actor: l.actorId ?? '系统',
-      role: '—',
+      actor: l.actorName ?? l.actorId ?? '系统',
+      role: l.actorRole ?? '—',
       roleTone: 'neutral' as const,
       action: l.action,
       actionTone: actionTone(l.action),

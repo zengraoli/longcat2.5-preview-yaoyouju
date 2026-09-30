@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { IsString, MaxLength } from 'class-validator';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
@@ -114,6 +114,50 @@ export class AdminController {
       .all();
   }
 
+  /** 单条授权记录列表 */
+  @Get('authorizations')
+  @UseGuards(AdminGuard)
+  @RequirePermission('audit:read')
+  listAuthorizations(@CurrentAdmin() _admin: unknown) {
+    return this.appDb
+      .prepare(
+        `SELECT a.id, a.admin_id AS adminId, au.name AS adminName, a.target_type AS targetType,
+                a.target_id AS targetId, a.reason, a.created_at AS createdAt
+         FROM ADMIN_AUTHORIZATION a LEFT JOIN ADMIN_USER au ON au.id = a.admin_id
+         ORDER BY a.created_at DESC, a.rowid DESC`,
+      )
+      .all();
+  }
+
+  /** 停用 / 启用后台账号 */
+  @Post('users/:id/status')
+  @UseGuards(AdminGuard)
+  @RequirePermission('*')
+  setUserStatus(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { status: string }) {
+    if (!['active', 'disabled'].includes(body.status)) {
+      throw new BadRequestException('状态不合法');
+    }
+    const target = this.appDb.prepare('SELECT id FROM ADMIN_USER WHERE id = ?').get(id) as { id: string } | undefined;
+    if (!target) throw new NotFoundException('账号不存在');
+    this.appDb.prepare('UPDATE ADMIN_USER SET status = ? WHERE id = ?').run(body.status, id);
+    this.audit.record({ actorId: admin.adminId, action: 'admin:user-status', target: id, diff: { status: body.status } });
+    return { id, status: body.status };
+  }
+
+  /** 修改后台账号角色 */
+  @Post('users/:id/role')
+  @UseGuards(AdminGuard)
+  @RequirePermission('*')
+  setUserRole(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { roleId: string }) {
+    const target = this.appDb.prepare('SELECT id FROM ADMIN_USER WHERE id = ?').get(id) as { id: string } | undefined;
+    if (!target) throw new NotFoundException('账号不存在');
+    const role = this.appDb.prepare('SELECT id FROM ROLE WHERE id = ?').get(body.roleId) as { id: string } | undefined;
+    if (!role) throw new NotFoundException('角色不存在');
+    this.appDb.prepare('UPDATE ADMIN_USER SET role_id = ? WHERE id = ?').run(body.roleId, id);
+    this.audit.record({ actorId: admin.adminId, action: 'admin:user-role', target: id, diff: { roleId: body.roleId } });
+    return { id, roleId: body.roleId };
+  }
+
   /** 安全事件列表（匿名标识，不含问卷原文） */
   @Get('safety-events')
   @UseGuards(AdminGuard)
@@ -140,6 +184,32 @@ export class AdminController {
          FROM CASE_SUBMISSION ORDER BY created_at DESC, rowid DESC`,
       )
       .all();
+  }
+
+  /** 案例投稿审核（发布 / 退回） */
+  @Post('cases/:id/review')
+  @UseGuards(AdminGuard)
+  @RequirePermission('case:review')
+  reviewCase(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() body: { decision: string; comment?: string }) {
+    const submission = this.appDb
+      .prepare('SELECT id, status FROM CASE_SUBMISSION WHERE id = ?')
+      .get(id) as { id: string; status: string } | undefined;
+    if (!submission) throw new NotFoundException('投稿不存在');
+    if (submission.status !== '待审') {
+      throw new ConflictException('该投稿已处理');
+    }
+    const next = body.decision === '发布' ? '已发布' : '已撤回';
+    this.appDb
+      .prepare('UPDATE CASE_SUBMISSION SET status = ? WHERE id = ?')
+      .run(next, id);
+    this.appDb
+      .prepare(
+        `INSERT INTO REVIEW_RECORD (id, target_id, target_type, reviewer_id, decision, review_scope, comment, reviewed_at)
+         VALUES (?, ?, 'CASE_SUBMISSION', ?, ?, '案例投稿审核', ?, ?)`,
+      )
+      .run(crypto.randomUUID(), id, admin.adminId, body.decision, body.comment ?? null, new Date().toISOString());
+    this.audit.record({ actorId: admin.adminId, action: 'case:review', target: id, diff: { decision: body.decision } });
+    return { id, status: next };
   }
 
   /** 审计导出（需审批，这里返回 CSV 文本） */

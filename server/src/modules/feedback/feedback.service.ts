@@ -81,13 +81,15 @@ export class FeedbackService {
       .all(userId);
   }
 
-  /** 管理端：全部反馈 */
+  /** 管理端：全部反馈（含严重度与处理状态） */
   list() {
     return this.appDb
       .prepare(
-        `SELECT id, user_id AS userId, analysis_id AS analysisId, help_type AS helpType,
-                unsolved_question AS unsolvedQuestion, is_error_report AS isErrorReport, created_at AS createdAt
-         FROM FEEDBACK ORDER BY created_at DESC, rowid DESC`,
+        `SELECT f.id, f.user_id AS userId, f.analysis_id AS analysisId, f.help_type AS helpType,
+                f.unsolved_question AS unsolvedQuestion, f.is_error_report AS isErrorReport, f.created_at AS createdAt,
+                r.severity, r.status, r.resolution
+         FROM FEEDBACK f LEFT JOIN FEEDBACK_REPORT r ON r.feedback_id = f.id
+         ORDER BY f.created_at DESC, f.rowid DESC`,
       )
       .all();
   }

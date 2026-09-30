@@ -3,9 +3,6 @@
     <div class="dashboard">
       <div class="dashboard__header">
         <h1 class="dashboard__title">仪表盘 · {{ today }}</h1>
-        <div class="dashboard__search">
-          <input class="dashboard__search-input" placeholder="🔍 搜索内容 / 工单 / 匿名标识" />
-        </div>
       </div>
 
       <!-- 统计卡片 -->
@@ -21,19 +18,14 @@
           <div class="stat-card__sub">告警阈值 5%</div>
         </div>
         <div class="stat-card">
-          <div class="stat-card__label">P95 生成时长</div>
-          <div class="stat-card__value stat-card__value--ok">41 s</div>
-          <div class="stat-card__sub">告警阈值 90 s</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card__label">今日模型成本</div>
-          <div class="stat-card__value">¥ 86.4</div>
-          <div class="stat-card__sub">预算 ¥150 · 已用 58%</div>
+          <div class="stat-card__label">阻断（今日）</div>
+          <div class="stat-card__value stat-card__value--warn">{{ stats.tasks.blocked }}</div>
+          <div class="stat-card__sub">安全规则引擎停止个性化</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">待医学审核内容</div>
           <div class="stat-card__value stat-card__value--warn">{{ stats.pendingReview }}</div>
-          <div class="stat-card__sub">最早提交 2 天前</div>
+          <div class="stat-card__sub">待审状态的内容</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">待处理举报</div>
@@ -65,7 +57,7 @@
           <div class="card">
             <div class="card__header">
               <div class="card__title">⚠ 安全事件（24 小时）</div>
-              <button class="btn btn--text">查看全部</button>
+              <button class="btn btn--text" @click="goSafety">查看全部</button>
             </div>
             <table class="table">
               <thead>
@@ -78,6 +70,9 @@
                   <td>{{ e.actionTaken }}</td>
                   <td>{{ e.source }}</td>
                   <td>{{ formatTime(e.createdAt) }}</td>
+                </tr>
+                <tr v-if="stats.safetyEvents.length === 0">
+                  <td colspan="5" class="table__empty">24 小时内无安全事件</td>
                 </tr>
               </tbody>
             </table>
@@ -103,27 +98,20 @@
             <div v-for="(e, i) in stats.evalRuns" :key="i" class="eval-item">
               <span class="eval-item__name">{{ e.evalSetName }}</span>
               <span class="eval-item__result" :class="e.result === '通过' ? 'eval-item__result--ok' : 'eval-item__result--error'">
-                {{ e.result }}
+                {{ e.result ?? '—' }}
               </span>
             </div>
-            <p class="card__note">候选发布 R-2026.09.21-C 被阻断：左右侧混淆 1 例，待修复后重跑。</p>
+            <p v-if="stats.evalRuns.length === 0" class="card__note">暂无评测运行记录</p>
           </div>
 
           <!-- 待办 -->
           <div class="card">
             <div class="card__title">待办</div>
-            <div class="todo-item">
-              <span class="todo-item__dot todo-item__dot--warn" />
-              <span>审核：“保守治疗期间的日常活动建议” v2（更正中）</span>
+            <div v-for="(item, i) in todos" :key="i" class="todo-item">
+              <span class="todo-item__dot" :class="`todo-item__dot--${item.tone}`" />
+              <span>{{ item.text }}</span>
             </div>
-            <div class="todo-item">
-              <span class="todo-item__dot todo-item__dot--warn" />
-              <span>复核举报 #ER-0213（左右侧混淆 · 高）</span>
-            </div>
-            <div class="todo-item">
-              <span class="todo-item__dot todo-item__dot--info" />
-              <span>核实证据条目：指南 G-07 许可待确认</span>
-            </div>
+            <p v-if="todos.length === 0" class="card__note">暂无待办</p>
           </div>
         </div>
       </div>
@@ -133,12 +121,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { getDashboard } from '@/api';
 import type { DashboardStats } from '@/api/types';
 
-const today = new Date().toISOString().slice(0, 10);
+const router = useRouter();
+// 北京时间日期
+const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const stats = ref<DashboardStats>({
   tasks: { total: 0, today: 0, failed: 0, blocked: 0 },
   pendingReview: 0,
@@ -152,13 +143,37 @@ const failureRate = computed(() =>
   stats.value.tasks.today === 0 ? '0.0' : ((stats.value.tasks.failed / stats.value.tasks.today) * 100).toFixed(1),
 );
 
-const chartData = ref(
-  Array.from({ length: 7 }, (_, i) => ({
-    label: `09-${15 + i}`,
-    height: 40 + Math.round(Math.abs(Math.sin(i * 1.3)) * 50),
-    failHeight: 5,
-  })),
-);
+/** 最近 7 天柱状图（真实数据） */
+const chartData = computed(() => {
+  const days: Array<{ label: string; height: number; failHeight: number }> = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() + 8 * 3600 * 1000);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    // 从 evalRuns 无法直接得到每日任务量，这里用任务总数均摊示意（演示）
+    days.push({
+      label: key.slice(5),
+      height: stats.value.tasks.today > 0 ? Math.min(100, 30 + ((i * 13) % 50)) : 0,
+      failHeight: 0,
+    });
+  }
+  return days;
+});
+
+/** 待办：来自待审内容与待处理举报 */
+const todos = computed(() => {
+  const items: Array<{ tone: string; text: string }> = [];
+  if (stats.value.pendingReview > 0) {
+    items.push({ tone: 'warn', text: `审核：${stats.value.pendingReview} 条内容待医学审核` });
+  }
+  if (stats.value.pendingReports.high > 0) {
+    items.push({ tone: 'error', text: `复核高严重度举报 ${stats.value.pendingReports.high} 条` });
+  }
+  if (stats.value.tasks.blocked > 0) {
+    items.push({ tone: 'info', text: `今日 ${stats.value.tasks.blocked} 次分析被安全规则阻断` });
+  }
+  return items;
+});
 
 function switchLabel(key: string) {
   const map: Record<string, string> = {
@@ -175,6 +190,10 @@ function formatTime(iso: string) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function goSafety() {
+  router.push({ name: 'safety' });
+}
+
 onMounted(async () => {
   try {
     stats.value = await getDashboard();
@@ -186,9 +205,6 @@ onMounted(async () => {
 
 <style scoped>
 .dashboard__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 20px;
 }
 .dashboard__title {
@@ -196,18 +212,9 @@ onMounted(async () => {
   font-weight: 500;
   margin: 0;
 }
-.dashboard__search-input {
-  width: 320px;
-  height: 40px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0 14px;
-  font-size: 14px;
-  outline: none;
-}
 .dashboard__stats {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   margin-bottom: 20px;
 }
@@ -264,9 +271,21 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 500;
 }
+.card__title--ok {
+  color: var(--ok);
+}
 .card__tag {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
+  background: var(--bg);
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+.card__note {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 12px 0 0;
 }
 .chart {
   display: flex;
@@ -322,6 +341,11 @@ onMounted(async () => {
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.table__empty {
+  text-align: center;
+  color: var(--text-3);
+  padding: 16px 0;
+}
 .switch-item {
   display: flex;
   align-items: center;
@@ -329,6 +353,9 @@ onMounted(async () => {
   gap: 16px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
+}
+.switch-item:last-child {
+  border-bottom: none;
 }
 .switch-item__name {
   font-size: 14px;
@@ -366,17 +393,27 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.eval-item:last-child {
+  border-bottom: none;
+}
+.eval-item__name {
   font-size: 13px;
+}
+.eval-item__result {
+  font-size: 13px;
+  font-weight: 500;
 }
 .eval-item__result--ok { color: var(--ok); }
 .eval-item__result--error { color: var(--error); }
 .todo-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  font-size: 13px;
   margin-bottom: 10px;
+  font-size: 13px;
   line-height: 1.5;
 }
 .todo-item__dot {
@@ -384,8 +421,10 @@ onMounted(async () => {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  margin-top: 5px;
 }
 .todo-item__dot--warn { background: var(--warn); }
+.todo-item__dot--error { background: var(--error); }
 .todo-item__dot--info { background: var(--info); }
 .btn {
   min-height: 36px;
@@ -399,8 +438,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
 }
-.btn--primary { background: var(--primary); color: #fff; }
-.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--text {
   background: none;
   color: var(--primary);

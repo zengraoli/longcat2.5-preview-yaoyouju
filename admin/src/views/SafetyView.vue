@@ -26,7 +26,7 @@
                   <span class="switch-row__change">最近变更 {{ sw.change }}</span>
                 </div>
               </div>
-              <span class="switch" :class="{ 'switch--on': sw.enabled }" />
+              <button class="switch" :class="{ 'switch--on': sw.enabled }" @click="onToggle(sw)" />
             </div>
           </div>
 
@@ -89,7 +89,7 @@ import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { getDashboard, listSwitches, setSwitch } from '@/api';
+import { getDashboard, listSwitches, setSwitch, listSafetyEvents } from '@/api';
 import type { DashboardStats } from '@/api/types';
 
 const stats = ref<DashboardStats | null>(null);
@@ -125,9 +125,29 @@ function formatTime(iso: string) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-onMounted(async () => {
+async function onToggle(sw: { key: string; enabled: boolean; reason: string }) {
+  const reason = prompt('变更原因', sw.reason ?? '');
+  if (reason === null) return;
   try {
-    const [dash, sw] = await Promise.all([getDashboard(), listSwitches()]);
+    await setSwitch(sw.key, !sw.enabled, reason);
+    toast(sw.enabled ? '已关闭' : '已开启');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
+function toast(msg: string) {
+  const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+}
+
+async function load() {
+  try {
+    const [dash, sw, ev] = await Promise.all([getDashboard(), listSwitches(), listSafetyEvents()]);
     stats.value = dash;
     switches.value = sw.map((s) => ({
       key: s.key,
@@ -137,18 +157,20 @@ onMounted(async () => {
       confirm: s.key === '个性化分析' ? '双人' : s.key === '拍照提取' ? '单人 + 原因' : '双人',
       change: s.updatedAt ? s.updatedAt.slice(5, 10) : '—',
     }));
-    events.value = dash.safetyEvents.map((e) => ({
+    events.value = ev.map((e) => ({
       ruleCode: e.ruleCode,
       severity: e.severity,
       actionTaken: e.actionTaken,
       source: e.source,
-      user: 'U-8F3K…',
+      user: e.userId ? e.userId.slice(0, 8) : '—',
       createdAt: e.createdAt,
     }));
   } catch {
     // 加载失败不阻塞
   }
-});
+}
+
+onMounted(load);
 </script>
 
 <style scoped>
