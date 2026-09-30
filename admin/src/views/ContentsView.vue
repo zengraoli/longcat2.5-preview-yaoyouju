@@ -252,14 +252,11 @@ async function onCorrect(item: ContentItem) {
 
 async function onToggleOffline(item: ContentItem) {
   try {
-    if (item.offlineSwitch) {
-      // 取消下线：复位下线开关
-      await setContentOfflineSwitch(item.id, false);
-      toast('已取消下线');
+    const result = await setContentOfflineSwitch(item.id, !item.offlineSwitch);
+    if ((result as { pending?: string }).pending === '待第二人确认') {
+      toast('已发起，待第二人确认');
     } else {
-      // 下线开关：应急隐藏，不改变审核状态
-      await setContentOfflineSwitch(item.id, true);
-      toast('已下线（应急隐藏）');
+      toast(item.offlineSwitch ? '已取消下线' : '已下线（应急隐藏）');
     }
     await load();
   } catch (e) {

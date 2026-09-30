@@ -94,7 +94,7 @@
 
           <!-- 评测门禁 -->
           <div class="card">
-            <div class="card__title card__title--ok">评测门禁 · 最近运行</div>
+            <div class="card__title" :class="evalGateOk ? 'card__title--ok' : 'card__title--danger'">评测门禁 · 最近运行</div>
             <div v-for="(e, i) in stats.evalRuns" :key="i" class="eval-item">
               <span class="eval-item__name">{{ e.evalSetName }}</span>
               <span class="eval-item__result" :class="e.result === '通过' ? 'eval-item__result--ok' : 'eval-item__result--error'">
@@ -177,6 +177,10 @@ const todos = computed(() => {
   }
   return items;
 });
+
+const evalGateOk = computed(
+  () => stats.value.evalRuns.length > 0 && stats.value.evalRuns.every((e) => e.result === '通过'),
+);
 
 function switchLabel(key: string) {
   const map: Record<string, string> = {

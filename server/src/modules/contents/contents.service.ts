@@ -144,11 +144,11 @@ export class ContentsService {
   private pendingByDecision(itemId: string, decision: string) {
     return this.appDb
       .prepare(
-        `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD
+        `SELECT reviewer_id AS reviewerId, comment FROM REVIEW_RECORD
          WHERE target_id = ? AND target_type = 'CONTENT_ITEM' AND decision = ? AND consumed = 0
          ORDER BY reviewed_at DESC, rowid DESC LIMIT 1`,
       )
-      .get(itemId, decision) as { reviewerId: string } | undefined;
+      .get(itemId, decision) as { reviewerId: string; comment: string | null } | undefined;
   }
 
   /** 消费（标记已确认）某类发起记录，避免下一轮读到过期 pending */
@@ -391,15 +391,35 @@ export class ContentsService {
     return this.getView(itemId);
   }
 
-  /** 下线开关：立即对用户端隐藏 / 恢复内容，不改变审核状态（应急用） */
+  /** 下线开关：立即对用户端隐藏 / 恢复内容，不改变审核状态（应急用）；需双人确认 */
   setOfflineSwitch(actorId: string, itemId: string, offline: boolean, permissions: string[] = []) {
     const item = this.getItem(itemId);
     if (!item) throw new NotFoundException('内容不存在');
     if (!this.hasPermission(permissions, 'content:offline')) {
       throw new ForbiddenException('无权限操作下线开关');
     }
-    this.appDb.prepare('UPDATE CONTENT_ITEM SET offline_switch = ? WHERE id = ?').run(offline ? 1 : 0, itemId);
-    this.audit.record({ actorId, action: offline ? 'content:offline-switch-on' : 'content:offline-switch-off', target: itemId });
+    const decision = '下线开关-发起';
+    const pending = this.pendingByDecision(itemId, decision);
+    if (!pending) {
+      this.supersedePending(itemId, decision);
+      this.insertReview(itemId, actorId, decision, '下线开关第一操作人', JSON.stringify({ offline }));
+      this.audit.record({ actorId, action: 'content:offline-switch-initiate', target: itemId, diff: { offline } });
+      return { ...this.getView(itemId), pending: '待第二人确认' } as ContentItemView & { pending: string };
+    }
+    if (pending.reviewerId === actorId) {
+      throw new ConflictException('下线开关需双人确认：不能由同一操作人发起并确认');
+    }
+    // 按发起时的目标值生效（确认人传的值不生效）
+    let targetOffline = offline;
+    try {
+      const initiated = JSON.parse((pending as { comment?: string }).comment ?? '{}') as { offline?: boolean };
+      if (typeof initiated.offline === 'boolean') targetOffline = initiated.offline;
+    } catch {
+      // 解析失败时按确认请求的值生效
+    }
+    this.consumePending(itemId, decision);
+    this.appDb.prepare('UPDATE CONTENT_ITEM SET offline_switch = ? WHERE id = ?').run(targetOffline ? 1 : 0, itemId);
+    this.audit.record({ actorId, action: targetOffline ? 'content:offline-switch-on' : 'content:offline-switch-off', target: itemId });
     return this.getView(itemId);
   }
 
