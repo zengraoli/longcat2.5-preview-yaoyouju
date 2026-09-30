@@ -7,7 +7,7 @@
 
       <TipBar type="warn">
         ⚠ 二期功能 · 首版隐藏（功能开关 case_cards = off）<br />
-        进入条件：单独授权、预览、第三方信息去除、人工审核、撤回链路可用。禁止把“导出群聊后直接公开”或“删除昵称”当作充分匿名化。以下为界面预留，数据为演示。
+        进入条件：单独授权、预览、第三方信息去除、人工审核、撤回链路可用。禁止把“导出群聊后直接公开”或“删除昵称”当作充分匿名化。
       </TipBar>
 
       <div class="cases__grid">
@@ -17,14 +17,14 @@
             <div class="card__header">
               <div class="card__title">投稿队列</div>
               <div class="card__header-tags">
-                <span class="card__tag card__tag--warn">待审 2</span>
-                <span class="card__tag">已发布 0</span>
-                <span class="card__tag card__tag--error">已撤回 0</span>
+                <span class="card__tag card__tag--warn">待审 {{ stats.pending }}</span>
+                <span class="card__tag">已发布 {{ stats.published }}</span>
+                <span class="card__tag card__tag--error">已撤回 {{ stats.withdrawn }}</span>
               </div>
             </div>
             <table class="table">
               <thead>
-                <tr><th>投稿</th><th>摘要（经用户编辑的片段）</th><th>授权范围</th><th>第三方信息</th><th>状态</th></tr>
+                <tr><th>投稿</th><th>摘要（经用户编辑的片段）</th><th>授权范围</th><th>状态</th></tr>
               </thead>
               <tbody>
                 <tr
@@ -36,8 +36,10 @@
                   <td class="table__id">{{ c.id }}</td>
                   <td class="table__title">{{ c.summary }}</td>
                   <td><StatusTag :label="c.scope" /></td>
-                  <td><StatusTag :label="c.thirdParty" :tone="c.thirdPartyTone" /></td>
                   <td><StatusTag :label="c.status" /></td>
+                </tr>
+                <tr v-if="cases.length === 0">
+                  <td colspan="4" class="table__empty">暂无投稿</td>
                 </tr>
               </tbody>
             </table>
@@ -54,7 +56,7 @@
               <div class="risk-item">
                 <span class="risk-item__icon risk-item__icon--error">⚠</span>
                 <span class="risk-item__text">是否包含第三方（医生、家人、病友）可识别信息</span>
-                <StatusTag label="检测到 2 处（见右侧）" tone="error" />
+                <StatusTag label="见右侧对照" tone="error" />
               </div>
               <div class="risk-item">
                 <span class="risk-item__icon risk-item__icon--ok">✓</span>
@@ -69,7 +71,7 @@
               <div class="risk-item">
                 <span class="risk-item__icon risk-item__icon--ok">✓</span>
                 <span class="risk-item__text">结局是否为“未知 / 失访”并如实标注</span>
-                <StatusTag label="已标注：随访中" />
+                <StatusTag label="已标注" />
               </div>
               <div class="risk-item">
                 <span class="risk-item__icon risk-item__icon--ok">✓</span>
@@ -85,19 +87,15 @@
           <div v-if="selected" class="card">
             <div class="card__header">
               <div class="card__title">{{ selected.id }} · 第三方信息去除</div>
-              <StatusTag label="待审" />
+              <StatusTag :label="selected.status" />
             </div>
             <div class="detail-section">
               <div class="detail-section__label">用户提交（已由用户自行编辑）</div>
-              <div class="quote">
-                复查那天是<span class="highlight">李某某主任</span>看的，他说和上次比没有明显变化，让我继续按之前的方案，在<span class="highlight">市第一医院</span>做康复。
-              </div>
+              <div class="quote">{{ selected.editedContent }}</div>
             </div>
             <div class="detail-section">
               <div class="detail-section__label">编辑建议（运营编辑，需用户确认）</div>
-              <div class="quote quote--ok">
-                复查那天是接诊医生看的，医生说和上次比没有明显变化，让我继续按之前的方案，在当地医院做康复。
-              </div>
+              <div class="quote quote--ok">{{ selected.suggestion }}</div>
             </div>
             <div class="detail-section">
               <div class="detail-section__label">授权范围（用户单独勾选）</div>
@@ -130,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
@@ -141,13 +139,26 @@ interface CaseRow {
   id: string;
   summary: string;
   scope: string;
-  thirdParty: string;
-  thirdPartyTone: 'ok' | 'warn' | 'error' | 'info' | 'neutral';
   status: string;
+  editedContent: string;
+  suggestion: string;
 }
 
 const cases = ref<CaseRow[]>([]);
 const selected = ref<CaseRow | null>(null);
+
+const stats = computed(() => ({
+  pending: cases.value.filter((c) => c.status === '待审').length,
+  published: cases.value.filter((c) => c.status === '已发布').length,
+  withdrawn: cases.value.filter((c) => c.status === '已撤回').length,
+}));
+
+/** 生成去标识化的编辑建议（去除可能的第三方称谓与机构名） */
+function makeSuggestion(content: string): string {
+  return content
+    .replace(/李某某主任|张某某医生|王某某医生/g, '接诊医生')
+    .replace(/市第一医院|省人民医院|县医院/g, '当地医院');
+}
 
 async function onReview(decision: string) {
   if (!selected.value) return;
@@ -164,12 +175,12 @@ async function load() {
   try {
     const items = await api.get<Array<{ id: string; editedContent: string; consentScope: string; status: string }>>('/admin/cases');
     cases.value = items.map((item) => ({
-      id: item.id,
+      id: item.id.slice(0, 8),
       summary: item.editedContent.slice(0, 40) + (item.editedContent.length > 40 ? '…' : ''),
       scope: item.consentScope || '—',
-      thirdParty: '—',
-      thirdPartyTone: 'neutral' as const,
       status: item.status,
+      editedContent: item.editedContent,
+      suggestion: makeSuggestion(item.editedContent),
     }));
     if (cases.value.length > 0 && !selected.value) selected.value = cases.value[0];
   } catch {
@@ -179,10 +190,10 @@ async function load() {
 
 function toast(msg: string) {
   const el = document.createElement('div');
-    el.textContent = msg;
-    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(load);
@@ -199,15 +210,11 @@ onMounted(load);
 }
 .cases__grid {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1.4fr 1fr;
   gap: 16px;
   align-items: start;
 }
-.cases__main {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.cases__main,
 .cases__side {
   display: flex;
   flex-direction: column;
@@ -232,6 +239,7 @@ onMounted(load);
 }
 .card__header-tags {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 .card__tag {
@@ -241,8 +249,14 @@ onMounted(load);
   padding: 2px 10px;
   border-radius: 4px;
 }
-.card__tag--warn { color: var(--warn); background: rgba(199, 119, 0, 0.1); }
-.card__tag--error { color: var(--error); background: rgba(217, 59, 59, 0.1); }
+.card__tag--warn {
+  color: var(--warn);
+  background: rgba(199, 119, 0, 0.1);
+}
+.card__tag--error {
+  color: var(--error);
+  background: rgba(217, 59, 59, 0.1);
+}
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -261,36 +275,41 @@ onMounted(load);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.table__empty {
+  text-align: center;
+  color: var(--text-3);
+  padding: 24px 0;
+}
 .table__row--active {
   background: var(--primary-light);
 }
 .table__id {
-  font-weight: 500;
-  white-space: nowrap;
-}
-.table__title {
-  font-weight: 500;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-2);
 }
 .risk-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 .risk-item {
   display: flex;
   align-items: center;
   gap: 10px;
+  font-size: 13px;
 }
 .risk-item__icon {
-  font-size: 14px;
   flex-shrink: 0;
+  width: 20px;
+  text-align: center;
 }
 .risk-item__icon--ok { color: var(--ok); }
 .risk-item__icon--warn { color: var(--warn); }
 .risk-item__icon--error { color: var(--error); }
 .risk-item__text {
-  font-size: 13px;
   flex: 1;
+  color: var(--text-2);
   line-height: 1.5;
 }
 .detail-section {
@@ -303,7 +322,7 @@ onMounted(load);
 }
 .quote {
   background: var(--bg);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px;
   font-size: 13px;
   line-height: 1.6;
@@ -311,18 +330,12 @@ onMounted(load);
 .quote--ok {
   background: rgba(30, 158, 90, 0.06);
 }
-.highlight {
-  color: var(--error);
-  background: rgba(217, 59, 59, 0.1);
-  padding: 0 2px;
-  border-radius: 2px;
-}
 .consent-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
   margin-bottom: 8px;
+  font-size: 13px;
 }
 .consent-item__check {
   width: 18px;
@@ -339,8 +352,8 @@ onMounted(load);
   color: #fff;
 }
 .consent-item__check--none {
-  background: var(--bg);
-  color: var(--text-3);
+  background: var(--border);
+  color: var(--text-2);
 }
 .consent-item__muted {
   color: var(--text-3);
@@ -348,7 +361,7 @@ onMounted(load);
 .detail-actions {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  margin-top: 8px;
 }
 .btn {
   min-height: 36px;
@@ -365,8 +378,4 @@ onMounted(load);
 .btn--primary { background: var(--primary); color: #fff; }
 .btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 </style>

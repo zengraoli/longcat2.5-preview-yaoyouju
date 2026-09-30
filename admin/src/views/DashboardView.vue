@@ -13,9 +13,9 @@
           <div class="stat-card__sub">成功 {{ stats.tasks.today - stats.tasks.failed }} · 失败 {{ stats.tasks.failed }}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-card__label">失败率（15 分钟）</div>
-          <div class="stat-card__value stat-card__value--ok">{{ failureRate }}%</div>
-          <div class="stat-card__sub">告警阈值 5%</div>
+          <div class="stat-card__label">失败率（{{ stats.failureRate?.window ?? '15 分钟' }}）</div>
+          <div class="stat-card__value" :class="failureRateClass">{{ failureRate }}%</div>
+          <div class="stat-card__sub">告警阈值 5% · 窗口内 {{ stats.failureRate?.total ?? 0 }} 次任务</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">阻断（今日）</div>
@@ -132,6 +132,7 @@ const router = useRouter();
 const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const stats = ref<DashboardStats>({
   tasks: { total: 0, today: 0, failed: 0, blocked: 0 },
+  failureRate: { window: '15 分钟', total: 0, failed: 0, rate: 0 },
   dailyTasks: [],
   pendingReview: 0,
   pendingReports: { total: 0, high: 0, mid: 0, low: 0 },
@@ -140,9 +141,17 @@ const stats = ref<DashboardStats>({
   evalRuns: [],
 });
 
-const failureRate = computed(() =>
-  stats.value.tasks.today === 0 ? '0.0' : ((stats.value.tasks.failed / stats.value.tasks.today) * 100).toFixed(1),
-);
+const failureRate = computed(() => {
+  const fr = stats.value.failureRate;
+  if (!fr || fr.total === 0) return '0.0';
+  return fr.rate.toFixed(1);
+});
+
+const failureRateClass = computed(() => {
+  const fr = stats.value.failureRate;
+  if (!fr) return 'stat-card__value--ok';
+  return fr.rate > 5 ? 'stat-card__value--error' : 'stat-card__value--ok';
+});
 
 /** 最近 7 天柱状图（真实数据，无任务的天为 0） */
 const chartData = computed(() => {

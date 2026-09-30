@@ -4,13 +4,13 @@
       <div class="content-detail__header">
         <div>
           <button class="btn btn--text" @click="goBack">‹ 返回</button>
-          <h1 class="content-detail__title">{{ item.title }}</h1>
+          <h1 class="content-detail__title">{{ form.title || item.title }}</h1>
           <p class="content-detail__meta">
             内容 ID {{ itemId }} · 当前版本 v{{ item.version ?? '—' }} · 引用 {{ refCount }} 条分析
           </p>
         </div>
         <div class="content-detail__header-tags">
-          <span class="content-detail__type">{{ item.type }}</span>
+          <span class="content-detail__type">{{ form.type || item.type }}</span>
           <StatusTag :label="item.currentStatus" />
         </div>
       </div>
@@ -23,23 +23,27 @@
             <div class="form-row">
               <div class="form-field">
                 <label class="form-label">标题</label>
-                <input class="form-input" :value="item.title" />
+                <input v-model="form.title" class="form-input" :maxlength="100" />
               </div>
               <div class="form-field">
                 <label class="form-label">类型</label>
-                <input class="form-input" :value="item.type" />
+                <select v-model="form.type" class="form-input">
+                  <option>视频</option>
+                  <option>图文组件</option>
+                </select>
               </div>
             </div>
             <div class="form-row">
               <div class="form-field">
                 <label class="form-label">适用范围</label>
-                <textarea class="form-textarea" :value="item.applicableScope ?? ''" />
+                <textarea v-model="form.applicableScope" class="form-textarea" />
               </div>
               <div class="form-field">
                 <label class="form-label">不适用范围</label>
-                <textarea class="form-textarea" :value="item.notApplicable ?? ''" />
+                <textarea v-model="form.notApplicable" class="form-textarea" />
               </div>
             </div>
+            <button class="btn btn--primary" @click="onSave">保存</button>
           </div>
 
           <div class="card">
@@ -73,16 +77,17 @@
             </div>
             <p class="card__note">当前状态：{{ item.currentStatus }}</p>
             <textarea v-model="reviewComment" class="form-textarea" placeholder="审核意见（退回时必填）" />
-            <div class="card__actions">
+            <div class="card__actions" v-if="canReview">
               <button class="btn btn--primary" @click="onTransition('通过')">✓ 审核通过</button>
               <button class="btn btn--secondary" @click="onTransition('退回')">✕ 退回修改</button>
             </div>
-            <div class="card__actions">
+            <div class="card__actions" v-if="canEdit">
               <button class="btn btn--secondary" @click="onTransition('提交审核')">提交审核</button>
               <button class="btn btn--secondary" @click="onTransition('更正')">更正</button>
             </div>
-            <button class="btn btn--primary btn--block" @click="onPublish">发布（需双人确认）</button>
-            <button v-if="item.currentStatus === '已发布'" class="btn btn--secondary btn--block" @click="onTransition('撤回')">撤回</button>
+            <button v-if="canPublish" class="btn btn--primary btn--block" @click="onPublish">发布（需双人确认）</button>
+            <button v-if="canOffline && item.currentStatus === '已发布'" class="btn btn--secondary btn--block" @click="onTransition('撤回')">撤回</button>
+            <button v-if="canOffline && item.currentStatus === '已发布'" class="btn btn--secondary btn--block" @click="onOffline">应急下线</button>
           </div>
 
           <div class="card">
@@ -124,19 +129,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { api } from '@/api/client';
-import { transitionContent, publishContent, getContentReviews, getContentVersions } from '@/api';
+import { transitionContent, publishContent, offlineContent, getContentReviews, getContentVersions } from '@/api';
+import { useAuthStore } from '@/stores/auth';
 import type { ContentItem } from '@/api/types';
 
 const route = useRoute();
 const router = useRouter();
+const auth = useAuthStore();
 const itemId = route.params.id as string;
 
 const item = ref<ContentItem | null>(null);
+const form = ref({ title: '', type: '视频', applicableScope: '', notApplicable: '' });
 const reviewRecords = ref<Array<{ reviewerName: string | null; decision: string; comment: string | null; reviewedAt: string }>>([]);
 const versions = ref<Array<{ version: number; publishedAt: string | null }>>([]);
 const refCount = ref(0);
@@ -144,8 +152,29 @@ const currentScript = ref('');
 const currentSubtitle = ref('');
 const reviewComment = ref('');
 
+const permissions = computed(() => auth.session?.permissions ?? []);
+const canReview = computed(() => permissions.value.includes('content:review'));
+const canEdit = computed(() => permissions.value.includes('content:edit') || permissions.value.includes('content:correct:initiate'));
+const canPublish = computed(() => permissions.value.includes('content:publish:initiate') || permissions.value.includes('content:publish:confirm'));
+const canOffline = computed(() => permissions.value.includes('content:offline'));
+
 function goBack() {
   router.back();
+}
+
+async function onSave() {
+  try {
+    await api.put(`/contents/${itemId}`, {
+      title: form.value.title,
+      type: form.value.type,
+      applicableScope: form.value.applicableScope,
+      notApplicable: form.value.notApplicable,
+    });
+    toast('已保存');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 async function onTransition(action: string) {
@@ -154,9 +183,10 @@ async function onTransition(action: string) {
     return;
   }
   try {
-    await transitionContent(itemId, action, reviewComment.value || undefined);
+    const result = await transitionContent(itemId, action, reviewComment.value || undefined);
     reviewComment.value = '';
-    toast('已执行');
+    const status = result.currentStatus ?? result;
+    toast(`已执行：${status}`);
     await load();
   } catch (e) {
     toast((e as Error).message);
@@ -173,12 +203,28 @@ async function onPublish() {
   }
 }
 
+async function onOffline() {
+  try {
+    const result = await offlineContent(itemId);
+    toast(result.status === '已下线' ? '已下线（双人确认完成）' : '已发起，待第二人确认');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
 async function load() {
   try {
     const all = await api.get<ContentItem[]>('/contents');
     item.value = all.find((c) => c.id === itemId) ?? null;
     if (item.value) {
       refCount.value = item.value.refCount ?? 0;
+      form.value = {
+        title: item.value.title,
+        type: item.value.type,
+        applicableScope: item.value.applicableScope ?? '',
+        notApplicable: item.value.notApplicable ?? '',
+      };
     }
     reviewRecords.value = await getContentReviews(itemId);
     const versionData = await getContentVersions(itemId);
@@ -231,15 +277,11 @@ onMounted(load);
 }
 .content-detail__grid {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 20px;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
   align-items: start;
 }
-.content-detail__main {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.content-detail__main,
 .content-detail__side {
   display: flex;
   flex-direction: column;
@@ -264,20 +306,12 @@ onMounted(load);
 .card__note {
   font-size: 12px;
   color: var(--text-2);
-  line-height: 1.5;
-  margin: 8px 0;
+  margin: 8px 0 0;
 }
 .card__actions {
   display: flex;
   gap: 10px;
   margin-top: 12px;
-}
-.card__tag {
-  font-size: 12px;
-  color: var(--text-2);
-  background: var(--bg);
-  padding: 2px 10px;
-  border-radius: 4px;
 }
 .form-row {
   display: flex;
@@ -288,60 +322,64 @@ onMounted(load);
   flex: 1;
 }
 .form-label {
-  display: block;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-2);
-  margin-bottom: 4px;
+  display: block;
+  margin-bottom: 6px;
 }
 .form-input {
   width: 100%;
   height: 40px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0 12px;
   font-size: 14px;
+  box-sizing: border-box;
   background: var(--surface);
+  color: var(--text-1);
 }
 .form-textarea {
   width: 100%;
   min-height: 80px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px;
   font-size: 14px;
-  background: var(--surface);
   box-sizing: border-box;
+  resize: vertical;
 }
 .form-file {
   font-size: 13px;
   color: var(--text-2);
-  padding: 8px 0;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 10px;
 }
 .script {
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-1);
   background: var(--bg);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: text-2;
 }
 .state-flow {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 .state-flow__node {
-  font-size: 12px;
-  color: var(--text-3);
+  font-size: 13px;
+  color: var(--text-2);
   padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  background: var(--bg);
 }
 .state-flow__node--active {
-  color: var(--primary);
-  border-color: var(--primary);
   background: var(--primary-light);
+  color: var(--primary);
   font-weight: 500;
 }
 .state-flow__arrow {
@@ -366,29 +404,27 @@ onMounted(load);
 }
 .review-record__meta {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   margin-top: 2px;
 }
 .version-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
 }
 .version-item__num {
-  font-size: 13px;
   font-weight: 500;
 }
 .version-item__desc {
-  font-size: 12px;
-  color: var(--text-3);
-  flex: 1;
+  color: var(--text-2);
 }
 .btn {
-  min-height: 40px;
-  padding: 0 16px;
+  min-height: 36px;
+  padding: 0 14px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   border: none;
   cursor: pointer;

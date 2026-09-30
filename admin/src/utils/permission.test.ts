@@ -1,45 +1,55 @@
 import { describe, it, expect } from 'vitest';
+import { PERMISSION_POINTS, DUAL_CONFIRM_SETTINGS, hasPermission, auditActionLabel } from './permission';
 
-/** 后台角色权限矩阵（与 server 端 ROLE 表一致） */
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  '运营编辑': ['content:edit', 'content:submit', 'case:review'],
-  '临床审核': ['content:review', 'evidence:review'],
-  '技术': ['model:release', 'eval:run', 'switch:read'],
-  '合规': ['feedback:handle', 'audit:read', 'switch:write'],
-  '超级管理': ['*'],
-};
-
-describe('后台角色权限', () => {
-  it('运营编辑不能处理举报', () => {
-    expect(ROLE_PERMISSIONS['运营编辑']).not.toContain('feedback:handle');
+/** 后台角色权限矩阵（与 server 端 ROLE 表一致，对照设计稿 B10） */
+describe('后台角色权限矩阵（B10）', () => {
+  it('权限矩阵包含 10 个权限点', () => {
+    expect(PERMISSION_POINTS.length).toBe(10);
   });
 
-  it('临床审核能审核内容与证据', () => {
-    expect(ROLE_PERMISSIONS['临床审核']).toContain('content:review');
-    expect(ROLE_PERMISSIONS['临床审核']).toContain('evidence:review');
+  it('超管无“内容：审定/退回”权限', () => {
+    const review = PERMISSION_POINTS.find((p) => p.point.includes('审定'));
+    expect(review?.values[4]).toBe('—');
   });
 
-  it('技术能发布模型与运行评测', () => {
-    expect(ROLE_PERMISSIONS['技术']).toContain('model:release');
-    expect(ROLE_PERMISSIONS['技术']).toContain('eval:run');
+  it('临床审核有“内容：审定/退回”权限', () => {
+    const review = PERMISSION_POINTS.find((p) => p.point.includes('审定'));
+    expect(review?.values[1]).toBe('✓');
   });
 
-  it('合规能处理举报与审计', () => {
-    expect(ROLE_PERMISSIONS['合规']).toContain('feedback:handle');
-    expect(ROLE_PERMISSIONS['合规']).toContain('audit:read');
+  it('运营编辑可发起发布，临床审核可确认', () => {
+    const publish = PERMISSION_POINTS.find((p) => p.point.includes('发布'));
+    expect(publish?.values[0]).toBe('◐');
+    expect(publish?.values[1]).toBe('✓');
   });
 
-  it('超级管理拥有全部权限', () => {
-    expect(ROLE_PERMISSIONS['超级管理']).toContain('*');
+  it('技术负责人可变更开关，合规不可', () => {
+    const sw = PERMISSION_POINTS.find((p) => p.point.includes('功能开关'));
+    expect(sw?.values[2]).toBe('✓');
+    expect(sw?.values[3]).toBe('—');
+  });
+
+  it('双人确认设置包含内容发布、撤回、开关、模型', () => {
+    expect(DUAL_CONFIRM_SETTINGS.length).toBe(4);
   });
 });
 
-describe('错误码与 errors.md 一致', () => {
-  it('越权返回 1003', () => {
-    expect(1003).toBe(1003);
+describe('权限判断', () => {
+  it('hasPermission 支持多权限任一', () => {
+    expect(hasPermission(['content:edit'], 'content:edit')).toBe(true);
+    expect(hasPermission(['content:edit'], 'content:review', 'content:edit')).toBe(true);
+    expect(hasPermission(['content:edit'], 'content:review')).toBe(false);
+    expect(hasPermission(undefined, 'content:edit')).toBe(false);
+  });
+});
+
+describe('审计动作中文化', () => {
+  it('已知动作返回中文', () => {
+    expect(auditActionLabel('admin:login')).toBe('后台登录');
+    expect(auditActionLabel('content:publish')).toBe('发布内容');
   });
 
-  it('未登录返回 1002', () => {
-    expect(1002).toBe(1002);
+  it('未知动作原样返回', () => {
+    expect(auditActionLabel('unknown:action')).toBe('unknown:action');
   });
 });

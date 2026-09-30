@@ -4,7 +4,7 @@
       <div class="safety__header">
         <h1 class="safety__title">安全与开关</h1>
         <div class="safety__search">
-          <input class="safety__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
+          <input v-model="search" class="safety__search-input" placeholder="搜索内容 / 工单 / 匿名标识" @input="onSearch" />
         </div>
       </div>
 
@@ -22,12 +22,13 @@
                 <div class="switch-row__key">{{ sw.key }}</div>
                 <div class="switch-row__desc">{{ switchDesc(sw.key) }}</div>
                 <div class="switch-row__meta">
-                  <span class="switch-row__confirm">确认：{{ sw.confirm }}</span>
+                  <span class="switch-row__confirm">确认：{{ sw.confirmMode === '单人' ? '单人 + 原因' : '双人' }}</span>
                   <span class="switch-row__change">最近变更 {{ sw.change }}</span>
                 </div>
               </div>
               <button class="switch" :class="{ 'switch--on': sw.enabled }" @click="onToggle(sw)" />
             </div>
+            <p v-if="switchPending" class="card__note">开关变更待第二人确认（{{ switchPending }}）</p>
           </div>
 
           <!-- 安全事件 -->
@@ -35,10 +36,13 @@
             <div class="card__header">
               <div class="card__title">⚠ 安全事件（24 小时）</div>
               <div class="card__header-filters">
-                <span class="card__filter-tag">24h: 高 {{ highCount }} · 待确认 {{ pendingCount }} · 中 {{ midCount }}</span>
-                <select class="card__select"><option>规则：全部</option></select>
-                <select class="card__select"><option>严重度：全部</option></select>
-                <select class="card__select"><option>时间：近 7 天</option></select>
+                <span class="card__filter-tag">24h: 高 {{ highCount }} · 中 {{ midCount }} · 低 {{ lowCount }}</span>
+                <select v-model="severityFilter" class="card__select">
+                  <option value="">严重度：全部</option>
+                  <option>高</option>
+                  <option>中</option>
+                  <option>低</option>
+                </select>
               </div>
             </div>
             <table class="table">
@@ -46,13 +50,16 @@
                 <tr><th>规则</th><th>严重度</th><th>系统动作（规则版本）</th><th>来源</th><th>用户</th><th>时间</th></tr>
               </thead>
               <tbody>
-                <tr v-for="(e, i) in events" :key="i">
+                <tr v-for="(e, i) in filteredEvents" :key="i">
                   <td>{{ e.ruleCode }}</td>
                   <td><StatusTag :label="e.severity" /></td>
-                  <td class="table__action">{{ e.actionTaken }}（24h 内重确认）· rs-1.3</td>
+                  <td class="table__action">{{ e.actionTaken }} · {{ rulesetVersion }}</td>
                   <td>{{ e.source }}</td>
                   <td class="table__user">{{ e.user }}</td>
                   <td>{{ formatTime(e.createdAt) }}</td>
+                </tr>
+                <tr v-if="filteredEvents.length === 0">
+                  <td colspan="6" class="table__empty">24 小时内无安全事件</td>
                 </tr>
               </tbody>
             </table>
@@ -65,9 +72,9 @@
             <div class="card__header">
               <div class="card__title">🛡 红旗规则集</div>
               <div class="card__header-tags">
-                <span class="card__version">当前 rs-1.3</span>
-                <span class="card__tag">临床审定 2026-09-10 李医生</span>
-                <button class="btn btn--text">查看规则表</button>
+                <span class="card__version">当前 {{ rulesetVersion }}</span>
+                <span class="card__tag">临床审定</span>
+                <button class="btn btn--text" @click="showRules = true">查看规则表</button>
               </div>
             </div>
             <p class="card__note">
@@ -80,6 +87,28 @@
           </TipBar>
         </div>
       </div>
+
+      <!-- 开关变更原因弹层 -->
+      <Modal :open="!!switchTarget" :title="`变更开关：${switchTarget ? switchLabel(switchTarget.key) : ''}`" confirm-text="发起变更" @close="switchTarget = null" @confirm="confirmSwitchChange">
+        <p class="modal__hint">变更原因（写入审计）</p>
+        <textarea v-model="switchReason" class="modal__textarea" placeholder="例如：维护需要 / 应急下线" :maxlength="500" />
+        <p v-if="switchTarget && switchTarget.confirmMode === '双人'" class="modal__note">高危开关需双人确认：发起后由临床审核 / 超管确认后生效。</p>
+      </Modal>
+
+      <!-- 规则表弹层 -->
+      <Modal :open="showRules" title="红旗规则表" @close="showRules = false">
+        <table class="table">
+          <thead><tr><th>编号</th><th>名称</th><th>严重度</th><th>动作</th></tr></thead>
+          <tbody>
+            <tr v-for="r in ruleTable" :key="r.code">
+              <td>{{ r.code }}</td>
+              <td>{{ r.name }}</td>
+              <td><StatusTag :label="r.severity" /></td>
+              <td>{{ r.action }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </Modal>
     </div>
   </AppLayout>
 </template>
@@ -89,16 +118,37 @@ import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
+import Modal from '@/components/Modal.vue';
 import { getDashboard, listSwitches, setSwitch, listSafetyEvents } from '@/api';
 import type { DashboardStats } from '@/api/types';
+import { RULES } from '@/utils/rules';
 
 const stats = ref<DashboardStats | null>(null);
-const switches = ref<Array<{ key: string; enabled: boolean; reason: string; updatedAt: string; confirm: string; change: string }>>([]);
+const switches = ref<Array<{ key: string; enabled: boolean; reason: string; updatedAt: string; confirmMode: string; confirm: string; change: string }>>([]);
 const events = ref<Array<{ ruleCode: string; severity: string; actionTaken: string; source: string; user: string; createdAt: string }>>([]);
+const rulesetVersion = ref('RF-v3');
+const severityFilter = ref('');
+const search = ref('');
+const switchTarget = ref<{ key: string; enabled: boolean; confirmMode: string } | null>(null);
+const switchReason = ref('');
+const switchPending = ref('');
+const showRules = ref(false);
+
+const ruleTable = RULES.filter((r) => r.category === 'red-flag');
 
 const highCount = computed(() => events.value.filter((e) => e.severity === '高').length);
-const pendingCount = computed(() => events.value.filter((e) => e.severity === '待确认').length);
 const midCount = computed(() => events.value.filter((e) => e.severity === '中').length);
+const lowCount = computed(() => events.value.filter((e) => e.severity === '低').length);
+
+const filteredEvents = computed(() => {
+  let list = events.value;
+  if (severityFilter.value) list = list.filter((e) => e.severity === severityFilter.value);
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase();
+    list = list.filter((e) => e.ruleCode.toLowerCase().includes(q) || e.source.toLowerCase().includes(q) || e.user.toLowerCase().includes(q));
+  }
+  return list;
+});
 
 function switchLabel(key: string) {
   const map: Record<string, string> = {
@@ -125,36 +175,57 @@ function formatTime(iso: string) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-async function onToggle(sw: { key: string; enabled: boolean; reason: string }) {
-  const reason = prompt('变更原因', sw.reason ?? '');
-  if (reason === null) return;
+function onSearch() {
+  // 搜索在 filteredEvents 计算属性中实时生效
+}
+
+function onToggle(sw: { key: string; enabled: boolean; confirmMode: string }) {
+  switchTarget.value = { key: sw.key, enabled: !sw.enabled, confirmMode: sw.confirmMode };
+  switchReason.value = '';
+}
+
+async function confirmSwitchChange() {
+  if (!switchTarget.value) return;
+  if (!switchReason.value.trim()) {
+    toast('请填写变更原因');
+    return;
+  }
   try {
-    await setSwitch(sw.key, !sw.enabled, reason);
-    toast(sw.enabled ? '已关闭' : '已开启');
+    const result = await setSwitch(switchTarget.value.key, switchTarget.value.enabled, switchReason.value);
+    if (result.status === '待第二人确认') {
+      switchPending.value = switchLabel(switchTarget.value.key);
+      toast('已发起，待第二人确认');
+    } else {
+      switchPending.value = '';
+      toast(switchTarget.value.enabled ? '已开启' : '已关闭');
+    }
     await load();
   } catch (e) {
     toast((e as Error).message);
   }
+  switchTarget.value = null;
 }
 
 function toast(msg: string) {
   const el = document.createElement('div');
-    el.textContent = msg;
-    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 async function load() {
   try {
     const [dash, sw, ev] = await Promise.all([getDashboard(), listSwitches(), listSafetyEvents()]);
     stats.value = dash;
+    if (dash.failureRate) rulesetVersion.value = dash.rulesetVersion ?? rulesetVersion.value;
     switches.value = sw.map((s) => ({
       key: s.key,
       enabled: !!s.enabled,
       reason: s.reason,
       updatedAt: s.updatedAt,
-      confirm: s.key === '个性化分析' ? '双人' : s.key === '拍照提取' ? '单人 + 原因' : '双人',
+      confirmMode: s.confirmMode ?? '双人',
+      confirm: s.confirmMode === '单人' ? '单人 + 原因' : '双人',
       change: s.updatedAt ? s.updatedAt.slice(5, 10) : '—',
     }));
     events.value = ev.map((e) => ({
@@ -179,6 +250,8 @@ onMounted(load);
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 .safety__title {
   font-size: 20px;
@@ -193,6 +266,7 @@ onMounted(load);
   padding: 0 14px;
   font-size: 14px;
   outline: none;
+  box-sizing: border-box;
 }
 .safety__grid {
   display: grid;
@@ -312,6 +386,8 @@ onMounted(load);
   position: relative;
   flex-shrink: 0;
   margin-top: 2px;
+  border: none;
+  cursor: pointer;
 }
 .switch::after {
   content: '';
@@ -347,6 +423,11 @@ onMounted(load);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.table__empty {
+  text-align: center;
+  color: var(--text-3);
+  padding: 24px 0;
+}
 .table__action {
   line-height: 1.5;
 }
@@ -372,5 +453,25 @@ onMounted(load);
   min-height: 32px;
   padding: 0;
   font-size: 13px;
+}
+.modal__hint {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0 0 8px;
+}
+.modal__textarea {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.modal__note {
+  font-size: 12px;
+  color: var(--warn);
+  margin: 12px 0 0;
 }
 </style>

@@ -11,7 +11,7 @@
           <div class="card__title">成员（{{ members.length }}）</div>
           <div class="card__header-tags">
             <span class="card__tag">与用户体系隔离 · 仅受邀加入</span>
-            <button class="btn btn--primary btn--sm" @click="onInvite">＋ 邀请成员</button>
+            <button class="btn btn--primary btn--sm" @click="showInvite = true">＋ 邀请成员</button>
           </div>
         </div>
         <table class="table">
@@ -21,14 +21,14 @@
           <tbody>
             <tr v-for="m in members" :key="m.id">
               <td class="table__title">{{ m.name }}</td>
-              <td>{{ m.email }}</td>
-              <td><StatusTag :label="m.roleName" :tone="m.roleTone" /></td>
+              <td>{{ m.email ?? '—' }}</td>
+              <td><StatusTag :label="m.roleName" :tone="roleTone(m.roleName)" /></td>
               <td><StatusTag :label="m.mfaEnabled ? '已绑定' : '未绑定'" :tone="m.mfaEnabled ? 'ok' : 'warn'" /></td>
-              <td>{{ m.lastLoginAt ?? '—' }}</td>
+              <td>{{ m.lastLoginAt ? formatBeijing(m.lastLoginAt) : '—' }}</td>
               <td><StatusTag :label="m.status" /></td>
               <td class="table__actions">
                 <button class="btn btn--text" @click="onChangeRole(m)">改角色</button>
-                <button class="btn btn--text" @click="onToggleStatus(m)">
+                <button class="btn btn--text" :class="{ 'btn--danger': m.status === '正常' }" @click="onToggleStatus(m)">
                   {{ m.status === '正常' ? '停用' : '启用' }}
                 </button>
               </td>
@@ -77,7 +77,7 @@
                 <span class="auth-item__title">{{ a.adminName || '—' }} → {{ a.targetType }}:{{ a.targetId }}</span>
               </div>
               <div class="auth-item__meta">{{ a.reason }}</div>
-              <div class="auth-item__meta">{{ a.createdAt.slice(0, 16).replace('T', ' ') }}</div>
+              <div class="auth-item__meta">{{ formatBeijing(a.createdAt) }}</div>
             </div>
             <p v-if="authorizations.length === 0" class="card__note">暂无授权记录</p>
             <p class="card__note">
@@ -95,6 +95,36 @@
           </div>
         </div>
       </div>
+
+      <!-- 邀请成员弹层 -->
+      <Modal :open="showInvite" title="邀请成员" confirm-text="发送邀请" @close="showInvite = false" @confirm="confirmInvite">
+        <div class="form-field">
+          <label class="form-label">姓名</label>
+          <input v-model="inviteName" class="form-input" placeholder="成员姓名" :maxlength="50" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">工作邮箱</label>
+          <input v-model="inviteEmail" class="form-input" placeholder="name@example.com" :maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">角色</label>
+          <select v-model="inviteRoleId" class="form-input">
+            <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+          </select>
+        </div>
+        <p class="modal__note">演示环境不发送真实邮件；邀请后由超管激活账号。</p>
+      </Modal>
+
+      <!-- 改角色弹层 -->
+      <Modal :open="!!roleTarget" :title="`修改角色：${roleTarget?.name ?? ''}`" confirm-text="保存" @close="roleTarget = null" @confirm="confirmRole">
+        <div class="form-field">
+          <label class="form-label">角色</label>
+          <select v-model="roleTargetRoleId" class="form-input">
+            <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+          </select>
+        </div>
+        <p class="modal__note">不能修改自己的角色；不能修改最后一个超管的角色。</p>
+      </Modal>
     </div>
   </AppLayout>
 </template>
@@ -103,36 +133,35 @@
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { listAdminUsers, listAuthorizations, setUserStatus, setUserRole } from '@/api';
+import Modal from '@/components/Modal.vue';
+import { listAdminUsers, listAuthorizations, setUserStatus, setUserRole, listRoles } from '@/api';
 import type { AdminUser } from '@/api/types';
+import { PERMISSION_POINTS, DUAL_CONFIRM_SETTINGS, roleTone } from '@/utils/permission';
 
-const members = ref<Array<AdminUser & { email: string; roleName: string; roleTone: 'ok' | 'warn' | 'error' | 'info' | 'neutral'; mfaEnabled: boolean; lastLoginAt: string | null; status: string }>>([]);
+const members = ref<Array<AdminUser & { email: string | null; roleName: string; mfaEnabled: boolean; lastLoginAt: string | null; status: string }>>([]);
 const authorizations = ref<Array<{ id: string; adminName: string | null; targetType: string; targetId: string; reason: string; createdAt: string }>>([]);
+const roles = ref<Array<{ id: string; name: string }>>([]);
 
-const permissionMatrix = ref([
-  { point: '内容：编辑草稿 / 提交', values: ['✓', '—', '—', '—', '✓'] },
-  { point: '内容：审定 / 退回', values: ['—', '✓', '—', '—', '✓'] },
-  { point: '内容：发布（双人）', values: ['◐', '✓', '—', '—', '✓'] },
-  { point: '内容：撤回 / 应急下线', values: ['—', '✓', '—', '—', '✓'] },
-  { point: '证据库：录入 / 核实 / 停用', values: ['✓/—/—', '✓/✓/✓', '—', '—', '✓'] },
-  { point: '举报：初筛 / 临床复核', values: ['✓/—', '✓/✓', '—', '—', '✓'] },
-  { point: '用户资料：脱敏查看 / 明文（单条授权）', values: ['✓/—', '✓/✓', '✓/—', '✓/—', '✓/✓'] },
-  { point: '功能开关 / 模型发布', values: ['—', '◐', '✓', '—', '✓'] },
-  { point: '评测集 / 评测运行', values: ['—', '◐', '✓', '—', '✓'] },
-  { point: '成员与角色 / 审计导出审批', values: ['—', '—', '—', '◐', '✓'] },
-]);
+const permissionMatrix = PERMISSION_POINTS;
+const dualConfirm = DUAL_CONFIRM_SETTINGS;
 
+const showInvite = ref(false);
+const inviteName = ref('');
+const inviteEmail = ref('');
+const inviteRoleId = ref('role-ops');
+const roleTarget = ref<(typeof members.value)[number] | null>(null);
+const roleTargetRoleId = ref('');
 
-
-const dualConfirm = ref([
-  { name: '内容发布', value: '运营编辑发起 + 临床审核确认' },
-  { name: '撤回 / 应急下线', value: '临床审核 + 超管' },
-  { name: '功能开关（高危）', value: '技术负责人 + 临床审核 / 超管' },
-  { name: '模型激活 / 回滚', value: '技术负责人 + 超管' },
-]);
+function formatBeijing(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 
 async function onToggleStatus(member: typeof members.value[number]) {
   const next = member.status === '正常' ? 'disabled' : 'active';
+  if (next === 'disabled') {
+    if (!window.confirm(`确定停用「${member.name}」吗？停用后该账号无法登录。`)) return;
+  }
   try {
     await setUserStatus(member.id, next);
     toast(next === 'disabled' ? '已停用' : '已启用');
@@ -142,41 +171,48 @@ async function onToggleStatus(member: typeof members.value[number]) {
   }
 }
 
-async function onChangeRole(member: typeof members.value[number]) {
-  const roleId = prompt('角色 ID（role-ops/role-clinical/role-tech/role-compliance/role-super）', member.roleId);
-  if (!roleId) return;
+function onChangeRole(member: typeof members.value[number]) {
+  roleTarget.value = member;
+  roleTargetRoleId.value = member.roleId;
+}
+
+async function confirmRole() {
+  if (!roleTarget.value) return;
   try {
-    await setUserRole(member.id, roleId);
+    await setUserRole(roleTarget.value.id, roleTargetRoleId.value);
     toast('已修改角色');
+    roleTarget.value = null;
     await load();
   } catch (e) {
     toast((e as Error).message);
   }
 }
 
-function onInvite() {
-  const name = prompt('成员姓名');
-  if (!name) return;
-  toast('演示环境不支持自助注册，请联系超级管理员添加');
+async function confirmInvite() {
+  if (!inviteName.value.trim()) {
+    toast('请填写成员姓名');
+    return;
+  }
+  toast('演示环境不发送真实邮件，请超管在数据库中添加账号');
+  showInvite.value = false;
+  inviteName.value = '';
+  inviteEmail.value = '';
 }
 
 async function load() {
   try {
-    const users = await listAdminUsers();
+    const [users, auths, roleList] = await Promise.all([listAdminUsers(), listAuthorizations(), listRoles()]);
     members.value = users.map((u) => ({
       ...u,
-      email: '—',
+      email: u.email ?? null,
       roleName: u.roleName,
-      roleTone: u.roleId === 'role-super' ? 'error' as const : u.roleId === 'role-clinical' ? 'info' as const : u.roleId === 'role-ops' ? 'ok' as const : u.roleId === 'role-tech' ? 'warn' as const : 'neutral' as const,
       mfaEnabled: !!u.mfaEnabled,
       lastLoginAt: u.lastLoginAt,
       status: u.status === 'active' ? '正常' : '已停用',
     }));
-  } catch {
-    // 加载失败不阻塞
-  }
-  try {
-    authorizations.value = await listAuthorizations();
+    authorizations.value = auths;
+    roles.value = roleList;
+    if (roles.value.length > 0 && !inviteRoleId.value) inviteRoleId.value = roles.value[0].id;
   } catch {
     // 加载失败不阻塞
   }
@@ -184,10 +220,10 @@ async function load() {
 
 function toast(msg: string) {
   const el = document.createElement('div');
-    el.textContent = msg;
-    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(load);
@@ -326,6 +362,31 @@ onMounted(load);
   color: var(--text-2);
   text-align: right;
 }
+.form-field {
+  margin-bottom: 12px;
+}
+.form-label {
+  font-size: 13px;
+  color: var(--text-2);
+  display: block;
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: var(--surface);
+  color: var(--text-1);
+}
+.modal__note {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 12px 0 0;
+}
 .btn {
   min-height: 36px;
   padding: 0 14px;
@@ -339,7 +400,6 @@ onMounted(load);
   justify-content: center;
 }
 .btn--primary { background: var(--primary); color: #fff; }
-.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
 .btn--text {
   background: none;

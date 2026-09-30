@@ -164,6 +164,14 @@ export class AdminController {
     return this.feedback.listForAdmin(admin.adminId);
   }
 
+  /** 角色列表（供成员角色选择） */
+  @Get('roles')
+  @UseGuards(AdminGuard)
+  @RequirePermission('member:read')
+  listRoles(@CurrentAdmin() _admin: unknown) {
+    return this.appDb.prepare('SELECT id, name FROM ROLE ORDER BY rowid ASC').all();
+  }
+
   /** 后台成员列表（需 member:read 权限） */
   @Get('users')
   @UseGuards(AdminGuard)

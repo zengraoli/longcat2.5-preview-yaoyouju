@@ -8,6 +8,8 @@ export interface AdminSession {
 
 export interface DashboardStats {
   tasks: { total: number; today: number; failed: number; blocked: number };
+  failureRate: { window: string; total: number; failed: number; rate: number };
+  rulesetVersion?: string;
   dailyTasks: Array<{ date: string; count: number }>;
   pendingReview: number;
   pendingReports: { total: number; high: number; mid: number; low: number };
@@ -18,7 +20,7 @@ export interface DashboardStats {
     source: string;
     createdAt: string;
   }>;
-  switches: Array<{ key: string; enabled: boolean; reason: string; updatedAt: string }>;
+  switches: Array<{ key: string; enabled: boolean; reason: string; confirmMode: string; updatedAt: string }>;
   evalRuns: Array<{
     id: string;
     modelReleaseId: string;
@@ -58,6 +60,8 @@ export interface FeedbackItem {
   userId: string | null;
   analysisId: string | null;
   helpType: string | null;
+  authorized?: boolean;
+  problemTypes?: string | null;
   unsolvedQuestion: string | null;
   isErrorReport: boolean;
   createdAt: string;
@@ -107,6 +111,7 @@ export interface EvalSet {
 export interface AdminUser {
   id: string;
   name: string;
+  email?: string | null;
   roleId: string;
   roleName: string;
   mfaEnabled: boolean;

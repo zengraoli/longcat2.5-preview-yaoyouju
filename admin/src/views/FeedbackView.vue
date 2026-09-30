@@ -4,7 +4,7 @@
       <div class="feedback__header">
         <h1 class="feedback__title">举报与反馈</h1>
         <div class="feedback__search">
-          <input class="feedback__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
+          <input v-model="search" class="feedback__search-input" placeholder="搜索内容 / 工单 / 匿名标识" @input="onSearch" />
         </div>
       </div>
 
@@ -21,14 +21,14 @@
           <div class="stat-card__sub">{{ avgHandleTime }}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-card__label">本周已关闭</div>
+          <div class="stat-card__label">已处理</div>
           <div class="stat-card__value stat-card__value--ok">{{ closedCount }}</div>
-          <div class="stat-card__sub">平均处理 2.1 天</div>
+          <div class="stat-card__sub">错误举报工单</div>
         </div>
         <div class="stat-card">
-          <div class="stat-card__label">帮助类型反馈（7 天）</div>
+          <div class="stat-card__label">帮助类型反馈</div>
           <div class="stat-card__value">{{ helpCount }}</div>
-          <div class="stat-card__sub">看懂 62% · 知道下一步 24% · 都不好 14%</div>
+          <div class="stat-card__sub">{{ helpTypeSummary }}</div>
         </div>
       </div>
 
@@ -50,12 +50,12 @@
             <table class="table">
               <thead>
                 <tr>
-                  <th>工单</th><th>类型 · 内容 / 版本 · 用户</th><th>严重度</th><th>状态</th><th>负责人</th><th>时间</th>
+                  <th>工单</th><th>类型 · 内容 / 版本 · 用户</th><th>严重度</th><th>状态</th><th>时间</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="ticket in tickets"
+                  v-for="ticket in filteredTickets"
                   :key="ticket.id"
                   :class="{ 'table__row--active': selected?.id === ticket.id }"
                   @click="selected = ticket"
@@ -67,8 +67,10 @@
                   </td>
                   <td><StatusTag :label="ticket.severity" /></td>
                   <td><StatusTag :label="ticket.status" /></td>
-                  <td>{{ ticket.assignee ?? '—' }}</td>
                   <td>{{ ticket.time }}</td>
+                </tr>
+                <tr v-if="filteredTickets.length === 0">
+                  <td colspan="5" class="table__empty">暂无{{ activeTab === 'help' ? '帮助类型反馈' : '错误举报' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -96,21 +98,26 @@
                 <div class="detail-row"><span>分析</span><span>{{ selected.analysisVersion }}</span></div>
                 <div class="detail-row"><span>模型发布</span><span>{{ selected.modelVersion }}</span></div>
                 <div class="detail-row"><span>内容版本</span><span>{{ selected.contentVersion }}</span></div>
-                <div class="detail-row"><span>受影响范围</span><span>{{ selected.scope }}</span></div>
+                <div class="detail-row"><span>规则集</span><span>{{ selected.rulesetVersion }}</span></div>
               </div>
             </div>
 
             <div class="detail-section">
               <div class="detail-section__label">用户描述</div>
-              <p class="detail-section__text">{{ selected.description }}</p>
+              <p class="detail-section__text" :class="{ 'detail-section__text--muted': !selected.authorized }">
+                {{ selected.description }}
+              </p>
             </div>
 
             <div class="detail-section">
               <div class="detail-section__label">单条授权</div>
-              <p class="detail-section__text detail-section__text--ok">
-                ✓ 用户已允许查看本条分析涉及的报告与记录（至 2026-09-28，可撤回）
+              <p v-if="selected.authorized" class="detail-section__text detail-section__text--ok">
+                ✓ 已授权查看本条反馈涉及的报告与记录（每次读取写审计）
               </p>
-              <button class="btn btn--secondary btn--sm" @click="onAuthorize">查看相关资料（写入审计）</button>
+              <p v-else class="detail-section__text detail-section__text--muted">
+                未授权：用户描述已脱敏。授权后可查看原文，每次读取写入审计。
+              </p>
+              <button v-if="!selected.authorized" class="btn btn--secondary btn--sm" @click="onAuthorize">查看相关资料（写入审计）</button>
             </div>
 
             <div class="detail-section">
@@ -131,11 +138,7 @@
                 <div class="record__time">{{ r.time }}</div>
                 <div class="record__text">{{ r.text }}</div>
               </div>
-            </div>
-
-            <div class="detail-section" v-if="selected?.resolution">
-              <div class="detail-section__label">处理说明</div>
-              <p class="detail-section__text">{{ selected.resolution }}</p>
+              <p v-if="selected.records.length === 0" class="card__note">暂无处理记录</p>
             </div>
           </div>
         </div>
@@ -150,54 +153,61 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listFeedback, authorizeFeedback, handleFeedback } from '@/api';
-import type { FeedbackItem } from '@/api/types';
-
-interface FeedbackRow extends FeedbackItem {
-  severity: string | null;
-  status: string | null;
-  resolution: string | null;
-}
 
 const tabs = [
   { key: 'reports', label: '错误举报' },
   { key: 'help', label: '帮助类型反馈' },
-  { key: 'retell', label: '复述任务抽查' },
 ];
 const activeTab = ref('reports');
 
-interface Ticket extends FeedbackItem {
+interface Ticket {
+  id: string;
   type: string;
   content: string;
   versions: string;
   user: string;
   severity: string;
   status: string;
-  assignee: string | null;
   time: string;
   analysisVersion: string;
   modelVersion: string;
   contentVersion: string;
-  scope: string;
+  rulesetVersion: string;
   description: string;
+  authorized: boolean;
   records: Array<{ time: string; text: string }>;
 }
 
 const tickets = ref<Ticket[]>([]);
 const selected = ref<Ticket | null>(null);
 const actionNote = ref('');
+const search = ref('');
 
-const pendingCount = computed(() => tickets.value.filter((t) => t.status === '待处理').length);
-const highCount = computed(() => tickets.value.filter((t) => t.severity === '高').length);
-const midCount = computed(() => tickets.value.filter((t) => t.severity === '中').length);
-const lowCount = computed(() => tickets.value.filter((t) => t.severity === '低').length);
+const filteredTickets = computed(() => {
+  let list = tickets.value;
+  if (activeTab.value === 'help') list = list.filter((t) => t.type === '帮助类型反馈');
+  else list = list.filter((t) => t.type === '错误举报');
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase();
+    list = list.filter((t) => t.id.toLowerCase().includes(q) || t.content.toLowerCase().includes(q) || t.user.toLowerCase().includes(q));
+  }
+  return list;
+});
+
+const pendingCount = computed(() => tickets.value.filter((t) => t.type === '错误举报' && t.status === '待处理').length);
+const highCount = computed(() => tickets.value.filter((t) => t.type === '错误举报' && t.status === '待处理' && t.severity === '高').length);
+const midCount = computed(() => tickets.value.filter((t) => t.type === '错误举报' && t.status === '待处理' && t.severity === '中').length);
+const lowCount = computed(() => tickets.value.filter((t) => t.type === '错误举报' && t.status === '待处理' && t.severity === '低').length);
 const reviewCount = computed(() => tickets.value.filter((t) => t.status === '临床复核中').length);
-const closedCount = computed(() => tickets.value.filter((t) => t.status === '已关闭').length);
-const helpCount = computed(() => tickets.value.filter((t) => !t.isErrorReport).length);
+const closedCount = computed(() => tickets.value.filter((t) => t.type === '错误举报' && (t.status === '已处理' || t.status === '已关闭')).length);
+const helpCount = computed(() => tickets.value.filter((t) => t.type === '帮助类型反馈').length);
 
 const helpTypeSummary = computed(() => {
-  const help = tickets.value.filter((t) => !t.isErrorReport);
+  const help = tickets.value.filter((t) => t.type === '帮助类型反馈');
   if (help.length === 0) return '暂无帮助类型反馈';
-  return `共 ${help.length} 条`;
+  const byType = new Map<string, number>();
+  for (const t of help) byType.set(t.content, (byType.get(t.content) ?? 0) + 1);
+  return [...byType.entries()].map(([k, v]) => `${k} ${v}`).join(' · ');
 });
 
 const avgHandleTime = computed(() => {
@@ -205,22 +215,36 @@ const avgHandleTime = computed(() => {
   return handled.length > 0 ? `已处理 ${handled.length} 条` : '暂无处理记录';
 });
 
-function mapTicket(item: FeedbackRow, i: number): Ticket {
+function mapTicket(item: {
+  id: string;
+  userId: string | null;
+  analysisId: string | null;
+  helpType: string | null;
+  unsolvedQuestion: string | null;
+  isErrorReport: boolean;
+  createdAt: string;
+  severity: string | null;
+  status: string | null;
+  resolution: string | null;
+  authorized?: boolean;
+  problemTypes?: string | null;
+}): Ticket {
+  const isError = !!item.isErrorReport;
   return {
-    ...item,
-    type: item.isErrorReport ? '错误举报' : '帮助类型反馈',
-    content: item.isErrorReport ? (item.unsolvedQuestion ?? '错误举报') : (item.helpType ?? '帮助类型'),
+    id: item.id.slice(0, 8),
+    type: isError ? '错误举报' : '帮助类型反馈',
+    content: isError ? (item.unsolvedQuestion ?? '错误举报').slice(0, 20) : (item.helpType ?? '帮助类型'),
     versions: item.analysisId ? `分析 ${item.analysisId.slice(0, 8)}` : '—',
     user: item.userId ? item.userId.slice(0, 8) : '匿名',
     severity: item.severity ?? '—',
     status: item.status ?? '待处理',
-    assignee: null,
     time: item.createdAt.slice(5, 16).replace('T', ' '),
     analysisVersion: item.analysisId ? `${item.analysisId.slice(0, 8)}` : '—',
     modelVersion: '—',
     contentVersion: '—',
-    scope: '—',
+    rulesetVersion: 'RF-v3',
     description: item.unsolvedQuestion || '用户提交的反馈',
+    authorized: !!item.authorized,
     records: item.resolution ? [{ time: item.createdAt.slice(5, 16).replace('T', ' '), text: item.resolution }] : [],
   };
 }
@@ -230,6 +254,7 @@ async function onAuthorize() {
   try {
     await authorizeFeedback(selected.value.id);
     toast('已授权查看（写入审计）');
+    await load();
   } catch (e) {
     toast((e as Error).message);
   }
@@ -241,15 +266,20 @@ async function onHandle(action: string) {
   try {
     await handleFeedback(selected.value.id, action, resolution);
     toast('已记录处置');
+    actionNote.value = '';
     await load();
   } catch (e) {
     toast((e as Error).message);
   }
 }
 
+function onSearch() {
+  // 搜索在 filteredTickets 计算属性中实时生效
+}
+
 async function load() {
   try {
-    const items: FeedbackRow[] = await listFeedback();
+    const items = await listFeedback();
     tickets.value = items.map(mapTicket);
     if (tickets.value.length > 0 && !selected.value) selected.value = tickets.value[0];
   } catch {
@@ -259,10 +289,10 @@ async function load() {
 
 function toast(msg: string) {
   const el = document.createElement('div');
-    el.textContent = msg;
-    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(load);
@@ -274,6 +304,8 @@ onMounted(load);
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 .feedback__title {
   font-size: 20px;
@@ -288,6 +320,7 @@ onMounted(load);
   padding: 0 14px;
   font-size: 14px;
   outline: none;
+  box-sizing: border-box;
 }
 .feedback__stats {
   display: grid;
@@ -383,23 +416,6 @@ onMounted(load);
   cursor: pointer;
   color: var(--text-2);
 }
-.card__tag {
-  font-size: 12px;
-  color: var(--text-2);
-  background: var(--bg);
-  padding: 2px 10px;
-  border-radius: 4px;
-}
-.card__tag--ok {
-  color: var(--ok);
-  background: rgba(30, 158, 90, 0.1);
-}
-.card__note {
-  font-size: 12px;
-  color: var(--text-2);
-  line-height: 1.5;
-  margin: 12px 0 0;
-}
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -418,6 +434,11 @@ onMounted(load);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.table__empty {
+  text-align: center;
+  color: var(--text-3);
+  padding: 24px 0;
+}
 .table__row--active {
   background: var(--primary-light);
 }
@@ -432,11 +453,6 @@ onMounted(load);
   font-size: 12px;
   color: var(--text-3);
   margin-top: 2px;
-}
-.table__actions {
-  display: flex;
-  gap: 8px;
-  white-space: nowrap;
 }
 .detail-section {
   margin-bottom: 16px;
@@ -471,6 +487,9 @@ onMounted(load);
 .detail-section__text--ok {
   color: var(--ok);
 }
+.detail-section__text--muted {
+  color: var(--text-3);
+}
 .detail-actions {
   display: flex;
   flex-wrap: wrap;
@@ -488,6 +507,21 @@ onMounted(load);
   line-height: 1.5;
   margin-top: 2px;
 }
+.card__note {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 8px 0 0;
+}
+.form-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
 .btn {
   min-height: 36px;
   padding: 0 14px;
@@ -503,11 +537,4 @@ onMounted(load);
 .btn--primary { background: var(--primary); color: #fff; }
 .btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
-.btn--text {
-  background: none;
-  color: var(--primary);
-  min-height: 32px;
-  padding: 0;
-  font-size: 13px;
-}
 </style>

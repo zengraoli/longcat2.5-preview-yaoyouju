@@ -6,34 +6,32 @@
           <h1 class="models__title">模型与评测 › 发布管理</h1>
           <p class="models__meta">发布组合（模型 + 提示词 + 检索策略 + 内容库 + embedding）</p>
         </div>
-        <button class="btn btn--primary" @click="onCreate">＋ 新建候选发布</button>
+        <button class="btn btn--primary" @click="showCreate = true">＋ 新建候选发布</button>
       </div>
-      <p class="models__desc">任一要素变更都必须生成新的候选发布并通过全部评测门禁；激活需关联通过的评测运行。</p>
+      <p class="models__desc">任一要素变更都必须生成新的候选发布并通过全部评测门禁；激活需关联通过的评测运行。发布与回滚需双人确认（技术负责人 + 超管）。</p>
 
       <!-- 发布组合表 -->
       <div class="card">
         <table class="table">
           <thead>
             <tr>
-              <th>发布</th><th>模型</th><th>提示词</th><th>检索策略</th><th>内容库</th><th>embedding</th><th>状态</th><th>评测结果</th><th>灰度</th><th>操作</th>
+              <th>发布</th><th>模型</th><th>提示词</th><th>检索策略</th><th>内容库</th><th>状态</th><th>评测结果</th><th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="r in releases" :key="r.id">
-              <td class="table__title">{{ r.name }}</td>
+              <td class="table__title">{{ r.modelName }}</td>
               <td>{{ r.modelName }}</td>
               <td>{{ r.promptVersion }}</td>
               <td>{{ r.retrievalStrategy }}</td>
               <td>{{ r.contentLibVersion }}</td>
-              <td>{{ r.embedding }}</td>
               <td><StatusTag :label="r.status" /></td>
               <td class="table__eval">{{ r.evalResult }}</td>
-              <td>{{ r.gray }}</td>
               <td class="table__actions">
+                <button class="btn btn--text" @click="onView(r)">查看</button>
                 <button v-if="r.status === '候选'" class="btn btn--text" @click="onRunEval(r)">重跑评测</button>
                 <button v-if="r.status === '候选'" class="btn btn--text" @click="onPublish(r)">发布</button>
                 <button v-if="r.status === '生效'" class="btn btn--text" @click="onRollback(r)">回滚到上一版</button>
-                <button v-else class="btn btn--text">查看</button>
               </td>
             </tr>
           </tbody>
@@ -59,7 +57,7 @@
             <tbody>
               <tr v-for="(e, i) in candidateEvals" :key="i">
                 <td>{{ e.name }}</td>
-                <td>{{ e.threshold }}</td>
+                <td>≥ 80%</td>
                 <td :class="e.passed ? 'table__pass' : 'table__fail'">{{ e.result }}</td>
                 <td>{{ e.cases }}</td>
                 <td><StatusTag :label="e.passed ? '通过' : '未通过'" /></td>
@@ -89,61 +87,93 @@
             <span class="flow__dot flow__dot--ok" />
             <div>
               <div class="flow__name">候选</div>
-              <div class="flow__desc">已创建 · 2026-09-21 11:02</div>
+              <div class="flow__desc">{{ candidate ? candidate.modelName : '—' }}</div>
             </div>
           </div>
           <div class="flow__arrow">→</div>
           <div class="flow__node">
-            <span class="flow__dot flow__dot--error" />
+            <span class="flow__dot" :class="candidateEvals.length > 0 && candidateEvals.every((e) => e.passed) ? 'flow__dot--ok' : 'flow__dot--error'" />
             <div>
               <div class="flow__name">评测门禁</div>
-              <div class="flow__desc">未通过（左右侧混淆 1 例）</div>
+              <div class="flow__desc">{{ candidateEvals.length > 0 ? (candidateEvals.every((e) => e.passed) ? '全部通过' : '存在未通过项') : '未运行' }}</div>
             </div>
           </div>
           <div class="flow__arrow">→</div>
           <div class="flow__node">
-            <span class="flow__dot" />
+            <span class="flow__dot" :class="releases.some((r) => r.status === '灰度') ? 'flow__dot--ok' : ''" />
             <div>
               <div class="flow__name">灰度</div>
-              <div class="flow__desc">未到达</div>
+              <div class="flow__desc">{{ releases.some((r) => r.status === '灰度') ? '灰度中' : '未到达' }}</div>
             </div>
           </div>
           <div class="flow__arrow">→</div>
           <div class="flow__node">
-            <span class="flow__dot" />
+            <span class="flow__dot" :class="releases.some((r) => r.status === '生效') ? 'flow__dot--ok' : ''" />
             <div>
               <div class="flow__name">生效</div>
-              <div class="flow__desc">未到达</div>
+              <div class="flow__desc">{{ releases.find((r) => r.status === '生效')?.modelName ?? '未到达' }}</div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- 新建候选弹层 -->
+      <Modal :open="showCreate" title="新建候选发布" confirm-text="创建" @close="showCreate = false" @confirm="confirmCreate">
+        <div class="form-field">
+          <label class="form-label">发布组合名称</label>
+          <input v-model="newName" class="form-input" placeholder="如：local-mock-v2" :maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">提示词版本</label>
+          <input v-model="newPrompt" class="form-input" placeholder="prompt-p2" :maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">检索策略</label>
+          <input v-model="newRetrieval" class="form-input" placeholder="keyword-v2" :maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">内容库版本</label>
+          <input v-model="newContentLib" class="form-input" placeholder="content-c2" :maxlength="100" />
+        </div>
+      </Modal>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
+import Modal from '@/components/Modal.vue';
 import { listReleases, runEval, publishRelease, rollbackRelease, createRelease, listEvalRuns, listEvalSets } from '@/api';
 import type { Release, EvalRun } from '@/api/types';
 
-const releases = ref<Array<Release & { embedding: string; evalResult: string; gray: string }>>([]);
-const candidateEvals = ref<Array<{ name: string; threshold: string; result: string; cases: number; passed: boolean }>>([]);
+const router = useRouter();
+const releases = ref<Array<Release & { evalResult: string }>>([]);
+const candidateEvals = ref<Array<{ name: string; result: string; cases: number; passed: boolean }>>([]);
 const candidate = ref<Release | null>(null);
+const showCreate = ref(false);
+const newName = ref('');
+const newPrompt = ref('prompt-p2');
+const newRetrieval = ref('keyword-v2');
+const newContentLib = ref('content-c2');
 
-async function onCreate() {
-  const name = prompt('发布组合名称');
-  if (!name) return;
+async function confirmCreate() {
+  if (!newName.value.trim()) {
+    toast('请填写发布组合名称');
+    return;
+  }
   try {
     await createRelease({
-      modelName: name,
-      promptVersion: 'prompt-p1',
-      retrievalStrategy: 'keyword-v1',
-      contentLibVersion: 'content-c1',
+      modelName: newName.value.trim(),
+      promptVersion: newPrompt.value.trim() || 'prompt-p1',
+      retrievalStrategy: newRetrieval.value.trim() || 'keyword-v1',
+      contentLibVersion: newContentLib.value.trim() || 'content-c1',
     });
     toast('已创建候选发布');
+    showCreate.value = false;
+    newName.value = '';
     await load();
   } catch (e) {
     toast((e as Error).message);
@@ -163,7 +193,7 @@ async function onRunEval(r: Release) {
 async function onPublish(r: Release) {
   try {
     const result = await publishRelease(r.id);
-    toast(result.status === '已发布' ? '已发布' : '已发起，待第二人确认');
+    toast(result.status === '已发布' ? '已发布（双人确认完成）' : '已发起，待超管确认');
     await load();
   } catch (e) {
     toast((e as Error).message);
@@ -172,40 +202,54 @@ async function onPublish(r: Release) {
 
 async function onRollback(r: Release) {
   try {
-    await rollbackRelease(r.id);
-    toast('已回滚');
+    const result = await rollbackRelease(r.id);
+    toast(result.status === '已回滚' ? '已回滚（双人确认完成）' : '已发起，待超管确认');
     await load();
   } catch (e) {
     toast((e as Error).message);
   }
 }
 
+function onView(r: Release) {
+  candidate.value = r;
+  loadCandidateEvals();
+}
+
+async function loadCandidateEvals() {
+  if (!candidate.value) return;
+  try {
+    const runs = await listEvalRuns(candidate.value.id);
+    const sets = await listEvalSets();
+    candidateEvals.value = runs.map((run) => {
+      const set = sets.find((s) => s.id === run.evalSetId);
+      const metrics = (run.metrics ?? {}) as { 通过率?: number };
+      return {
+        name: run.evalSetName,
+        result: metrics.通过率 !== undefined ? `${Math.round(metrics.通过率 * 100)}%` : '—',
+        cases: set?.caseCount ?? 0,
+        passed: run.result === '通过',
+      };
+    });
+  } catch {
+    candidateEvals.value = [];
+  }
+}
+
 async function load() {
   try {
     const items = await listReleases();
-    releases.value = items.map((r) => ({
-      ...r,
-      embedding: 'v3',
-      evalResult: r.status === '生效' ? '全部通过' : '—',
-      gray: r.status === '生效' ? '100%' : '0%',
-    }));
-    // 候选发布的评测门禁结果
+    // 计算每个发布的评测结果（真实数据，不写死“全部通过”）
+    const withEval = await Promise.all(
+      items.map(async (r) => {
+        const runs = await listEvalRuns(r.id);
+        const failed = runs.filter((run) => run.result !== '通过').length;
+        const evalResult = runs.length === 0 ? '未评测' : failed === 0 ? '全部通过' : `${failed} 项未通过`;
+        return { ...r, evalResult };
+      }),
+    );
+    releases.value = withEval;
     candidate.value = items.find((r) => r.status === '候选') ?? items[0] ?? null;
-    if (candidate.value) {
-      const runs = await listEvalRuns(candidate.value.id);
-      const sets = await listEvalSets();
-      candidateEvals.value = runs.map((run) => {
-        const set = sets.find((s) => s.id === run.evalSetId);
-        const metrics = (run.metrics ?? {}) as { 通过率?: number };
-        return {
-          name: run.evalSetName,
-          threshold: '≥ 80%',
-          result: metrics.通过率 !== undefined ? `${Math.round(metrics.通过率 * 100)}%` : '—',
-          cases: set?.caseCount ?? 0,
-          passed: run.result === '通过',
-        };
-      });
-    }
+    await loadCandidateEvals();
   } catch {
     // 加载失败不阻塞
   }
@@ -213,10 +257,10 @@ async function load() {
 
 function toast(msg: string) {
   const el = document.createElement('div');
-    el.textContent = msg;
-    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(load);
@@ -228,6 +272,8 @@ onMounted(load);
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 4px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 .models__title {
   font-size: 20px;
@@ -274,6 +320,10 @@ onMounted(load);
   background: var(--bg);
   padding: 2px 10px;
   border-radius: 4px;
+}
+.card__tag--ok {
+  color: var(--ok);
+  background: rgba(30, 158, 90, 0.1);
 }
 .card__tag--danger {
   color: var(--error);
@@ -339,12 +389,14 @@ onMounted(load);
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .flow__node {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   flex: 1;
+  min-width: 120px;
 }
 .flow__dot {
   width: 12px;
@@ -367,6 +419,24 @@ onMounted(load);
 }
 .flow__arrow {
   color: var(--text-3);
+}
+.form-field {
+  margin-bottom: 12px;
+}
+.form-label {
+  font-size: 13px;
+  color: var(--text-2);
+  display: block;
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  box-sizing: border-box;
 }
 .btn {
   min-height: 36px;

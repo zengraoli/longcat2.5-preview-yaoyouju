@@ -73,6 +73,101 @@ export class ModelsService {
       .all();
   }
 
+  /** 新建评测集 */
+  createEvalSet(actorId: string, input: { name: string; caseCount: number }) {
+    const id = crypto.randomUUID();
+    this.appDb
+      .prepare('INSERT INTO EVAL_SET (id, name, case_count, deidentified) VALUES (?, ?, ?, 1)')
+      .run(id, input.name, input.caseCount);
+    this.audit.record({ actorId, action: 'model:eval-set-create', target: id, diff: { name: input.name } });
+    return { id, name: input.name };
+  }
+
+  /** 评测集的运行记录 */
+  listEvalSetRuns(evalSetId: string) {
+    return this.appDb
+      .prepare(
+        `SELECT r.id, r.model_release_id AS modelReleaseId, r.result, r.metrics, r.created_at AS createdAt
+         FROM EVAL_RUN r WHERE r.eval_set_id = ? ORDER BY r.created_at DESC, r.rowid DESC LIMIT 20`,
+      )
+      .all(evalSetId) as Array<{ id: string; modelReleaseId: string; result: string; metrics: string; createdAt: string }>;
+  }
+
+  /** 全部运行记录（最近） */
+  listAllEvalRuns() {
+    return this.appDb
+      .prepare(
+        `SELECT r.id, r.model_release_id AS modelReleaseId, s.name AS evalSetName, r.result, r.metrics, r.created_at AS createdAt
+         FROM EVAL_RUN r JOIN EVAL_SET s ON s.id = r.eval_set_id
+         ORDER BY r.created_at DESC, r.rowid DESC LIMIT 20`,
+      )
+      .all() as Array<{ id: string; modelReleaseId: string; evalSetName: string; result: string; metrics: string; createdAt: string }>;
+  }
+
+  /** 导入用例（去标识化，每行一条“输入 | 期望”） */
+  importCases(actorId: string, evalSetId: string, content: string) {
+    const evalSet = this.appDb.prepare('SELECT id FROM EVAL_SET WHERE id = ?').get(evalSetId) as { id: string } | undefined;
+    if (!evalSet) throw new NotFoundException('评测集不存在');
+    const lines = content
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    const insert = this.appDb.prepare(
+      `INSERT INTO EVAL_CASE (id, eval_set_id, case_key, input, expected, actual, result, source, created_at)
+       VALUES (?, ?, ?, ?, ?, NULL, '未运行', '导入', ?)`,
+    );
+    let count = 0;
+    for (const line of lines) {
+      const [input, expected] = line.split('|').map((s) => s.trim());
+      if (!input || !expected) continue;
+      insert.run(crypto.randomUUID(), evalSetId, `IMP-${Date.now()}-${count}`, input.slice(0, 500), expected.slice(0, 500), new Date().toISOString());
+      count += 1;
+    }
+    if (count > 0) {
+      this.appDb.prepare('UPDATE EVAL_SET SET case_count = case_count + ? WHERE id = ?').run(count, evalSetId);
+    }
+    this.audit.record({ actorId, action: 'model:eval-case-import', target: evalSetId, diff: { count } });
+    return { imported: count };
+  }
+
+  /** 评测集用例（可按结果过滤） */
+  listCases(evalSetId: string, result?: string) {
+    if (result) {
+      return this.appDb
+        .prepare(
+          `SELECT id, case_key AS caseKey, input, expected, actual, result, source
+           FROM EVAL_CASE WHERE eval_set_id = ? AND result = ? ORDER BY created_at ASC, rowid ASC`,
+        )
+        .all(evalSetId, result) as Array<{ id: string; caseKey: string; input: string; expected: string; actual: string; result: string; source: string }>;
+    }
+    return this.appDb
+      .prepare(
+        `SELECT id, case_key AS caseKey, input, expected, actual, result, source
+         FROM EVAL_CASE WHERE eval_set_id = ? ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all(evalSetId) as Array<{ id: string; caseKey: string; input: string; expected: string; actual: string; result: string; source: string }>;
+  }
+
+  /** 标记用例已修复并重跑该评测集 */
+  fixCase(actorId: string, caseId: string) {
+    const row = this.appDb
+      .prepare('SELECT id, eval_set_id AS evalSetId FROM EVAL_CASE WHERE id = ?')
+      .get(caseId) as { id: string; evalSetId: string } | undefined;
+    if (!row) throw new NotFoundException('用例不存在');
+    // 重跑该评测集对应的发布组合（取最近运行过的组合）
+    const run = this.appDb
+      .prepare(
+        `SELECT model_release_id AS modelReleaseId FROM EVAL_RUN
+         WHERE eval_set_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+      )
+      .get(row.evalSetId) as { modelReleaseId: string } | undefined;
+    if (run) {
+      this.runEval(actorId, run.modelReleaseId);
+    }
+    this.audit.record({ actorId, action: 'model:eval-case-fix', target: caseId });
+    return { id: caseId, fixed: true };
+  }
+
   /** 运行评测（本地模拟实现）：对每个评测集生成指标与结果 */
   runEval(actorId: string, releaseId: string): EvalRunView[] {
     const release = this.appDb

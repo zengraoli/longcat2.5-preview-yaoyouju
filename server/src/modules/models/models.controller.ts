@@ -1,8 +1,23 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { IsIn, IsString, MaxLength } from 'class-validator';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { IsIn, IsInt, IsString, MaxLength, Min } from 'class-validator';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentAdmin } from '../admin/current-admin.decorator';
 import { ModelsService } from './models.service';
+
+class CreateEvalSetDto {
+  @IsString()
+  @MaxLength(100)
+  name!: string;
+
+  @IsInt()
+  @Min(1)
+  caseCount!: number;
+}
+
+class ImportCasesDto {
+  @IsString()
+  content!: string;
+}
 
 class CreateReleaseDto {
   @IsString()
@@ -39,6 +54,48 @@ export class ModelsController {
   @RequirePermission('eval:read')
   listEvalSets() {
     return this.models.listEvalSets();
+  }
+
+  /** 新建评测集 */
+  @Post('eval-sets')
+  @RequirePermission('eval:run')
+  createEvalSet(@CurrentAdmin() admin: { adminId: string }, @Body() dto: CreateEvalSetDto) {
+    return this.models.createEvalSet(admin.adminId, dto);
+  }
+
+  /** 评测集的运行记录 */
+  @Get('eval-sets/:id/runs')
+  @RequirePermission('eval:read')
+  listEvalSetRuns(@Param('id') id: string) {
+    return this.models.listEvalSetRuns(id);
+  }
+
+  /** 全部运行记录（最近） */
+  @Get('eval-runs')
+  @RequirePermission('eval:read')
+  listAllEvalRuns() {
+    return this.models.listAllEvalRuns();
+  }
+
+  /** 导入用例（去标识化） */
+  @Post('eval-sets/:id/cases')
+  @RequirePermission('eval:run')
+  importCases(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() dto: ImportCasesDto) {
+    return this.models.importCases(admin.adminId, id, dto.content);
+  }
+
+  /** 评测集用例（可按结果过滤） */
+  @Get('eval-sets/:id/cases')
+  @RequirePermission('eval:read')
+  listCases(@Param('id') id: string, @Query('result') result: string) {
+    return this.models.listCases(id, result);
+  }
+
+  /** 标记用例已修复并重跑该评测集 */
+  @Post('eval-cases/:caseId/fix')
+  @RequirePermission('eval:run')
+  fixCase(@CurrentAdmin() admin: { adminId: string }, @Param('caseId') caseId: string) {
+    return this.models.fixCase(admin.adminId, caseId);
   }
 
   /** 创建发布组合（候选） */

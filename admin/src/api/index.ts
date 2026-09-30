@@ -72,6 +72,14 @@ export function offlineContent(id: string) {
   return api.post<{ status: string; references: unknown[] }>(`/contents/${id}/offline`, {});
 }
 
+export function restoreContent(id: string) {
+  return api.post<{ status: string }>(`/contents/${id}/restore`, {});
+}
+
+export function setContentOfflineSwitch(id: string, offline: boolean) {
+  return api.post<{ status: string }>(`/contents/${id}/offline-switch`, { offline });
+}
+
 export function batchOffline(itemIds: string[]) {
   return api.post<{ status: string; results: unknown[] }>('/contents/batch-offline', { itemIds });
 }
@@ -138,11 +146,14 @@ export function listSafetyEvents() {
 
 /* ---------- 开关 ---------- */
 export function listSwitches() {
-  return api.get<Array<{ key: string; enabled: boolean; reason: string; updatedAt: string }>>('/switches');
+  return api.get<Array<{ key: string; enabled: boolean; reason: string; confirmMode: string; updatedAt: string }>>('/switches');
 }
 
 export function setSwitch(key: string, enabled: boolean, reason: string) {
-  return api.post('/switches', { key, enabled: String(enabled), reason });
+  return api.post<{ status: string; switches?: Array<{ key: string; enabled: boolean; reason: string; confirmMode: string; updatedAt: string }> }>(
+    '/switches',
+    { key, enabled: String(enabled), reason },
+  );
 }
 
 /* ---------- 模型与评测 ---------- */
@@ -197,6 +208,20 @@ export function verifyAuditLogs() {
   return api.get<{ valid: boolean; tampered: unknown }>('/admin/audit-logs/verify');
 }
 
+export function createAuditExportRequest(reason: string) {
+  return api.post<{ id: string; status: string }>('/admin/audit-logs/export-requests', { reason });
+}
+
+export function listAuditExportRequests() {
+  return api.get<Array<{ id: string; reason: string; status: string; createdAt: string; requesterName: string | null }>>(
+    '/admin/audit-logs/export-requests',
+  );
+}
+
+export function approveAuditExportRequest(id: string) {
+  return api.post<{ id: string; status: string }>(`/admin/audit-logs/export-requests/${id}/approve`, {});
+}
+
 /* ---------- 授权 ---------- */
 export function createAuthorization(input: { targetType: string; targetId: string; reason: string }) {
   return api.post('/admin/authorizations', input);
@@ -212,4 +237,8 @@ export function setUserStatus(id: string, status: string) {
 
 export function setUserRole(id: string, roleId: string) {
   return api.post<{ id: string; roleId: string }>(`/admin/users/${id}/role`, { roleId });
+}
+
+export function listRoles() {
+  return api.get<Array<{ id: string; name: string }>>('/admin/roles');
 }

@@ -4,19 +4,30 @@
       <div class="contents__header">
         <h1 class="contents__title">内容库</h1>
         <div class="contents__search">
-          <input class="contents__search-input" placeholder="搜索内容 / 工单 / 匿名标识" />
+          <input v-model="search" class="contents__search-input" placeholder="搜索标题 / 编号" @input="onSearch" />
         </div>
       </div>
 
       <!-- 筛选 -->
       <div class="contents__filters">
-        <select class="contents__select"><option>类型：全部</option><option>视频</option><option>图文</option></select>
-        <select class="contents__select"><option>状态：全部</option><option>已发布</option><option>待医学审核</option><option>草稿</option><option>更正中</option><option>已撤回</option></select>
-        <select class="contents__select"><option>适用范围：全部</option></select>
-        <select class="contents__select"><option>审核人：全部</option></select>
+        <select v-model="statusFilter" class="contents__select">
+          <option value="">状态：全部</option>
+          <option>已发布</option>
+          <option>待审</option>
+          <option>已审定</option>
+          <option>草稿</option>
+          <option>更正中</option>
+          <option>已撤回</option>
+          <option>已下线</option>
+        </select>
+        <select v-model="typeFilter" class="contents__select">
+          <option value="">类型：全部</option>
+          <option>视频</option>
+          <option>图文组件</option>
+        </select>
         <div class="contents__filter-actions">
           <button class="btn btn--secondary" @click="onBatchOffline">批量下线（需双人确认）</button>
-          <button class="btn btn--primary" @click="onCreate">＋ 新建内容</button>
+          <button class="btn btn--primary" @click="showCreate = true">＋ 新建内容</button>
         </div>
       </div>
 
@@ -36,32 +47,48 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in items" :key="item.id">
+            <tr v-for="item in pagedItems" :key="item.id">
               <td class="table__title">{{ item.title }}</td>
               <td>{{ item.type }}</td>
               <td><StatusTag :label="item.currentStatus" /></td>
               <td>v{{ item.version ?? '—' }}</td>
               <td>{{ item.reviewer ?? '—' }}</td>
-              <td>{{ item.publishedAt ?? '—' }}</td>
+              <td>{{ item.publishedAt ? item.publishedAt.slice(0, 10) : '—' }}</td>
               <td>{{ item.refCount }}</td>
               <td>
                 <input type="checkbox" class="table__check" :checked="selected.has(item.id)" @change="toggleSelect(item.id)" />
               </td>
               <td class="table__actions">
                 <button class="btn btn--text" @click="goDetail(item)">详情</button>
-                <button class="btn btn--text" @click="onCorrect(item)">更正</button>
-                <button class="btn btn--text" :class="{ 'btn--danger': item.offlineSwitch }" @click="onToggleOffline(item)">
+                <button v-if="canEdit(item)" class="btn btn--text" @click="onCorrect(item)">更正</button>
+                <button
+                  class="btn btn--text"
+                  :class="{ 'btn--danger': item.offlineSwitch }"
+                  @click="onToggleOffline(item)"
+                >
                   {{ item.offlineSwitch ? '取消下线' : '下线' }}
                 </button>
               </td>
             </tr>
+            <tr v-if="pagedItems.length === 0">
+              <td colspan="9" class="table__empty">暂无内容</td>
+            </tr>
           </tbody>
         </table>
         <div class="table__pagination">
-          <span>共 {{ items.length }} 条 · 每页 10 条</span>
+          <span>共 {{ filteredItems.length }} 条 · 每页 {{ pageSize }} 条</span>
           <div class="table__pages">
-            <button class="table__page table__page--active">1</button>
-            <button class="table__page">2</button>
+            <button class="table__page" :disabled="page <= 1" @click="page--">‹</button>
+            <button
+              v-for="p in totalPages"
+              :key="p"
+              class="table__page"
+              :class="{ 'table__page--active': p === page }"
+              @click="page = p"
+            >
+              {{ p }}
+            </button>
+            <button class="table__page" :disabled="page >= totalPages" @click="page++">›</button>
           </div>
         </div>
       </div>
@@ -69,6 +96,25 @@
       <TipBar type="warn">
         “下线开关”立即对用户端隐藏内容且不改变审核状态，用于应急；正式撤回请在详情页走“撤回”流程并定位引用页面。
       </TipBar>
+
+      <!-- 新建内容弹层 -->
+      <Modal :open="showCreate" title="新建内容" confirm-text="创建" @close="showCreate = false" @confirm="confirmCreate">
+        <div class="form-field">
+          <label class="form-label">标题</label>
+          <input v-model="newTitle" class="form-input" placeholder="内容标题" :maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">类型</label>
+          <select v-model="newType" class="form-input">
+            <option>视频</option>
+            <option>图文组件</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">脚本</label>
+          <textarea v-model="newScript" class="modal__textarea" placeholder="脚本内容" :maxlength="10000" />
+        </div>
+      </Modal>
     </div>
   </AppLayout>
 </template>
@@ -79,23 +125,61 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listContents, offlineContent, batchOffline, createContent, transitionContent } from '@/api';
+import Modal from '@/components/Modal.vue';
+import { listContents, setContentOfflineSwitch, batchOffline, createContent, transitionContent } from '@/api';
+import { useAuthStore } from '@/stores/auth';
 import type { ContentItem } from '@/api/types';
 
 const router = useRouter();
+const auth = useAuthStore();
 const items = ref<ContentItem[]>([]);
 const selected = ref<Set<string>>(new Set());
+const search = ref('');
+const statusFilter = ref('');
+const typeFilter = ref('');
+const page = ref(1);
+const pageSize = 10;
+const showCreate = ref(false);
+const newTitle = ref('');
+const newType = ref('视频');
+const newScript = ref('');
 
 const statusStats = computed(() => {
   const count = (s: string) => items.value.filter((i) => i.currentStatus === s).length;
   return [
     { label: '已发布', count: count('已发布'), tone: 'ok' },
     { label: '待医学审核', count: count('待审'), tone: 'warn' },
+    { label: '已审定', count: count('已审定'), tone: 'info' },
     { label: '草稿', count: count('草稿'), tone: 'neutral' },
     { label: '更正中', count: count('更正中'), tone: 'info' },
     { label: '已撤回', count: count('已撤回'), tone: 'error' },
+    { label: '已下线', count: count('已下线'), tone: 'error' },
   ];
 });
+
+const filteredItems = computed(() => {
+  let list = items.value;
+  if (statusFilter.value) list = list.filter((i) => i.currentStatus === statusFilter.value);
+  if (typeFilter.value) list = list.filter((i) => i.type === typeFilter.value);
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase();
+    list = list.filter((i) => i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q));
+  }
+  return list;
+});
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredItems.value.length / pageSize)));
+
+const pagedItems = computed(() => {
+  const start = (page.value - 1) * pageSize;
+  return filteredItems.value.slice(start, start + pageSize);
+});
+
+function canEdit(item: ContentItem) {
+  const perms = auth.session?.permissions ?? [];
+  const editable = ['草稿', '更正中', '已撤回'].includes(item.currentStatus);
+  return editable && (perms.includes('content:edit') || perms.includes('content:correct:initiate'));
+}
 
 function goDetail(item: ContentItem) {
   router.push({ name: 'content-detail', params: { id: item.id } });
@@ -121,12 +205,17 @@ async function onBatchOffline() {
   }
 }
 
-async function onCreate() {
-  const title = prompt('内容标题');
-  if (!title) return;
+async function confirmCreate() {
+  if (!newTitle.value.trim()) {
+    toast('请填写标题');
+    return;
+  }
   try {
-    await createContent({ type: '视频', title, script: '脚本内容', subtitleText: '字幕' });
+    await createContent({ type: newType.value, title: newTitle.value.trim(), script: newScript.value || '脚本内容' });
     toast('已创建草稿');
+    showCreate.value = false;
+    newTitle.value = '';
+    newScript.value = '';
     await load();
   } catch (e) {
     toast((e as Error).message);
@@ -135,8 +224,8 @@ async function onCreate() {
 
 async function onCorrect(item: ContentItem) {
   try {
-    await transitionContent(item.id, '更正');
-    toast('已提交更正');
+    const result = await transitionContent(item.id, '更正');
+    toast(result.currentStatus === '更正中' ? '已提交更正（双人确认完成）' : '已发起更正，待第二人确认');
     await load();
   } catch (e) {
     toast((e as Error).message);
@@ -146,17 +235,22 @@ async function onCorrect(item: ContentItem) {
 async function onToggleOffline(item: ContentItem) {
   try {
     if (item.offlineSwitch) {
-      // 取消下线：仅在已下线状态可恢复
-      await transitionContent(item.id, '更正');
-      toast('已恢复');
+      // 取消下线：复位下线开关
+      await setContentOfflineSwitch(item.id, false);
+      toast('已取消下线');
     } else {
-      await offlineContent(item.id);
-      toast('已下线');
+      // 下线开关：应急隐藏，不改变审核状态
+      await setContentOfflineSwitch(item.id, true);
+      toast('已下线（应急隐藏）');
     }
     await load();
   } catch (e) {
     toast((e as Error).message);
   }
+}
+
+function onSearch() {
+  page.value = 1;
 }
 
 async function load() {
@@ -169,10 +263,10 @@ async function load() {
 
 function toast(msg: string) {
   const el = document.createElement('div');
-    el.textContent = msg;
-    el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(load);
@@ -183,6 +277,8 @@ onMounted(load);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 .contents__title {
@@ -198,12 +294,14 @@ onMounted(load);
   padding: 0 14px;
   font-size: 14px;
   outline: none;
+  box-sizing: border-box;
 }
 .contents__filters {
   display: flex;
   gap: 10px;
   margin-bottom: 16px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .contents__select {
   height: 36px;
@@ -222,7 +320,8 @@ onMounted(load);
 .contents__status-stats {
   display: flex;
   gap: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 .contents__status-stat {
   font-size: 13px;
@@ -255,8 +354,18 @@ onMounted(load);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.table__empty {
+  text-align: center;
+  color: var(--text-3);
+  padding: 24px 0;
+}
 .table__title {
   font-weight: 500;
+}
+.table__check {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 .table__actions {
   display: flex;
@@ -274,6 +383,7 @@ onMounted(load);
 .table__pages {
   display: flex;
   gap: 4px;
+  align-items: center;
 }
 .table__page {
   min-width: 32px;
@@ -289,29 +399,35 @@ onMounted(load);
   border-color: var(--primary);
   color: #fff;
 }
-.switch {
-  width: 40px;
-  height: 22px;
-  border-radius: 11px;
-  background: var(--border);
-  position: relative;
-  display: inline-block;
+.form-field {
+  margin-bottom: 12px;
 }
-.switch::after {
-  content: '';
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  top: 2px;
-  left: 2px;
+.form-label {
+  font-size: 13px;
+  color: var(--text-2);
+  display: block;
+  margin-bottom: 6px;
 }
-.switch--on {
-  background: var(--error);
+.form-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: var(--surface);
+  color: var(--text-1);
 }
-.switch--on::after {
-  left: 20px;
+.modal__textarea {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  resize: vertical;
 }
 .btn {
   min-height: 36px;
@@ -334,4 +450,5 @@ onMounted(load);
   padding: 0;
   font-size: 13px;
 }
+.btn--text.btn--danger { color: var(--error); }
 </style>
