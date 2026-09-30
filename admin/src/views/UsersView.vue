@@ -165,7 +165,7 @@ async function load() {
     const users = await listAdminUsers();
     members.value = users.map((u) => ({
       ...u,
-      email: `${u.name}@example.com`,
+      email: '—',
       roleName: u.roleName,
       roleTone: u.roleId === 'role-super' ? 'error' as const : u.roleId === 'role-clinical' ? 'info' as const : u.roleId === 'role-ops' ? 'ok' as const : u.roleId === 'role-tech' ? 'warn' as const : 'neutral' as const,
       mfaEnabled: !!u.mfaEnabled,

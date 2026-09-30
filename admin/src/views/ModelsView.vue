@@ -46,8 +46,10 @@
           <div class="card__header">
             <div class="card__title">候选发布 · 评测门禁结果</div>
             <div class="card__header-tags">
-              <span class="card__tag card__tag--danger">阻断发布</span>
-              <button class="btn btn--secondary btn--sm">⟳ 重跑全部评测</button>
+              <span class="card__tag" :class="candidateEvals.length > 0 && candidateEvals.every((e) => e.passed) ? 'card__tag--ok' : 'card__tag--danger'">
+                {{ candidateEvals.length > 0 && candidateEvals.every((e) => e.passed) ? '门禁通过' : '阻断发布' }}
+              </span>
+              <button class="btn btn--secondary btn--sm" @click="candidate && onRunEval(candidate)">⟳ 重跑全部评测</button>
             </div>
           </div>
           <table class="table">
@@ -67,15 +69,14 @@
         </div>
 
         <!-- 候选发布详情 -->
-        <div class="card">
+        <div class="card" v-if="candidate">
           <div class="card__title">候选发布详情</div>
           <div class="detail-rows">
-            <div class="detail-row"><span>模型策略</span><span>Q-x 2.5（供应商 A · 合同约定不留存训练 · 处理地点：华东）</span></div>
-            <div class="detail-row"><span>提示词版本</span><span>p15：新增“侧别一致性”约束与输出校验</span></div>
-            <div class="detail-row"><span>检索策略</span><span>R-4：k=8，BM25 0.4 + 向量 0.6，仅 active 且可引用</span></div>
-            <div class="detail-row"><span>内容库版本</span><span>2026-09（8 个已发布内容）</span></div>
-            <div class="detail-row"><span>embedding</span><span>v3（1024 维）</span></div>
-            <div class="detail-row"><span>变更说明</span><span>修复 #ER-0213 侧别混淆；预算：输入 ≤ 6k / 输出 ≤ 1.5k tokens</span></div>
+            <div class="detail-row"><span>模型名称</span><span>{{ candidate.modelName }}</span></div>
+            <div class="detail-row"><span>提示词版本</span><span>{{ candidate.promptVersion }}</span></div>
+            <div class="detail-row"><span>检索策略</span><span>{{ candidate.retrievalStrategy }}</span></div>
+            <div class="detail-row"><span>内容库版本</span><span>{{ candidate.contentLibVersion }}</span></div>
+            <div class="detail-row"><span>状态</span><span>{{ candidate.status }}</span></div>
           </div>
         </div>
       </div>
@@ -130,6 +131,7 @@ import type { Release, EvalRun } from '@/api/types';
 
 const releases = ref<Array<Release & { embedding: string; evalResult: string; gray: string }>>([]);
 const candidateEvals = ref<Array<{ name: string; threshold: string; result: string; cases: number; passed: boolean }>>([]);
+const candidate = ref<Release | null>(null);
 
 async function onCreate() {
   const name = prompt('发布组合名称');
@@ -188,9 +190,9 @@ async function load() {
       gray: r.status === '生效' ? '100%' : '0%',
     }));
     // 候选发布的评测门禁结果
-    const candidate = items.find((r) => r.status === '候选') ?? items[0];
-    if (candidate) {
-      const runs = await listEvalRuns(candidate.id);
+    candidate.value = items.find((r) => r.status === '候选') ?? items[0] ?? null;
+    if (candidate.value) {
+      const runs = await listEvalRuns(candidate.value.id);
       const sets = await listEvalSets();
       candidateEvals.value = runs.map((run) => {
         const set = sets.find((s) => s.id === run.evalSetId);

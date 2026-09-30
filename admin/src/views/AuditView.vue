@@ -41,10 +41,8 @@
           <div class="table__pages">
             <button class="table__page">‹</button>
             <button class="table__page table__page--active">1</button>
-            <button class="table__page">2</button>
-            <button class="table__page">3</button>
-            <span class="table__page-ellipsis">…</span>
-            <button class="table__page">1241</button>
+            <button class="table__page" v-if="total > 10">2</button>
+            <button class="table__page" v-if="total > 20">3</button>
             <button class="table__page">›</button>
           </div>
         </div>

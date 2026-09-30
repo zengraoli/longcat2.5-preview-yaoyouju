@@ -132,6 +132,7 @@ const router = useRouter();
 const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const stats = ref<DashboardStats>({
   tasks: { total: 0, today: 0, failed: 0, blocked: 0 },
+  dailyTasks: [],
   pendingReview: 0,
   pendingReports: { total: 0, high: 0, mid: 0, low: 0 },
   safetyEvents: [],
@@ -143,21 +144,14 @@ const failureRate = computed(() =>
   stats.value.tasks.today === 0 ? '0.0' : ((stats.value.tasks.failed / stats.value.tasks.today) * 100).toFixed(1),
 );
 
-/** 最近 7 天柱状图（真实数据） */
+/** 最近 7 天柱状图（真实数据，无任务的天为 0） */
 const chartData = computed(() => {
-  const days: Array<{ label: string; height: number; failHeight: number }> = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(Date.now() + 8 * 3600 * 1000);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    // 从 evalRuns 无法直接得到每日任务量，这里用任务总数均摊示意（演示）
-    days.push({
-      label: key.slice(5),
-      height: stats.value.tasks.today > 0 ? Math.min(100, 30 + ((i * 13) % 50)) : 0,
-      failHeight: 0,
-    });
-  }
-  return days;
+  const max = Math.max(1, ...stats.value.dailyTasks.map((d) => d.count));
+  return stats.value.dailyTasks.map((d) => ({
+    label: d.date.slice(5),
+    height: Math.round((d.count / max) * 100),
+    failHeight: 0,
+  }));
 });
 
 /** 待办：来自待审内容与待处理举报 */

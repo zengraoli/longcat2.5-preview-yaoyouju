@@ -18,7 +18,7 @@
         <div class="stat-card">
           <div class="stat-card__label">临床复核中</div>
           <div class="stat-card__value stat-card__value--warn">{{ reviewCount }}</div>
-          <div class="stat-card__sub">平均处理 1.5 天</div>
+          <div class="stat-card__sub">{{ avgHandleTime }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">本周已关闭</div>
@@ -133,11 +133,9 @@
               </div>
             </div>
 
-            <div class="detail-section detail-section--suggest">
-              <div class="detail-section__label detail-section__label--warn">建议下一步</div>
-              <p class="detail-section__text">
-                加入评测集“左右侧混淆”并触发回归；对同版本组合的 ② 段引用核对启用侧别一致性校验；关闭前通知用户处理结果。
-              </p>
+            <div class="detail-section" v-if="selected?.resolution">
+              <div class="detail-section__label">处理说明</div>
+              <p class="detail-section__text">{{ selected.resolution }}</p>
             </div>
           </div>
         </div>
@@ -194,7 +192,18 @@ const midCount = computed(() => tickets.value.filter((t) => t.severity === '中'
 const lowCount = computed(() => tickets.value.filter((t) => t.severity === '低').length);
 const reviewCount = computed(() => tickets.value.filter((t) => t.status === '临床复核中').length);
 const closedCount = computed(() => tickets.value.filter((t) => t.status === '已关闭').length);
-const helpCount = ref(186);
+const helpCount = computed(() => tickets.value.filter((t) => !t.isErrorReport).length);
+
+const helpTypeSummary = computed(() => {
+  const help = tickets.value.filter((t) => !t.isErrorReport);
+  if (help.length === 0) return '暂无帮助类型反馈';
+  return `共 ${help.length} 条`;
+});
+
+const avgHandleTime = computed(() => {
+  const handled = tickets.value.filter((t) => t.status === '已处理' || t.status === '已关闭');
+  return handled.length > 0 ? `已处理 ${handled.length} 条` : '暂无处理记录';
+});
 
 function mapTicket(item: FeedbackRow, i: number): Ticket {
   return {

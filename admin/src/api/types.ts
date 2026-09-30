@@ -8,6 +8,7 @@ export interface AdminSession {
 
 export interface DashboardStats {
   tasks: { total: number; today: number; failed: number; blocked: number };
+  dailyTasks: Array<{ date: string; count: number }>;
   pendingReview: number;
   pendingReports: { total: number; high: number; mid: number; low: number };
   safetyEvents: Array<{

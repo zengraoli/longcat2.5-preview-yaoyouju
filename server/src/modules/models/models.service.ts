@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { AuditService } from '../audit/audit.service';
+import { ERR } from '../../common/utils/business-exception';
 
 export interface ReleaseView {
   id: string;
@@ -142,7 +143,7 @@ export class ModelsService {
     }
     const failed = runs.filter((r) => r.result !== '通过');
     if (failed.length > 0) {
-      throw new ConflictException('评测门禁未通过，阻断发布');
+      throw ERR.EVAL_BLOCKED('评测门禁未通过，阻断发布');
     }
     // 灰度 → 生效；停用其他生效版本
     this.appDb

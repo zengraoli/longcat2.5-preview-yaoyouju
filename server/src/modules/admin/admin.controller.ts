@@ -62,7 +62,7 @@ export class AdminController {
   @UseGuards(AdminGuard)
   @RequirePermission('audit:read')
   listAuditLogs(@CurrentAdmin() _admin: unknown) {
-    return this.audit.list(200);
+    return this.audit.list(1000);
   }
 
   /** 审计哈希链校验 */
@@ -230,6 +230,11 @@ export class AdminController {
   exportAuditLogs(@CurrentAdmin() admin: { adminId: string }) {
     const logs = this.audit.list(1000);
     const header = '时间,操作人,角色,动作,对象,请求ID,哈希';
+    // 字段含逗号/引号/换行时用双引号包裹并转义
+    const escapeCsv = (value: string) => {
+      if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+      return value;
+    };
     const lines = logs.map((l) =>
       [
         l.createdAt,
@@ -239,7 +244,7 @@ export class AdminController {
         l.target ?? '',
         l.requestId ?? '',
         l.hash.slice(0, 8),
-      ].join(','),
+      ].map(escapeCsv).join(','),
     );
     this.audit.record({ actorId: admin.adminId, action: 'admin:audit-export', target: 'audit-logs' });
     return { csv: [header, ...lines].join('\n'), count: logs.length };

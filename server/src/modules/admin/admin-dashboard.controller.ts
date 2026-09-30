@@ -18,21 +18,32 @@ export class AdminDashboardController {
     const today = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     const taskTotal = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK').get() as { c: number }).c;
     const taskToday = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE created_at >= ?').get(today) as { c: number }).c;
-    const taskFailed = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '失败'").get() as { c: number }).c;
-    // 阻断：被安全规则引擎停止个性化的次数（今日）
-    const taskBlocked = (this.appDb.prepare("SELECT COUNT(*) AS c FROM SAFETY_EVENT WHERE action_taken = '停止个性化分析' AND created_at >= ?").get(today) as { c: number }).c;
+    // 失败数：仅统计今日创建的任务
+    const taskFailed = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '失败' AND created_at >= ?").get(today) as { c: number }).c;
+    // 阻断：被安全规则引擎停止个性化的次数（今日，按规则去重）
+    const taskBlocked = (this.appDb.prepare("SELECT COUNT(DISTINCT rule_code) AS c FROM SAFETY_EVENT WHERE action_taken = '停止个性化分析' AND created_at >= ?").get(today) as { c: number }).c;
     const pendingReview = (this.appDb.prepare("SELECT COUNT(*) AS c FROM CONTENT_ITEM WHERE current_status = '待审'").get() as { c: number }).c;
     // 待处理举报（FEEDBACK_REPORT.status = '待处理'）
     const pendingReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理'").get() as { c: number }).c;
     const highReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理' AND severity = '高'").get() as { c: number }).c;
     const midReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理' AND severity = '中'").get() as { c: number }).c;
     const lowReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理' AND severity = '低'").get() as { c: number }).c;
+    // 安全事件：仅 24 小时内
     const safetyEvents = this.appDb
       .prepare(
         `SELECT rule_code AS ruleCode, severity, action_taken AS actionTaken, source, created_at AS createdAt
-         FROM SAFETY_EVENT ORDER BY created_at DESC, rowid DESC LIMIT 20`,
+         FROM SAFETY_EVENT WHERE created_at >= ? ORDER BY created_at DESC, rowid DESC LIMIT 20`,
       )
-      .all();
+      .all(new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+    // 最近 7 天每日任务量（真实数据）
+    const dailyTasks: Array<{ date: string; count: number }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() + 8 * 3600 * 1000);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const count = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE created_at >= ? AND created_at < ?').get(key, key + 'T23:59:59.999Z') as { c: number }).c;
+      dailyTasks.push({ date: key, count });
+    }
     const switches = this.appDb
       .prepare('SELECT key, enabled, reason, updated_at AS updatedAt FROM FEATURE_SWITCH ORDER BY key')
       .all();
@@ -45,6 +56,7 @@ export class AdminDashboardController {
       .all();
     return {
       tasks: { total: taskTotal, today: taskToday, failed: taskFailed, blocked: taskBlocked },
+      dailyTasks,
       pendingReview,
       pendingReports: { total: pendingReports, high: highReports, mid: midReports, low: lowReports },
       safetyEvents,

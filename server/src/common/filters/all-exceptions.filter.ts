@@ -38,11 +38,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // 404 统一中文提示（NestJS 未匹配路由的默认文案是英文）
       message = status === 404 ? '接口不存在' : msg;
     } else if (typeof (exception as { status?: unknown })?.status === 'number') {
-      // body-parser 等中间件抛出的错误（如请求体过大）带 status 字段
-      const err = exception as { status: number; message?: string };
+      // body-parser 等中间件抛出的错误（如请求体过大、坏 JSON）带 status 字段
+      const err = exception as { status: number; message?: string; type?: string };
       status = err.status;
       code = this.mapStatusToCode(status);
-      message = status === 413 ? '请求体过大' : (err.message ?? '请求处理失败');
+      const statusNum = Number(status);
+      if (statusNum === 400 && err.type === 'entity.parse.failed') {
+        message = '请求体不是合法的 JSON';
+      } else if (statusNum === 413) {
+        message = '请求体过大';
+      } else if (statusNum === 431) {
+        message = '请求头过大';
+      } else {
+        message = '请求处理失败';
+      }
     } else {
       this.logger.error(exception);
     }
