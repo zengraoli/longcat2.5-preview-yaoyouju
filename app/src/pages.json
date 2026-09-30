@@ -33,11 +33,11 @@
     "backgroundColor": "#FFFFFF",
     "borderColor": "#E4E8EE",
     "list": [
-      { "pagePath": "pages/home/index", "text": "当前情况" },
-      { "pagePath": "pages/qa/index", "text": "问与解释" },
-      { "pagePath": "pages/timeline/index", "text": "病程" },
-      { "pagePath": "pages/followup/index", "text": "复诊准备" },
-      { "pagePath": "pages/mine/index", "text": "我的" }
+      { "pagePath": "pages/home/index", "text": "当前情况", "iconPath": "static/icons/home.svg", "selectedIconPath": "static/icons/home.svg" },
+      { "pagePath": "pages/qa/index", "text": "问与解释", "iconPath": "static/icons/qa.svg", "selectedIconPath": "static/icons/qa.svg" },
+      { "pagePath": "pages/timeline/index", "text": "病程", "iconPath": "static/icons/timeline.svg", "selectedIconPath": "static/icons/timeline.svg" },
+      { "pagePath": "pages/followup/index", "text": "复诊准备", "iconPath": "static/icons/followup.svg", "selectedIconPath": "static/icons/followup.svg" },
+      { "pagePath": "pages/mine/index", "text": "我的", "iconPath": "static/icons/mine.svg", "selectedIconPath": "static/icons/mine.svg" }
     ]
   }
 }

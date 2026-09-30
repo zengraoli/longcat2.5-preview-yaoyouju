@@ -174,12 +174,19 @@ async function onExport(format: '文本' | 'PDF' | '图片') {
         fail: () => uni.showToast({ title: '复制失败', icon: 'none' }),
       });
     } else {
-      // PDF 通过浏览器打印生成
-      uni.showModal({
-        title: '导出 PDF',
-        content: result.note ?? 'PDF 通过浏览器打印生成。',
-        showCancel: false,
-      });
+      // PDF 通过浏览器打印生成（H5 打开打印窗口）
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`<html><head><title>复诊交接摘要</title></head><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${result.text}</pre></body></html>`);
+        win.document.close();
+        win.print();
+      } else {
+        uni.showModal({
+          title: '导出 PDF',
+          content: '请允许弹出窗口以打印 PDF。',
+          showCancel: false,
+        });
+      }
     }
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' });

@@ -484,18 +484,30 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
     insertCitation.run(uuid(), analysis1, 'doc-research-2', '影像学上的椎间盘突出程度与症状严重程度并不完全一致。', 1);
     insertCitation.run(uuid(), analysis1, 'doc-guide-2', '出现马尾综合征（大小便功能障碍、鞍区麻木）需立即就医。', 1);
 
-    // 用户甲：复诊摘要
+    // 用户甲：复诊摘要（固定六段，数组结构）
     appDb.prepare(
       `INSERT INTO FOLLOWUP_SUMMARY (id, episode_id, content, export_format, exported_at)
        VALUES (?, ?, ?, ?, ?)`,
     ).run(
       'summary-1', ep1,
       JSON.stringify({
-        当前情况: '腰痛 3 个月，久坐后加重，右小腿偶有麻木感（自述，已确认）。',
-        报告要点: '2026-08-20 腰椎 MRI：L4/5、L5/S1 椎间盘突出，L5/S1 为著（报告原文）。',
-        医嘱要点: '避免久坐，建议核心肌群训练（医生记录，已确认）。',
-        尚未确认: ['右小腿麻木的病因（未经核实）', '症状对睡眠的影响程度（未经核实）'],
-        下一步: ['循序渐进核心肌群训练', '出现红旗信号立即就医'],
+        当前情况: [
+          { text: '腰痛 3 个月，久坐后加重，右小腿偶有麻木感（自述，已确认）。', source: '自述' },
+        ],
+        报告要点: [
+          { text: '2026-08-20 腰椎 MRI：L4/5、L5/S1 椎间盘突出，L5/S1 为著（报告原文）。', source: '报告原文' },
+        ],
+        医嘱要点: [
+          { text: '避免久坐，建议核心肌群训练（医生记录，已确认）。', source: '医生记录' },
+        ],
+        尚未确认: [
+          { text: '右小腿麻木的病因（未经核实）', mark: '未经核实' },
+          { text: '症状对睡眠的影响程度（未经核实）', mark: '未经核实' },
+        ],
+        下一步: [
+          { text: '循序渐进核心肌群训练', source: '医生记录' },
+          { text: '出现红旗信号立即就医' },
+        ],
         复诊问题: ['右小腿麻木是否需要进一步检查？', '影像上的突出与症状是否相关？'],
       }),
       '文本', '2026-08-28T02:00:00.000Z',

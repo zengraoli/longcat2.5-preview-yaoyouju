@@ -224,6 +224,11 @@ onMounted(load);
   gap: 16px;
   align-items: start;
 }
+@media (max-width: 1360px) {
+  .evidence__grid {
+    grid-template-columns: 1fr;
+  }
+}
 .card {
   background: var(--surface);
   border-radius: 12px;
