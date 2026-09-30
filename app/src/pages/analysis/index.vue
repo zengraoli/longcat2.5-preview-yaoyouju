@@ -41,7 +41,9 @@
         <view v-for="(item, i) in result.sections.已知" :key="i" class="analysis__item">
           <text class="analysis__item-dot">•</text>
           <text class="analysis__item-text">{{ item.text }}</text>
-          <text class="analysis__item-source">{{ sourceLabel(item.source) }}</text>
+          <text class="analysis__item-source">
+            {{ sourceLabel(item.source) }}<text v-if="item.mark" class="analysis__item-mark">{{ item.mark }}</text>
+          </text>
         </view>
       </view>
 
@@ -380,6 +382,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .analysis__item-source--ok { color: var(--ok); }
+.analysis__item-mark { color: var(--warn); margin-left: 4px; }
 .analysis__question {
   display: flex;
   align-items: flex-start;

@@ -75,4 +75,30 @@ describe('分析接口与功能开关', () => {
       .expect(401);
     expect(res.body.code).toBe(1002);
   });
+
+  it('已下线内容不再出现在最新分析的视频里', async () => {
+    const appDb = app.get(APP_DB);
+    // 种子分析（episode-1）引用了 content-1 / content-2；用种子用户登录取令牌
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ phone: '13800000001', code: '123456' });
+    const token = login.body.data.token;
+    // 直接下线 content-1（状态改为已下线）
+    appDb.prepare("UPDATE CONTENT_ITEM SET current_status = '已下线' WHERE id = 'content-1'").run();
+    const res = await request(app.getHttpServer())
+      .get('/analyses/episodes/episode-1/latest')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const videoIds: string[] = (res.body.data.sections.视频 ?? []).map((v: { contentId: string }) => v.contentId);
+    expect(videoIds).not.toContain('content-1');
+    expect(videoIds).toContain('content-2');
+    // 下线开关也应过滤
+    appDb.prepare("UPDATE CONTENT_ITEM SET offline_switch = 1 WHERE id = 'content-2'").run();
+    const res2 = await request(app.getHttpServer())
+      .get('/analyses/episodes/episode-1/latest')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const videoIds2: string[] = (res2.body.data.sections.视频 ?? []).map((v: { contentId: string }) => v.contentId);
+    expect(videoIds2).not.toContain('content-2');
+  });
 });

@@ -80,7 +80,7 @@
           <div class="table__pages">
             <button class="table__page" :disabled="page <= 1" @click="page--">‹</button>
             <button
-              v-for="p in totalPages"
+              v-for="p in pageNumbers"
               :key="p"
               class="table__page"
               :class="{ 'table__page--active': p === page }"
@@ -169,6 +169,20 @@ const filteredItems = computed(() => {
 });
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredItems.value.length / pageSize)));
+
+/** 分页页码：最多显示当前页前后各 2 页 + 首尾，避免页码过多横向溢出 */
+const pageNumbers = computed(() => {
+  const total = totalPages.value;
+  const current = page.value;
+  const window = 2;
+  const pages = new Set<number>();
+  pages.add(1);
+  pages.add(total);
+  for (let p = current - window; p <= current + window; p++) {
+    if (p >= 1 && p <= total) pages.add(p);
+  }
+  return [...pages].sort((a, b) => a - b);
+});
 
 const pagedItems = computed(() => {
   const start = (page.value - 1) * pageSize;

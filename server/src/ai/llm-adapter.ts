@@ -25,6 +25,8 @@ export interface EvidenceChunk {
 export interface DraftSection {
   text: string;
   source: string | null;
+  /** 核实状态标记（如“未经核实”），用于已知段区分已确认/尚未确认 */
+  mark?: string;
 }
 
 export interface AnalysisDraft {
@@ -58,29 +60,21 @@ export class LocalMockLlmAdapter implements LlmAdapter {
     const unknown: DraftSection[] = [];
     const nextSteps: DraftSection[] = [];
 
-    // 已知：只写来源明确、已确认的事实（无已确认事实时为空，不写占位句）
+    // 已知：写出来源明确的信息（含尚未确认的，用 mark 标注“未经核实”），
+    // 报告未确认时也能看到自己录入的内容与来源
     for (const event of context.events) {
-      if (event.verifyStatus === '已确认' && event.rawText) {
-        known.push({ text: event.rawText, source: event.eventType });
+      if (event.rawText) {
+        known.push({
+          text: event.rawText,
+          source: event.eventType,
+          ...(event.verifyStatus === '尚未确认' ? { mark: '未经核实' } : {}),
+        });
       }
     }
 
-    // 解释：基于证据库片段生成，每条带来源；结合用户报告中的具体术语做上下文化，
-    // 避免每条分析都出现同一段固定表述
-    const userTerms = new Set<string>();
-    for (const event of context.events) {
-      if (event.rawText) {
-        for (const m of event.rawText.match(/L\d\/\d|L\d|\u690e\u95f4\u76d8\u7a81\u51fa|\u786c\u819c\u56ca|\u795e\u7ecf\u6839/g) ?? []) {
-          userTerms.add(m);
-        }
-      }
-    }
+    // 解释：基于证据库片段生成，每条带来源（直接给证据内容，不加固定前缀）
     for (const chunk of evidence) {
-      const matchedTerm = [...userTerms].find((t) => chunk.content.includes(t));
-      const text = matchedTerm
-        ? `关于你资料中提到的「${matchedTerm}」：${chunk.content}`
-        : chunk.content;
-      explanations.push({ text, source: chunk.docId });
+      explanations.push({ text: chunk.content, source: chunk.docId });
     }
     if (explanations.length === 0) {
       unknown.push({ text: '证据库中暂无可引用的解释。', source: null });

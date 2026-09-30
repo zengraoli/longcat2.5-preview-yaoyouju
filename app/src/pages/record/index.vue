@@ -199,6 +199,14 @@ async function onSave(updateCurrent = false) {
     });
     saved = true;
     uni.showToast({ title: '已保存', icon: 'success' });
+    // 保存后清空表单（不复用昨日答案）
+    sitMinutes.value = '';
+    activity.value = '';
+    sleep.value = null;
+    worry.value = '';
+    leg.value = '';
+    change.value = '';
+    done.value = [];
     if (updateCurrent) {
       setTimeout(() => uni.navigateBack(), 1000);
     }

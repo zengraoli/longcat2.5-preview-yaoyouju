@@ -153,13 +153,13 @@ const failureRateClass = computed(() => {
   return fr.rate > 5 ? 'stat-card__value--error' : 'stat-card__value--ok';
 });
 
-/** 最近 7 天柱状图（真实数据，无任务的天为 0） */
+/** 最近 7 天柱状图（真实数据，无任务的天为 0；失败柱取每日失败数） */
 const chartData = computed(() => {
   const max = Math.max(1, ...stats.value.dailyTasks.map((d) => d.count));
   return stats.value.dailyTasks.map((d) => ({
     label: d.date.slice(5),
     height: Math.round((d.count / max) * 100),
-    failHeight: 0,
+    failHeight: d.count > 0 ? Math.round((d.failed / max) * 100) : 0,
   }));
 });
 

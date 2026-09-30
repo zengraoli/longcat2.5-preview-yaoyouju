@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { IsIn, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentAdmin } from '../admin/current-admin.decorator';
 import { SwitchesService } from './switches.service';
@@ -12,6 +12,7 @@ class SetSwitchDto {
   enabled!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(500)
   reason!: string;
 }

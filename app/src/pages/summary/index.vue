@@ -153,6 +153,16 @@ function onShare() {
   onExport('文本');
 }
 
+/** 转义 HTML，避免摘要文本在打印弹窗中造成 XSS */
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function onExport(format: '文本' | 'PDF' | '图片') {
   try {
     const episodes = await listEpisodes();
@@ -177,7 +187,7 @@ async function onExport(format: '文本' | 'PDF' | '图片') {
       // PDF 通过浏览器打印生成（H5 打开打印窗口）
       const win = window.open('', '_blank');
       if (win) {
-        win.document.write(`<html><head><title>复诊交接摘要</title></head><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${result.text}</pre></body></html>`);
+        win.document.write(`<html><head><title>复诊交接摘要</title></head><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${escapeHtml(result.text)}</pre></body></html>`);
         win.document.close();
         win.print();
       } else {

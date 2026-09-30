@@ -36,6 +36,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
             : ((body as { message?: string }).message ?? exception.message);
       code = this.mapStatusToCode(status);
       message = msg;
+      // body-parser 的 JSON 解析错误：返回中文提示，不暴露英文解析细节
+      const errType = (exception as { type?: string }).type;
+      if (status === 400 && (errType === 'entity.parse.failed' || /JSON|property name|position|token/i.test(message))) {
+        message = '请求体不是合法的 JSON';
+      }
       // 404：仅“路由未匹配”提示“接口不存在”；资源不存在等保留具体中文提示
       if (status === 404 && /^Cannot (GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS) /.test(message)) {
         message = '接口不存在';

@@ -465,16 +465,19 @@ export class ContentsService {
     return { status: '已下线', results };
   }
 
-  /** 用户端：只能看到已发布内容（含时长与审核版本） */
+  /** 用户端：只能看到已发布内容（含时长与审核版本；每个内容只取最新版本） */
   listPublished() {
     return this.appDb
       .prepare(
         `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
                 v.duration,
                 (SELECT MAX(v2.version) FROM CONTENT_VERSION v2 WHERE v2.item_id = i.id) AS auditVersion
-         FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
+         FROM CONTENT_ITEM i
+         LEFT JOIN CONTENT_VERSION v ON v.id = (
+           SELECT v3.id FROM CONTENT_VERSION v3 WHERE v3.item_id = i.id ORDER BY v3.version DESC LIMIT 1
+         )
          WHERE i.current_status = '已发布' AND i.offline_switch = 0
-         ORDER BY v.version DESC, i.rowid ASC`,
+         ORDER BY i.rowid ASC`,
       )
       .all();
   }
@@ -486,9 +489,12 @@ export class ContentsService {
         `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
                 v.duration,
                 (SELECT MAX(v2.version) FROM CONTENT_VERSION v2 WHERE v2.item_id = i.id) AS auditVersion
-         FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
+         FROM CONTENT_ITEM i
+         LEFT JOIN CONTENT_VERSION v ON v.id = (
+           SELECT v3.id FROM CONTENT_VERSION v3 WHERE v3.item_id = i.id ORDER BY v3.version DESC LIMIT 1
+         )
          WHERE i.current_status = '已发布' AND i.offline_switch = 0
-         ORDER BY v.version DESC, i.rowid ASC`,
+         ORDER BY i.rowid ASC`,
       )
       .all() as Array<{
       id: string;

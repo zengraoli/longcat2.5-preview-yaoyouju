@@ -20,6 +20,7 @@
       </div>
 
       <p class="analysis-page__intro" v-if="analysis">{{ introText }}</p>
+      <p class="analysis-page__intro" v-else-if="taskStatus">正在生成分析，请稍候…（{{ taskStatus }}）</p>
       <p class="analysis-page__intro" v-else>尚未生成分析。请先在“当前情况”录入报告或记录今天。</p>
 
       <div class="analysis-page__grid">
@@ -32,7 +33,9 @@
             <div v-for="(item, i) in analysis?.sections.已知 ?? []" :key="i" class="analysis-item">
               <span class="analysis-item__dot">•</span>
               <span class="analysis-item__text">{{ item.text }}</span>
-              <span class="analysis-item__source">{{ sourceLabel(item.source) }}</span>
+              <span class="analysis-item__source">
+                {{ sourceLabel(item.source) }}<text v-if="item.mark" class="analysis-item__mark">{{ item.mark }}</text>
+              </span>
             </div>
             <div v-if="!analysis || analysis.sections.已知.length === 0" class="analysis-empty">
               已确认的信息为空，请先录入报告或记录今天。
@@ -122,7 +125,7 @@
               <span class="report__legend-item">
                 <span class="report__legend-dot report__legend-dot--ok" />当前选中解释引用的原文（点击左侧任一解释可切换高亮）
               </span>
-              <span class="report__legend-item">
+              <span v-if="hasSideConflict" class="report__legend-item">
                 <span class="report__legend-dot report__legend-dot--warn" />与你描述的侧别不一致，需向医生确认
               </span>
             </div>
@@ -149,14 +152,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import {
   listEpisodes,
   getLatestAnalysis,
+  getAnalysis,
   createHelpFeedback,
   createErrorReport,
   timeline,
@@ -171,10 +175,81 @@ import {
 import type { AnalysisResult } from '@/api/types';
 
 const router = useRouter();
+const route = useRoute();
 const today = new Date().toISOString().slice(0, 10);
 const analysis = ref<AnalysisResult | null>(null);
 const rawText = ref('');
 const reportDate = ref('');
+const selfReportText = ref('');
+const taskStatus = ref('');
+const taskReason = ref('');
+let pollTimer: number | null = null;
+
+async function pollTask(taskId: string) {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = window.setInterval(async () => {
+    try {
+      const res = await getAnalysis(taskId);
+      taskStatus.value = res.status;
+      if (res.status === '完成' && res.analysis) {
+        analysis.value = res.analysis;
+        taskStatus.value = '';
+        if (pollTimer) clearInterval(pollTimer);
+        await loadContext();
+      } else if (res.status === '失败') {
+        taskReason.value = res.reason ?? '分析生成失败';
+        if (pollTimer) clearInterval(pollTimer);
+      }
+    } catch {
+      // 轮询失败不阻塞
+    }
+  }, 2000);
+}
+
+async function loadContext() {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      // 加载报告原文（用于原文对照）
+      const tl = await timeline(episodes[0].id);
+      const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
+      if (reportEvent) {
+        rawText.value = reportEvent.rawText ?? '';
+        reportDate.value = reportEvent.occurredAt.slice(0, 10);
+        const termDefs: Array<{ name: string; def: string }> = [
+          { name: 'L5/S1', def: '第 5 腰椎与第 1 骶椎之间的椎间盘' },
+          { name: '硬膜囊', def: '包裹脊髓和神经根的膜性结构在影像上的名称。' },
+          { name: '神经根', def: '从脊髓分出、经椎间孔走行的神经起始段。' },
+          { name: '椎间盘突出', def: '椎间盘内容物超出椎体边缘的影像描述，程度与症状不一定对应。' },
+          { name: '椎间盘膨出', def: '椎间盘外层完整、整体超出椎体边缘的影像描述。' },
+        ];
+        terms.value = termDefs.filter((t) => rawText.value.includes(t.name));
+      }
+      // 自述原文（用于侧别冲突检测）
+      selfReportText.value = tl.events
+        .filter((e) => e.sourceType === '自述' && e.rawText)
+        .map((e) => e.rawText)
+        .join('，');
+    }
+  } catch {
+    // 加载失败不阻塞
+  }
+}
+
+/** 从文本中提取侧别（左侧/右侧/双侧） */
+function extractSide(text: string): string | null {
+  if (/双侧|两边/.test(text)) return '双侧';
+  if (/左侧|左边/.test(text)) return '左侧';
+  if (/右侧|右边/.test(text)) return '右侧';
+  return null;
+}
+
+/** 报告与自述侧别是否冲突（仅在两侧都有明确侧别且不一致时为 true） */
+const hasSideConflict = computed(() => {
+  const reportSide = extractSide(rawText.value);
+  const selfSide = extractSide(selfReportText.value);
+  return !!reportSide && !!selfSide && reportSide !== selfSide && reportSide !== '双侧' && selfSide !== '双侧';
+});
 
 const terms = ref<Array<{ name: string; def: string }>>([]);
 
@@ -222,7 +297,7 @@ async function onExport() {
     // 通过浏览器打印生成 PDF
     const win = window.open('', '_blank');
     if (win) {
-      win.document.write(`<html><head><title>复诊交接摘要</title></head><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${result.text}</pre></body></html>`);
+      win.document.write(`<html><head><title>复诊交接摘要</title></head><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${escapeHtml(result.text)}</pre></body></html>`);
       win.document.close();
       win.print();
     } else {
@@ -305,6 +380,16 @@ function formatDate(iso: string) {
   return iso ? iso.slice(0, 10) : '';
 }
 
+/** 转义 HTML，避免摘要文本在打印弹窗中造成 XSS */
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function toast(msg: string) {
   const el = document.createElement('div');
   el.textContent = msg;
@@ -314,30 +399,28 @@ function toast(msg: string) {
 }
 
 onMounted(async () => {
+  // 带任务 ID 进入（从“生成一页分析”跳转）：轮询任务状态，完成后展示分析
+  const taskId = route.params.id as string | undefined;
+  if (taskId) {
+    taskStatus.value = '排队';
+    await pollTask(taskId);
+    return;
+  }
+  // 否则展示最新分析
   try {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
       const latest = await getLatestAnalysis(episodes[0].id);
       if (latest) analysis.value = latest;
-      // 加载报告原文（用于原文对照）
-      const tl = await timeline(episodes[0].id);
-      const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
-      if (reportEvent) {
-        rawText.value = reportEvent.rawText ?? '';
-        reportDate.value = reportEvent.occurredAt.slice(0, 10);
-        const termDefs: Array<{ name: string; def: string }> = [
-          { name: 'L5/S1', def: '第 5 腰椎与第 1 骶椎之间的椎间盘' },
-          { name: '硬膜囊', def: '包裹脊髓和神经根的膜性结构在影像上的名称。' },
-          { name: '神经根', def: '从脊髓分出、经椎间孔走行的神经起始段。' },
-          { name: '椎间盘突出', def: '椎间盘内容物超出椎体边缘的影像描述，程度与症状不一定对应。' },
-          { name: '椎间盘膨出', def: '椎间盘外层完整、整体超出椎体边缘的影像描述。' },
-        ];
-        terms.value = termDefs.filter((t) => rawText.value.includes(t.name));
-      }
+      await loadContext();
     }
   } catch {
     // 未登录时不阻塞
   }
+});
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
 });
 </script>
 
@@ -456,6 +539,11 @@ onMounted(async () => {
   font-size: 14px;
   flex: 1;
   line-height: 1.5;
+}
+.analysis-item__mark {
+  color: var(--warn);
+  font-size: 12px;
+  margin-left: 6px;
 }
 .analysis-item__source {
   font-size: 11px;

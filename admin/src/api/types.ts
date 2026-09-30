@@ -10,7 +10,7 @@ export interface DashboardStats {
   tasks: { total: number; today: number; failed: number; blocked: number };
   failureRate: { window: string; total: number; failed: number; rate: number };
   rulesetVersion?: string;
-  dailyTasks: Array<{ date: string; count: number }>;
+  dailyTasks: Array<{ date: string; count: number; failed: number }>;
   pendingReview: number;
   pendingReports: { total: number; high: number; mid: number; low: number };
   safetyEvents: Array<{

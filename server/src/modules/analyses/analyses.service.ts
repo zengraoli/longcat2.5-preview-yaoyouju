@@ -137,7 +137,9 @@ export class AnalysesService {
 
   /** 过滤分析中已下线的内容推荐（已下线内容不再对用户可见） */
   private filterOfflineVideos<T>(analysis: T): T {
-    const videos = (analysis as { 视频?: Array<{ contentId: string }> }).视频;
+    // 视频列表在 sections.视频 内（兼容顶层 视频 的旧结构）
+    const withSections = analysis as { 视频?: Array<{ contentId: string }>; sections?: { 视频?: Array<{ contentId: string }> } };
+    const videos = withSections.视频 ?? withSections.sections?.视频;
     if (!videos || videos.length === 0) return analysis;
     const placeholders = videos.map(() => '?').join(',');
     const offline = this.appDb
@@ -146,7 +148,11 @@ export class AnalysesService {
       )
       .all(...videos.map((v) => v.contentId)) as Array<{ id: string }>;
     const offlineIds = new Set(offline.map((r) => r.id));
-    return { ...analysis, 视频: videos.filter((v) => !offlineIds.has(v.contentId)) } as T;
+    const filtered = videos.filter((v) => !offlineIds.has(v.contentId));
+    if (withSections.sections) {
+      return { ...analysis, sections: { ...withSections.sections, 视频: filtered } } as T;
+    }
+    return { ...analysis, 视频: filtered } as T;
   }
 
   /** 查询分析：完成时返回五段结果与引用；排队/处理中返回状态；失败返回回退状态 */

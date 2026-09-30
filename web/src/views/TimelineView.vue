@@ -279,6 +279,14 @@ async function onSave(updateCurrent = false) {
       topWorry: worry.value || undefined,
     });
     toast('已保存');
+    // 保存后清空表单（不复用昨日答案，避免下次保存带上上次内容）
+    sitMinutes.value = null;
+    activity.value = null;
+    sleepImpact.value = null;
+    leg.value = null;
+    change.value = '';
+    done.value = [];
+    worry.value = '';
     // 红旗预检：最担心什么含红旗时弹出就医提示（不阻断保存）
     if (worryText) {
       try {
@@ -359,15 +367,31 @@ async function load() {
     if (episodes.length > 0) {
       episode.value = episodes[0];
       const data = await timeline(episodes[0].id);
-      events.value = data.events.map((e: { id: string; occurredAt: string; eventType: string; rawText: string | null; sourceType: string; verifyStatus: string }) => ({
-        id: e.id,
-        occurredAt: e.occurredAt,
-        typeLabel: e.eventType,
-        tone: e.eventType === '报告' ? 'info' : e.eventType === '医嘱' ? 'warn' : 'ok',
-        rawText: e.rawText ?? '',
-        sourceType: e.sourceType,
-        tags: e.verifyStatus === '已确认' ? [] : [e.verifyStatus],
-      }));
+      // 症状记录（记录今天）挂在自己的事件上，raw_text 为空；把症状字段拼成正文展示
+      const logByEvent = new Map(
+        data.symptomLogs.map((l: { careEventId: string; sitMinutes: number | '尚未确认'; plannedActivityDone: string | '尚未确认'; sleepImpact: number | '尚未确认'; topWorry: string | '尚未确认'; legChange: string | '尚未确认' }) => [l.careEventId, l]),
+      );
+      const logSummary = (l: { sitMinutes: number | '尚未确认'; plannedActivityDone: string | '尚未确认'; sleepImpact: number | '尚未确认'; topWorry: string | '尚未确认'; legChange: string | '尚未确认' }) => {
+        const parts: string[] = [];
+        if (l.sitMinutes !== '尚未确认' && l.sitMinutes != null) parts.push(`能坐约 ${l.sitMinutes} 分钟`);
+        if (l.plannedActivityDone && l.plannedActivityDone !== '尚未确认') parts.push(`计划活动：${l.plannedActivityDone}`);
+        if (l.sleepImpact !== '尚未确认' && l.sleepImpact != null) parts.push(`睡眠影响 ${l.sleepImpact}/3`);
+        if (l.legChange && l.legChange !== '尚未确认') parts.push(`腿部变化：${l.legChange}`);
+        if (l.topWorry && l.topWorry !== '尚未确认') parts.push(`最担心：${l.topWorry}`);
+        return parts.join('；') || '已记录（未填写具体内容）';
+      };
+      events.value = data.events.map((e: { id: string; occurredAt: string; eventType: string; rawText: string | null; sourceType: string; verifyStatus: string }) => {
+        const log = logByEvent.get(e.id);
+        return {
+          id: e.id,
+          occurredAt: e.occurredAt,
+          typeLabel: e.eventType,
+          tone: e.eventType === '报告' ? 'info' : e.eventType === '医嘱' ? 'warn' : 'ok',
+          rawText: e.rawText ?? (log ? logSummary(log) : ''),
+          sourceType: e.sourceType,
+          tags: e.verifyStatus === '已确认' ? [] : [e.verifyStatus],
+        };
+      });
       symptomLogs.value = data.symptomLogs.map((l: { occurredAt: string; sitMinutes: number | '尚未确认' }) => ({ occurredAt: l.occurredAt, sitMinutes: l.sitMinutes }));
     }
   } catch {

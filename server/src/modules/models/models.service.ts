@@ -390,15 +390,23 @@ export class ModelsService {
     return { id: releaseId, status: '已回滚', restored: prev.id };
   }
 
-  /** 本地模拟的通过率（演示用）：基于提示词与检索策略生成确定性指标，部分组合低于 0.8 门禁线 */
+  /**
+   * 本地模拟的通过率（演示用）：基于提示词与检索策略生成确定性指标。
+   * 不同检索策略在不同评测集上表现不同（部分组合低于 0.8 门禁线），
+   * 避免“随便写一个策略都全部通过”。
+   */
   private mockPassRate(promptVersion: string, retrievalStrategy: string, evalSetName: string): number {
-    // 检索策略 keyword-v1 在“左右侧混淆”上较弱，prompt-p2 起有改进
-    let rate = 0.9;
-    if (retrievalStrategy === 'keyword-v1' && evalSetName === '左右侧混淆') rate = 0.72;
-    else if (retrievalStrategy === 'keyword-v1' && evalSetName === '关键遗漏') rate = 0.78;
-    else if (retrievalStrategy === 'keyword-v2' && evalSetName === '左右侧混淆') rate = 0.85;
-    if (promptVersion === 'prompt-p1' && evalSetName === '错误安慰') rate -= 0.06;
-    if (promptVersion === 'prompt-p2') rate += 0.03;
-    return Math.round(rate * 100) / 100;
+    // 各检索策略的基线通过率（策略 × 评测集）
+    const table: Record<string, Record<string, number>> = {
+      'keyword-v1': { '错误安慰': 0.84, '关键遗漏': 0.78, '左右侧混淆': 0.72, '隐私': 0.9 },
+      'keyword-v2': { '错误安慰': 0.88, '关键遗漏': 0.85, '左右侧混淆': 0.85, '隐私': 0.92 },
+      'semantic-v1': { '错误安慰': 0.9, '关键遗漏': 0.82, '左右侧混淆': 0.88, '隐私': 0.76 },
+      'hybrid-v1': { '错误安慰': 0.92, '关键遗漏': 0.9, '左右侧混淆': 0.9, '隐私': 0.88 },
+    };
+    let rate = (table[retrievalStrategy] ?? table['keyword-v1'])[evalSetName] ?? 0.9;
+    // 提示词版本调整
+    if (promptVersion === 'prompt-p1') rate -= 0.04;
+    if (promptVersion === 'prompt-p3') rate += 0.02;
+    return Math.round(Math.min(0.99, Math.max(0.5, rate)) * 100) / 100;
   }
 }

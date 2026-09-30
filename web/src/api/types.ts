@@ -1,6 +1,8 @@
 export interface AnalysisSection {
   text: string;
   source: string | null;
+  /** 核实状态标记（如“未经核实”） */
+  mark?: string;
 }
 
 export interface AnalysisResult {

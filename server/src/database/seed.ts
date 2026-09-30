@@ -387,6 +387,13 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
         );
       }
     }
+    // 两条已发布内容有第二版（模拟更正后重新发布），使内容库版本不为 content-c1
+    const insertVersion2 = appDb.prepare(
+      `INSERT INTO CONTENT_VERSION (id, item_id, version, script, asset_key, subtitle_text, model_asset_version, duration, published_at)
+       VALUES (?, ?, 2, ?, ?, ?, 'asset-v2', ?, ?)`,
+    );
+    insertVersion2.run(uuid(), 'content-1', '腰椎间盘突出是椎间盘外层破裂、内部组织膨出的现象，是否引起症状需结合查体判断。（第二版：补充“报告未提及不等于已排除”）', 'assets/content-1.mp4', '腰椎间盘突出是椎间盘外层破裂、内部组织膨出的现象。', '2:10', '2026-08-20T08:00:00.000Z');
+    insertVersion2.run(uuid(), 'content-2', '出现大小便功能障碍、进行性肌力下降、鞍区麻木等情况，请立即就医。（第二版：补充肿瘤病史提示）', 'assets/content-2.mp4', '大小便功能障碍、肌力下降、鞍区麻木需立即就医。', '2:40', '2026-08-20T08:00:00.000Z');
 
     // ---------- 演示用户甲：完整病程 + 报告 + 分析 ----------
     const user1 = 'user-demo-1';
