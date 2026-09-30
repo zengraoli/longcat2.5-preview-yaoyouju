@@ -172,6 +172,7 @@ async function onRevoke() {
     window.location.href = '/login';
     return;
   }
+
   try {
     const result = await setConsent('健康信息处理', false);
     consentRows.value = result.map((c: { scope: string; granted: boolean; grantedAt: string | null }) => ({

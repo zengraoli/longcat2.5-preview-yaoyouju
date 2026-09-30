@@ -15,6 +15,12 @@ export class ApiError extends Error {
 }
 
 let adminToken: string | null = localStorage.getItem(TOKEN_KEY);
+let onUnauthorized: (() => void) | null = null;
+
+/** 后台会话失效（1002）时引导回登录页 */
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
+}
 
 export function setAdminToken(token: string | null) {
   adminToken = token;
@@ -39,6 +45,10 @@ async function request<T>(pathname: string, options: RequestInit = {}): Promise<
     message: string;
   };
   if (json.code !== 0) {
+    if (json.code === 1002) {
+      setAdminToken(null);
+      onUnauthorized?.();
+    }
     throw new ApiError(json.code, json.message || '请求失败');
   }
   return json.data;
