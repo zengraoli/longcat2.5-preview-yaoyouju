@@ -108,6 +108,7 @@ import {
   createQaSession,
   getQaSession,
   listQaSessions,
+  listFollowupQuestions,
   askQuestion,
   addFollowupQuestion,
   type QaMessage,
@@ -226,12 +227,17 @@ onMounted(async () => {
       } else {
         contextText.value = '尚未生成分析，可先自由提问';
       }
-      // 历史会话
+      // 历史会话（含真实提问数）
       history.value = existing.map((s) => ({
         date: s.createdAt.slice(0, 10),
         title: s.title ?? '会话',
-        count: 0,
+        count: s.messageCount ?? 0,
       }));
+      // 已加入的复诊问题（重进页面时重新加载）
+      if (sessionId.value) {
+        const questions = await listFollowupQuestions(sessionId.value);
+        followupQuestions.value = questions.map((q) => q.question);
+      }
     }
   } catch {
     // 未登录时不阻塞

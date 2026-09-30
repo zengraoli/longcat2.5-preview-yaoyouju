@@ -60,12 +60,21 @@ export class QaService {
   }
 
   listSessions(userId: string) {
-    return this.appDb
+    const rows = this.appDb
       .prepare(
         `SELECT id, analysis_id AS analysisId, title, created_at AS createdAt
          FROM QA_SESSION WHERE user_id = ? ORDER BY created_at DESC, rowid DESC`,
       )
-      .all(userId);
+      .all(userId) as Array<{ id: string; analysisId: string | null; title: string | null; createdAt: string }>;
+    // 附带每个会话的提问数（供历史会话展示“N 问”）
+    return rows.map((s) => {
+      const count = (
+        this.appDb
+          .prepare("SELECT COUNT(*) AS c FROM QA_MESSAGE WHERE session_id = ? AND role = 'user'")
+          .get(s.id) as { c: number }
+      ).c;
+      return { ...s, messageCount: count };
+    });
   }
 
   getSession(userId: string, sessionId: string) {

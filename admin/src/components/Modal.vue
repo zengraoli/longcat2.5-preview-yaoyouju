@@ -9,7 +9,7 @@
         <div class="modal__body">
           <slot />
         </div>
-        <div v-if="showActions" class="modal__actions">
+        <div v-if="showActionsArea" class="modal__actions">
           <button class="btn btn--secondary" @click="$emit('close')">取消</button>
           <button class="btn btn--primary" @click="$emit('confirm')">{{ confirmText || '确定' }}</button>
         </div>
@@ -25,7 +25,6 @@ const props = defineProps<{
   open: boolean;
   title: string;
   confirmText?: string;
-  showActions?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -33,8 +32,8 @@ const emit = defineEmits<{
   (e: 'confirm'): void;
 }>();
 
-/** 有确认文案时默认展示操作区（历史调用未传 showActions 也能看到确认按钮） */
-const showActions = computed(() => props.showActions ?? !!props.confirmText);
+/** 有确认文案时展示操作区（历史调用未传 showActions 也能看到确认按钮） */
+const showActionsArea = computed(() => !!props.confirmText);
 
 /** 回车触发确认（焦点在文本域/多行输入时不触发） */
 function onKeydown(e: KeyboardEvent) {

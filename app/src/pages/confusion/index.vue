@@ -55,13 +55,9 @@ import { ref } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import { listEpisodes, addEvent } from '@/api';
+import { CONFUSION_OPTIONS, confusionTitle } from '@/utils/confusion';
 
-const options = [
-  { key: 'report', icon: '📄', title: '报告术语', desc: '看懂报告里写的是什么、哪些结论不能得出' },
-  { key: 'course', icon: '📈', title: '病程变化', desc: '这段时间的变化意味着什么、哪些值得记录' },
-  { key: 'followup', icon: '📋', title: '复诊准备', desc: '复诊时该问什么、带什么、怎么描述' },
-  { key: 'life', icon: '❤', title: '生活影响', desc: '日常活动、工作与睡眠要注意什么' },
-];
+const options = CONFUSION_OPTIONS;
 const formatOptions = ['简短要点', '详细说明', '带图示视频', '先看原文对照'];
 
 const selected = ref('report');
@@ -82,7 +78,7 @@ async function onNext() {
   try {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
-      const selectedTitle = options.find((o) => o.key === selected.value)?.title ?? selected.value;
+      const selectedTitle = confusionTitle(selected.value);
       const parts = [`主要困惑：${selectedTitle}`];
       if (format.value.length > 0) parts.push(`解释方式：${format.value.join('、')}`);
       await addEvent(episodes[0].id, {

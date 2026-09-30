@@ -81,6 +81,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import Modal from '@/components/Modal.vue';
+import { formatBeijing } from '@/utils/time';
 import { listAuditLogs, verifyAuditLogs, createAuditExportRequest } from '@/api';
 import type { AuditLog } from '@/api/types';
 import { auditActionLabel } from '@/utils/permission';
@@ -174,7 +175,7 @@ onMounted(async () => {
   try {
     const items = await listAuditLogs();
     logs.value = items.map((l) => ({
-      time: l.createdAt.slice(0, 16).replace('T', ' '),
+      time: formatBeijing(l.createdAt),
       actor: l.actorName ?? l.actorId ?? '系统',
       role: l.actorRole ?? '—',
       roleTone: 'neutral' as const,
@@ -188,7 +189,7 @@ onMounted(async () => {
     const verify = await verifyAuditLogs();
     chainValid.value = verify.valid;
     if (verify.valid) {
-      lastVerify.value = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      lastVerify.value = formatBeijing(new Date().toISOString());
     }
   } catch {
     // 加载失败不阻塞

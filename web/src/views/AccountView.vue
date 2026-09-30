@@ -75,7 +75,7 @@
               <div class="export-card export-card--danger">
                 <div class="export-card__title export-card__title--danger">🗑 删除账户与数据</div>
                 <p class="export-card__desc">
-                  验证码二次确认 → 24 小时冷静期（可取消）→ 删除任务（覆盖病程、报告、分析、导出文件、缓存与派生摘要 → 30 天内备份轮换清除。
+                  二次确认后立即删除（覆盖病程、报告、分析、导出文件、缓存与派生摘要 → 30 天内备份轮换清除。
                 </p>
                 <button class="btn btn--danger" @click="onDelete">删除账户</button>
               </div>

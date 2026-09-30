@@ -7,7 +7,7 @@
           <p class="contents-page__meta">所有内容经临床审定，附字幕与文字替代。示意图不是你的真实病变，不能据此判断本人病因。</p>
         </div>
         <div class="contents-page__search">
-          <input class="contents-page__search-input" placeholder="🔍 搜索已发布内容" />
+          <input v-model="search" class="contents-page__search-input" placeholder="🔍 搜索已发布内容" />
         </div>
       </div>
 
@@ -30,7 +30,7 @@
           <p class="contents-page__section-title">为你推荐{{ recommendationReason }}</p>
           <div class="contents-page__cards">
             <div
-              v-for="item in recommended"
+              v-for="item in filteredRecommended"
               :key="item.id"
               class="content-card"
               @click="onSelect(item)"
@@ -147,14 +147,23 @@ import type { ContentItem, ContentDetail } from '@/api/types';
 
 const filters = ['全部', '视频', '图文组件'];
 const activeFilter = ref('全部');
+const search = ref('');
 const selected = ref<ContentDetail | null>(null);
 const retellText = ref('');
 const recommendationReason = ref('');
 
-const filteredAll = computed(() => {
-  if (activeFilter.value === '全部') return all.value;
-  return all.value.filter((i) => i.type === activeFilter.value);
-});
+/** 搜索与筛选（同时作用于“为你推荐”与“全部内容”） */
+const matchesFilters = (item: ContentItem) => {
+  if (activeFilter.value !== '全部' && item.type !== activeFilter.value) return false;
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase();
+    return item.title.toLowerCase().includes(q) || (item.applicableScope ?? '').toLowerCase().includes(q);
+  }
+  return true;
+};
+
+const filteredRecommended = computed(() => recommended.value.filter(matchesFilters));
+const filteredAll = computed(() => all.value.filter(matchesFilters));
 
 async function onSelect(item: ContentItem) {
   try {

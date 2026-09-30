@@ -46,10 +46,12 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
-  // 请求 ID：优先采用客户端 X-Request-Id，否则生成；响应头回传，审计日志使用
+  // 请求 ID：优先采用客户端 X-Request-Id（限长度与格式，避免原样写入审计），否则生成；响应头回传，审计日志使用
   const expressInstance = app.getHttpAdapter().getInstance();
   expressInstance.use((req, res, next) => {
-    const requestId = (req.headers['x-request-id'] as string) || crypto.randomUUID();
+    const raw = req.headers['x-request-id'] as string | undefined;
+    // 只接受 8-64 位的字母/数字/连字符/下划线；不合法则生成随机 ID
+    const requestId = raw && /^[A-Za-z0-9_-]{8,64}$/.test(raw) ? raw : crypto.randomUUID();
     res.setHeader('X-Request-Id', requestId);
     runWithRequestContext({ requestId }, () => next());
   });

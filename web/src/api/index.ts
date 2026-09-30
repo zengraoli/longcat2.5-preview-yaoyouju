@@ -209,11 +209,15 @@ export function createQaSession(analysisId: string | null, title: string) {
 }
 
 export function listQaSessions() {
-  return api.get<Array<{ id: string; analysisId: string | null; title: string | null; createdAt: string }>>('/qa/sessions');
+  return api.get<Array<{ id: string; analysisId: string | null; title: string | null; createdAt: string; messageCount: number }>>('/qa/sessions');
 }
 
 export function getQaSession(id: string) {
   return api.get<{ id: string; messages: Array<{ id: string; role: string; content: string; citations: Array<{ docId: string; docTitle: string; content: string }>; createdAt: string }> }>(`/qa/sessions/${id}`);
+}
+
+export function listFollowupQuestions(sessionId: string) {
+  return api.get<Array<{ id: string; question: string; createdAt: string }>>(`/qa/sessions/${sessionId}/followup-questions`);
 }
 
 export function askQuestion(sessionId: string, question: string) {

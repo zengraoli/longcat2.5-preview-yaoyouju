@@ -156,6 +156,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import Modal from '@/components/Modal.vue';
+import { formatBeijing } from '@/utils/time';
 import { api } from '@/api/client';
 import { listEvalSets, listReleases, runEval } from '@/api';
 import type { EvalSet, Release } from '@/api/types';
@@ -318,7 +319,7 @@ async function loadRunRecords() {
         result: r.result,
         passed: `${passedCount} / ${total}`,
         reason: r.trigger ?? '手动运行',
-        time: r.createdAt.slice(5, 16).replace('T', ' '),
+        time: formatBeijing(r.createdAt),
       };
     });
   } catch {

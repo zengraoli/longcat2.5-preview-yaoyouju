@@ -413,7 +413,8 @@ export class ContentsService {
         throw new ConflictException(`只有「已发布」状态可以下线：${itemId}`);
       }
     }
-    const target = itemIds.join(',');
+    // 待确认记录的 target_id 使用排序后的 id 拼接，避免顺序不同导致匹配不到已有发起记录
+    const target = [...itemIds].sort().join(',');
     const first = this.appDb
       .prepare(
         `SELECT reviewer_id AS reviewerId FROM REVIEW_RECORD

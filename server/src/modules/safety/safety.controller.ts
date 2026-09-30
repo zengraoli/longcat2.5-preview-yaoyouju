@@ -18,11 +18,11 @@ class CheckDto {
 export class SafetyController {
   constructor(private readonly safety: SafetyService) {}
 
-  /** 安全预检（需登录）：返回命中的红旗与越界规则，不写库 */
+  /** 安全预检（需登录）：返回命中的红旗与越界规则，不写库（纯校验，避免预检污染安全事件） */
   @Post('check')
   @UseGuards(AuthGuard)
   check(@CurrentUser() user: { userId: string }, @Body() dto: CheckDto) {
-    return this.safety.checkAndRecord(user.userId, dto.source ?? 'safety-check', dto.text);
+    return this.safety.check(dto.text);
   }
 
   /** 就医提示：无需登录、不被任何流程阻断 */

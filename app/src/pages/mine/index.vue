@@ -241,7 +241,8 @@ function onDelete() {
       try {
         await deleteAccount();
         setAuthToken(null);
-        uni.reLaunch({ url: '/pages/login/index' });
+        uni.showToast({ title: '账户与数据已删除', icon: 'success' });
+        setTimeout(() => uni.reLaunch({ url: '/pages/login/index' }), 800);
       } catch (e) {
         uni.showToast({ title: (e as Error).message, icon: 'none' });
       }

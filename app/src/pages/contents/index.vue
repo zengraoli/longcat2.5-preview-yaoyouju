@@ -3,7 +3,17 @@
     <view class="contents__header">
       <text class="contents__back" @click="goBack">‹</text>
       <text class="contents__title">审核内容库</text>
-      <text class="contents__search">🔍</text>
+      <text class="contents__search" @click="showSearch = !showSearch">🔍</text>
+    </view>
+
+    <!-- 搜索框（点击 🔍 展开） -->
+    <view v-if="showSearch" class="contents__search-bar">
+      <input
+        v-model="search"
+        class="contents__search-input"
+        placeholder="搜索标题 / 适用范围"
+        placeholder-class="contents__placeholder"
+      />
     </view>
 
     <!-- 筛选 -->
@@ -26,7 +36,7 @@
     <!-- 为你推荐 -->
     <text class="contents__section-title">为你推荐<text v-if="recommendationReason">（{{ recommendationReason }}）</text></text>
     <view
-      v-for="item in recommended"
+      v-for="item in filteredRecommended"
       :key="item.id"
       class="contents__card"
       @click="goDetail(item)"
@@ -80,14 +90,23 @@ import { listPublishedContents, type ContentItem } from '@/api';
 
 const filters = ['全部', '视频', '图文组件'];
 const activeFilter = ref('全部');
+const search = ref('');
+const showSearch = ref(false);
 const recommended = ref<ContentItem[]>([]);
 const all = ref<ContentItem[]>([]);
 const recommendationReason = ref('');
 
-const filteredAll = computed(() => {
-  if (activeFilter.value === '全部') return all.value;
-  return all.value.filter((i) => i.type === activeFilter.value);
-});
+/** 搜索与筛选（同时作用于“为你推荐”与“全部内容”） */
+const matchesFilters = (item: ContentItem) => {
+  if (activeFilter.value !== '全部' && item.type !== activeFilter.value) return false;
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase();
+    return item.title.toLowerCase().includes(q) || (item.applicableScope ?? '').toLowerCase().includes(q);
+  }
+  return true;
+};
+const filteredRecommended = computed(() => recommended.value.filter(matchesFilters));
+const filteredAll = computed(() => all.value.filter(matchesFilters));
 
 function goBack() {
   uni.navigateBack();
@@ -162,7 +181,16 @@ onMounted(async () => {
   font-weight: 500;
   flex: 1;
 }
-.contents__search { font-size: 18px; }
+.contents__search { font-size: 18px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+.contents__search-bar { margin-bottom: 12px; }
+.contents__search-input {
+  height: 40px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
 .contents__filters {
   white-space: nowrap;
   margin-bottom: 16px;
