@@ -1,5 +1,10 @@
 <template>
   <view class="home">
+    <view class="home__header">
+      <text class="home__title">当前情况</text>
+      <text class="home__content-entry" @click="goContents">内容库</text>
+    </view>
+
     <!-- 待确认项 -->
     <view v-if="pendingItems.length > 0" class="home__pending card">
       <view class="home__pending-title">
@@ -119,6 +124,7 @@ import {
   getLatestAnalysis,
   listPublishedContents,
   getSafetyTips,
+  previewSummary,
   type AnalysisResult,
   type ContentItem,
 } from '@/api';
@@ -156,6 +162,9 @@ function goAnalysis() {
 function goContentDetail(item: ContentItem) {
   uni.navigateTo({ url: `/pages/content-detail/index?id=${item.id}` });
 }
+function goContents() {
+  uni.navigateTo({ url: '/pages/contents/index' });
+}
 
 function formatDate(iso: string) {
   return iso ? iso.slice(0, 10) : '';
@@ -182,6 +191,13 @@ async function load() {
     if (episodes.length > 0) {
       const latest = await getLatestAnalysis(episodes[0].id);
       analysis.value = latest;
+      // 复诊问题数：来自复诊摘要
+      try {
+        const summary = await previewSummary(episodes[0].id);
+        followupQuestionCount.value = summary.复诊问题.length;
+      } catch {
+        // 忽略
+      }
       // 待确认项：尚未确认的事件 + 症状记录中的缺失字段
       const { timeline } = await import('@/api');
       const tl = await timeline(episodes[0].id);
@@ -233,6 +249,20 @@ onShow(load);
 .home {
   min-height: 100vh;
   padding: 16px 16px 100px;
+}
+.home__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.home__title {
+  font-size: 20px;
+  font-weight: 500;
+}
+.home__content-entry {
+  font-size: 13px;
+  color: var(--primary);
 }
 .home__pending {
   background: rgba(199, 119, 0, 0.06);

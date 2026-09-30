@@ -88,6 +88,7 @@ import {
   listEpisodes,
   getLatestAnalysis,
   createQaSession,
+  listQaSessions,
   getQaSession,
   askQuestion,
   addFollowupQuestion,
@@ -152,11 +153,18 @@ async function loadSession() {
       return;
     }
     if (!sessionId.value) {
-      const session = await createQaSession(analysis.id, '报告术语解释');
-      sessionId.value = session.id;
-      const history = await getQaSession(session.id);
-      messages.value = history.messages;
-      explainedCount.value = history.messages.filter((m) => m.role === 'assistant').length;
+      // 优先复用已有会话，保留历史
+      const existing = await listQaSessions();
+      const session = existing.find((s) => s.analysisId === analysis.id) ?? existing[0];
+      if (session) {
+        sessionId.value = session.id;
+        const history = await getQaSession(session.id);
+        messages.value = history.messages;
+        explainedCount.value = history.messages.filter((m) => m.role === 'assistant').length;
+      } else {
+        const created = await createQaSession(analysis.id, '报告术语解释');
+        sessionId.value = created.id;
+      }
     }
   } catch (e) {
     uni.showToast({ title: (e as Error).message, icon: 'none' });

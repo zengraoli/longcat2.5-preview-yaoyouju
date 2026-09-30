@@ -52,6 +52,19 @@
       </view>
     </view>
 
+    <!-- 内容库入口 -->
+    <view class="card">
+      <text class="card-title">已审核内容</text>
+      <view class="mine__row" @click="goContents">
+        <text class="mine__row-icon">📚</text>
+        <view class="mine__row-body">
+          <text class="mine__row-title">审核内容库</text>
+          <text class="mine__row-desc">临床审定的科普视频与图文，附来源与版本</text>
+        </view>
+        <text class="mine__row-arrow">›</text>
+      </view>
+    </view>
+
     <!-- 分享与社区 -->
     <view class="card">
       <text class="card-title">分享与社区</text>
@@ -165,6 +178,10 @@ function formatTime(iso: string | null) {
 
 function goConsents() {
   showConsents.value = true;
+}
+
+function goContents() {
+  uni.navigateTo({ url: '/pages/contents/index' });
 }
 
 async function onRevoke() {

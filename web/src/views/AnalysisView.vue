@@ -167,8 +167,10 @@ const terms = ref<Array<{ name: string; def: string }>>([]);
 
 const introText = computed(() => {
   if (!analysis.value) return '';
+  // 占位句不计入已确认数
+  const known = analysis.value.sections.已知.filter((s) => !s.text.includes('尚未记录'));
   const parts: string[] = [];
-  if (analysis.value.sections.已知.length > 0) parts.push(`已确认 ${analysis.value.sections.已知.length} 条信息`);
+  if (known.length > 0) parts.push(`已确认 ${known.length} 条信息`);
   if (analysis.value.sections.未知.length > 0) parts.push(`有 ${analysis.value.sections.未知.length} 项尚未确认`);
   if (parts.length === 0) return '下面按“已知 / 解释 / 未知 / 下一步”整理。';
   return `下面按“已知 / 解释 / 未知 / 下一步”整理：${parts.join('，')}。`;

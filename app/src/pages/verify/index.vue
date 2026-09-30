@@ -83,7 +83,7 @@ import { ref, onMounted } from 'vue';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, timeline, getReport, confirmReport } from '@/api';
+import { listEpisodes, timeline } from '@/api';
 
 const report = ref<{
   id: string;
@@ -100,16 +100,9 @@ function goBack() {
   uni.navigateBack();
 }
 
-async function onCorrectReport() {
-  if (!report.value) return;
-  try {
-    const result = await confirmReport(report.value.id, '已确认');
-    report.value.verifyStatus = '已确认';
-    uni.showToast({ title: '已确认报告', icon: 'success' });
-    void result;
-  } catch (e) {
-    uni.showToast({ title: (e as Error).message, icon: 'none' });
-  }
+function onCorrectReport() {
+  // 跳转到原文对照页确认报告（避免用事件 ID 调报告接口 404）
+  uni.navigateTo({ url: '/pages/report-compare/index' });
 }
 
 function resolveConflict(choice: string) {

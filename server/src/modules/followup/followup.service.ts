@@ -55,6 +55,41 @@ export class FollowupService {
         content.尚未确认.push({ text: e.rawText, mark: '未经核实' });
       }
     }
+    // 记录今天的字段（能坐多久、睡眠、最担心、腿部变化）
+    const logs = this.appDb
+      .prepare(
+        `SELECT s.sit_minutes AS sitMinutes, s.planned_activity_done AS plannedActivityDone,
+                s.sleep_impact AS sleepImpact, s.top_worry AS topWorry, s.leg_change AS legChange,
+                s.change_vs_yesterday AS changeVsYesterday, s.activities_done AS activitiesDone
+         FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
+         WHERE e.episode_id = ? ORDER BY e.occurred_at DESC, s.rowid DESC LIMIT 1`,
+      )
+      .get(episodeId) as
+      | {
+          sitMinutes: number | null;
+          plannedActivityDone: string | null;
+          sleepImpact: number | null;
+          topWorry: string | null;
+          legChange: string | null;
+          changeVsYesterday: string | null;
+          activitiesDone: string | null;
+        }
+      | undefined;
+    if (logs) {
+      const parts: string[] = [];
+      if (logs.changeVsYesterday) parts.push(`与昨天相比${logs.changeVsYesterday}`);
+      if (logs.sitMinutes !== null) parts.push(`能坐约 ${logs.sitMinutes} 分钟`);
+      if (logs.plannedActivityDone) parts.push(`计划活动：${logs.plannedActivityDone}`);
+      if (logs.sleepImpact !== null) parts.push(`睡眠影响 ${logs.sleepImpact}/3`);
+      if (logs.activitiesDone) parts.push(`今天做了：${logs.activitiesDone}`);
+      if (logs.legChange && logs.legChange !== '尚未确认') parts.push(`腿部麻木或无力：${logs.legChange}`);
+      if (parts.length > 0) {
+        content.当前情况.push({ text: parts.join('；'), source: '自述' });
+      }
+      if (logs.topWorry) {
+        content.当前情况.push({ text: `最担心：${logs.topWorry}`, source: '自述' });
+      }
+    }
     // 下一步：来自医嘱与红旗信号提示
     for (const e of events) {
       if (e.eventType === '医嘱' && e.rawText) {

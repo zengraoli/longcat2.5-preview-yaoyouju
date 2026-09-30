@@ -131,7 +131,7 @@ import { onShow } from '@dcloudio/uni-app';
 import StatusTag from '@/components/StatusTag.vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
-import { listEpisodes, timeline, addEvent, type CareEvent } from '@/api';
+import { listEpisodes, timeline, addEvent, getLatestAnalysis, type CareEvent } from '@/api';
 
 const episode = ref<{ id: string; title: string; onsetDate: string | null; onsetCertainty: string; status: string } | null>(null);
 const events = ref<CareEvent[]>([]);
@@ -141,7 +141,7 @@ const showFilter = ref(false);
 const activeFilter = ref('全部');
 const filters = ['全部', '报告', '症状', '医嘱', '行动'];
 const showAdd = ref(false);
-const eventTypes = ['报告', '症状', '医嘱', '行动', '结局'];
+const eventTypes = ['症状', '报告', '医嘱', '行动', '结局'];
 const addTypeIndex = ref(0);
 const addDate = ref('');
 const addText = ref('');
@@ -209,7 +209,7 @@ async function onAddEvent() {
     await addEvent(episode.value.id, {
       eventType: eventTypes[addTypeIndex.value],
       occurredAt: new Date(addDate.value).toISOString(),
-      sourceType: addTypeIndex.value === 0 ? '报告原文' : '自述',
+      sourceType: addTypeIndex.value === 1 ? '报告原文' : '自述',
       rawText: addText.value,
     });
     showAdd.value = false;
@@ -255,10 +255,18 @@ async function load() {
     const tl = await timeline(episodes[0].id);
     events.value = tl.events;
     symptomLogs.value = tl.symptomLogs.map((l) => ({ occurredAt: l.occurredAt, sitMinutes: l.sitMinutes }));
+    // 分析次数：查该病程的最新分析版本号
+    let analysisCount = 0;
+    try {
+      const latest = await getLatestAnalysis(episodes[0].id);
+      if (latest) analysisCount = latest.version;
+    } catch {
+      // 忽略
+    }
     stats.value = {
       records: tl.events.length,
       reports: tl.events.filter((e) => e.eventType === '报告').length,
-      analyses: 0,
+      analyses: analysisCount,
       logs: tl.symptomLogs.length,
     };
   } catch {

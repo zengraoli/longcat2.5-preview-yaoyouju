@@ -143,7 +143,7 @@ async function onSubmit() {
     return;
   }
   try {
-    await createErrorReport(analysisId.value, description.value || problems.value.join('、'), '中');
+    await createErrorReport(analysisId.value, description.value || problems.value.join('、'), '中', authorized.value);
     uni.showToast({ title: '已提交举报', icon: 'success' });
     setTimeout(() => uni.navigateBack(), 1000);
   } catch (e) {

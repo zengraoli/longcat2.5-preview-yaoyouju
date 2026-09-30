@@ -268,6 +268,12 @@ export function createQaSession(analysisId: string, title: string) {
   });
 }
 
+export function listQaSessions() {
+  return api.get<Array<{ id: string; analysisId: string | null; title: string | null; createdAt: string }>>(
+    '/qa/sessions',
+  );
+}
+
 export function getQaSession(id: string) {
   return api.get<{ id: string; analysisId: string | null; title: string | null; messages: QaMessage[] }>(
     `/qa/sessions/${id}`,
@@ -358,7 +364,7 @@ export function createHelpFeedback(analysisId: string, helpType: string, unsolve
   });
 }
 
-export function createErrorReport(analysisId: string, description: string, severity: '高' | '中' | '低') {
+export function createErrorReport(analysisId: string, description: string, severity: '高' | '中' | '低', authorized?: boolean) {
   return api.post<{
     id: string;
     isErrorReport: boolean;
@@ -369,5 +375,5 @@ export function createErrorReport(analysisId: string, description: string, sever
       contentVersion: string | null;
       rulesetVersion: string;
     };
-  }>('/feedback/reports', { analysisId, description, severity });
+  }>('/feedback/reports', { analysisId, description, severity, authorized });
 }
