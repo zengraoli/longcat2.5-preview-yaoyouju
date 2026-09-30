@@ -1,4 +1,5 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { ERR } from '../../common/utils/business-exception';
 import { IsString, MaxLength } from 'class-validator';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
@@ -186,7 +187,7 @@ export class AdminController {
       .all();
   }
 
-  /** 案例投稿审核（发布 / 退回） */
+  /** 案例投稿审核（发布 / 退回）；发布受“案例卡片”开关控制 */
   @Post('cases/:id/review')
   @UseGuards(AdminGuard)
   @RequirePermission('case:review')
@@ -198,7 +199,17 @@ export class AdminController {
     if (submission.status !== '待审') {
       throw new ConflictException('该投稿已处理');
     }
-    const next = body.decision === '发布' ? '已发布' : '已撤回';
+    const decision = body.decision === '发布' ? '发布' : '退回';
+    // 案例卡片开关关闭时禁止发布
+    if (decision === '发布') {
+      const switchRow = this.appDb
+        .prepare("SELECT enabled FROM FEATURE_SWITCH WHERE key = '案例卡片'")
+        .get() as { enabled: number } | undefined;
+      if (switchRow && !switchRow.enabled) {
+        throw ERR.SWITCH_OFF('案例卡片功能已关闭，不能发布案例');
+      }
+    }
+    const next = decision === '发布' ? '已发布' : '已撤回';
     this.appDb
       .prepare('UPDATE CASE_SUBMISSION SET status = ? WHERE id = ?')
       .run(next, id);

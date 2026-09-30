@@ -151,12 +151,14 @@ export class FollowupService {
     return { id: summaryId, episodeId: summary.episodeId, content: sanitized };
   }
 
-  /** 问题清单排序 */
+  /** 问题清单排序（只接受字符串数组，否则拒绝） */
   reorderQuestions(userId: string, summaryId: string, questions: unknown[]) {
     const summary = this.getSummary(userId, summaryId);
     const content = JSON.parse(summary.content) as SummaryContent;
-    // 只接受字符串元素
-    content.复诊问题 = questions.filter((q): q is string => typeof q === 'string');
+    if (!Array.isArray(questions) || !questions.every((q) => typeof q === 'string')) {
+      throw ERR.PARAM_INVALID('问题清单必须是字符串数组');
+    }
+    content.复诊问题 = questions;
     this.appDb.prepare('UPDATE FOLLOWUP_SUMMARY SET content = ? WHERE id = ?').run(
       JSON.stringify(content),
       summaryId,

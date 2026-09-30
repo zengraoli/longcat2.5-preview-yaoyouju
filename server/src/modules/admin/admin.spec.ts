@@ -44,7 +44,7 @@ describe('后台账号、权限与审计', () => {
       .post('/admin/login')
       .send({ name: '技术-程', password: 'Admin@123456', totp: '000000' })
       .expect(401);
-    expect(res.body.message).toContain('MFA');
+    expect(res.body.message).toContain('账号或密码错误');
   });
 
   it('连续失败锁定', async () => {

@@ -34,7 +34,7 @@ class CreateItemDto {
 }
 
 class TransitionDto {
-  @IsIn(['提交审核', '通过', '退回', '发布', '撤回', '下线', '更正'])
+  @IsIn(['提交审核', '通过', '退回', '撤回', '下线', '更正'])
   action!: ContentAction;
 
   @IsOptional()

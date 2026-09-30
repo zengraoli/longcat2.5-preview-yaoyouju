@@ -26,7 +26,8 @@ class ConsentDto {
   @IsIn(CONSENT_SCOPES as unknown as string[])
   scope!: ConsentScope;
 
-  @IsString()
+  /** 只接受 true/false 字符串，避免 "abc" 等被当作撤回 */
+  @IsIn(['true', 'false'])
   granted!: string;
 }
 

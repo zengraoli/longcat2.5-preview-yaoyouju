@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard';
 import { IsIn, IsString, MaxLength } from 'class-validator';
 import { AdminGuard, RequirePermission } from '../admin/admin.guard';
 import { CurrentAdmin } from '../admin/current-admin.decorator';
@@ -20,8 +21,9 @@ class SetSwitchDto {
 export class SwitchesController {
   constructor(private readonly switches: SwitchesService) {}
 
-  /** 开关列表（登录即可查） */
+  /** 开关列表（需登录） */
   @Get()
+  @UseGuards(AuthGuard)
   list() {
     return this.switches.list();
   }

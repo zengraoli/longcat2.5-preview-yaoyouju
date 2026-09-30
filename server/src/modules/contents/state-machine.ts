@@ -2,13 +2,12 @@
 
 export type ContentStatus = '草稿' | '待审' | '已审定' | '已发布' | '已撤回' | '已下线' | '更正中';
 
-export type ContentAction = '提交审核' | '通过' | '退回' | '发布' | '撤回' | '下线' | '更正';
+export type ContentAction = '提交审核' | '通过' | '退回' | '撤回' | '下线' | '更正';
 
 const TRANSITIONS: Record<string, ContentStatus> = {
   '草稿>提交审核': '待审',
   '待审>通过': '已审定',
   '待审>退回': '草稿',
-  '已审定>发布': '已发布',
   '已发布>撤回': '已撤回',
   '已发布>下线': '已下线',
   '已发布>更正': '更正中',

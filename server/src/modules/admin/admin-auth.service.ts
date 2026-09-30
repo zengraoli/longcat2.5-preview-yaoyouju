@@ -42,13 +42,11 @@ export class AdminAuthService {
         }
       | undefined;
     if (!admin) {
-      this.audit.record({ actorId: null, action: 'admin:login-failed', target: name, diff: { reason: '账号不存在' } });
+      this.audit.record({ actorId: null, action: 'admin:login-failed', target: name, diff: { reason: '账号或密码错误' } });
       throw ERR.ADMIN_CREDENTIALS();
     }
-    if (admin.status !== 'active') {
-      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '账号已停用' } });
-      throw new UnauthorizedException('账号已停用');
-    }
+    // 停用账号不提前泄露状态：先校验密码，再检查状态
+    const passwordValid = verifyPassword(password, admin.passwordHash);
     // 锁定到期后重置失败计数
     if (admin.lockedUntil && new Date(admin.lockedUntil).getTime() <= Date.now()) {
       this.appDb
@@ -64,12 +62,16 @@ export class AdminAuthService {
     const expectedTotp = process.env.ADMIN_TOTP_CODE ?? '123456';
     if (admin.mfaEnabled && totp !== expectedTotp) {
       this.recordFailure(admin.id, admin.failedAttempts);
-      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: 'MFA 错误' } });
-      throw ERR.ADMIN_MFA();
+      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '账号或密码错误' } });
+      throw ERR.ADMIN_CREDENTIALS();
     }
-    if (!verifyPassword(password, admin.passwordHash)) {
+    if (!passwordValid) {
       this.recordFailure(admin.id, admin.failedAttempts);
-      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '密码错误' } });
+      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '账号或密码错误' } });
+      throw ERR.ADMIN_CREDENTIALS();
+    }
+    if (admin.status !== 'active') {
+      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '账号已停用' } });
       throw ERR.ADMIN_CREDENTIALS();
     }
     // 登录成功：重置失败计数，创建短会话（30 分钟）；令牌哈希存储

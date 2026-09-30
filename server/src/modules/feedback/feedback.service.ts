@@ -153,19 +153,22 @@ export class FeedbackService {
     };
   }
 
-  /** 单条授权查看用户原始内容（仅管理端） */
+  /** 单条授权查看用户原始内容（仅管理端）；帮助类反馈不生成举报工单 */
   authorize(actorId: string, id: string) {
-    const row = this.appDb.prepare('SELECT id FROM FEEDBACK WHERE id = ?').get(id) as
-      | { id: string }
-      | undefined;
+    const row = this.appDb
+      .prepare('SELECT id, is_error_report AS isErrorReport FROM FEEDBACK WHERE id = ?')
+      .get(id) as { id: string; isErrorReport: number } | undefined;
     if (!row) throw ERR.NOT_FOUND('反馈不存在');
-    this.appDb
-      .prepare(
-        `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, resolution, authorized)
-         VALUES (?, '中', '已授权', NULL, 1)
-         ON CONFLICT(feedback_id) DO UPDATE SET authorized = 1`,
-      )
-      .run(id);
+    if (row.isErrorReport) {
+      // 仅错误举报生成处理工单
+      this.appDb
+        .prepare(
+          `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, resolution, authorized)
+           VALUES (?, '中', '已授权', NULL, 1)
+           ON CONFLICT(feedback_id) DO UPDATE SET authorized = 1`,
+        )
+        .run(id);
+    }
     this.audit.record({ actorId, action: 'feedback:authorize', target: id });
     return { id, authorized: true };
   }
