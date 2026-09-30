@@ -316,9 +316,9 @@ private fun AnalysisCard(analysis: AnalysisResult?, onAnalysis: () -> Unit) {
                 modifier = Modifier.padding(bottom = 12.dp),
             )
         } else {
-            analysis.sections.known.forEach { AnalysisLine("已知", it.text) }
-            analysis.sections.unknown.forEach { AnalysisLine("未知", it.text) }
-            analysis.sections.next.forEach { AnalysisLine("下一步", it.text) }
+            analysis.sections.known.firstOrNull()?.let { AnalysisLine("已知", it.text) }
+            analysis.sections.unknown.firstOrNull()?.let { AnalysisLine("未知", it.text) }
+            analysis.sections.next.firstOrNull()?.let { AnalysisLine("下一步", it.text) }
             AppButton(
                 text = "查看完整分析",
                 onClick = onAnalysis,

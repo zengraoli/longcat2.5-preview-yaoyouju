@@ -50,18 +50,76 @@ object DemoData {
         id = "an-3",
         episodeId = "ep-1",
         version = 3,
-        modelReleaseId = "mr-1",
+        modelReleaseId = "M-2609",
         modelName = "本地模拟模型",
         contentLibVersion = "cl-2",
         sections = AnalysisSections(
             known = listOf(
                 AnalysisSection(
-                    text = "报告提到 L5/S1 椎间盘突出、硬膜囊受压；腰痛约 1 个月，最近加重",
-                    source = "报告原文",
+                    text = "报告（2026-08-30, MRI）提到：L5/S1 椎间盘向后突出，相应硬膜囊受压，右侧神经根受压可能。",
+                    source = "报告",
+                ),
+                AnalysisSection(
+                    text = "你描述：腰痛约1个月，最近一周加重，主要在左侧；没有大小便或鞍区异常。",
+                    source = "症状",
+                ),
+                AnalysisSection(
+                    text = "医生建议：保守治疗，4周后复查。",
+                    source = "医嘱",
+                    mark = "未经核实",
                 ),
             ),
             explanation = listOf(
-                AnalysisSection(text = "椎间盘突出是影像描述，不等于疼痛一定来自这里", source = "医学证据库"),
+                AnalysisSection(
+                    text = "“L5/S1” 指第5腰椎与第1骶椎之间的椎间盘，是腰椎最下方、承重最大的节段之一。",
+                    source = "doc-1",
+                ),
+                AnalysisSection(
+                    text = "“硬膜囊受压” 描述影像上突出物与神经外膜结构的位置关系，是影像描述，不等于症状严重程度。",
+                    source = "doc-2",
+                ),
+                AnalysisSection(
+                    text = "影像上的突出与疼痛之间不是一一对应的关系；很多无症状的人影像上也有类似表现。",
+                    source = "doc-3",
+                ),
+            ),
+            unknown = listOf(
+                AnalysisSection(text = "症状开始日期尚未确认；是否出现腿部无力尚未确认。"),
+                AnalysisSection(text = "报告写“右侧神经根”，你描述疼痛在左侧——需要在复诊时向医生确认。"),
+                AnalysisSection(text = "不能据此判断这次疼痛的原因、严重程度，或是否需要手术。"),
+            ),
+            next = listOf(
+                AnalysisSection(text = "报告里的右侧神经根受压，和我左侧的疼痛有关系吗？"),
+                AnalysisSection(text = "保守治疗期间，哪些变化出现时需要提前复诊？"),
+                AnalysisSection(text = "目前的活动、久坐和睡姿有什么需要调整的？"),
+            ),
+            videos = listOf(
+                VideoRecommendation("腰椎节段位置：L5/S1 在哪里", "ct-1", "2:10 · 有字幕"),
+            ),
+        ),
+        retrievalSnapshot = RetrievalSnapshot(
+            evidenceDocs = listOf("doc-1", "doc-2", "doc-3"),
+            modelRelease = "M-2609",
+            contentLibVersion = "cl-2",
+            rulesetVersion = "rs-1",
+        ),
+        safetyFlag = "无",
+        createdAt = com.yaoyouju.app.core.util.BeijingTime.nowIso(),
+        citations = listOf(
+            AnalysisCitation("ci-1", "doc-1", "审核科普 #12", "L5/S1 的解剖位置", 1),
+            AnalysisCitation("ci-2", "doc-2", "审核科普 #07", "硬膜囊受压是影像描述", 1),
+            AnalysisCitation("ci-3", "doc-3", "指南摘录 G-03", "影像与症状不一一对应", 1),
+        ),
+    )
+
+    /** A14 首页用的精简分析（与设计稿首页摘要一致） */
+    val homeAnalysis = analysis.copy(
+        sections = AnalysisSections(
+            known = listOf(
+                AnalysisSection(
+                    text = "报告提到 L5/S1 椎间盘突出、硬膜囊受压；腰痛约 1 个月，最近加重",
+                    source = "报告",
+                ),
             ),
             unknown = listOf(
                 AnalysisSection(text = "症状开始日期、是否腿部无力、侧别是否一致"),
@@ -69,20 +127,7 @@ object DemoData {
             next = listOf(
                 AnalysisSection(text = "把 4 个问题带去复诊；记录能坐时长与夜间痛醒"),
             ),
-            videos = listOf(
-                VideoRecommendation("腰椎节段位置：L5/S1 在哪里", "ct-1", "报告提到 L5/S1"),
-            ),
-        ),
-        retrievalSnapshot = RetrievalSnapshot(
-            evidenceDocs = listOf("指南-腰痛-2024"),
-            modelRelease = "mr-1",
-            contentLibVersion = "cl-2",
-            rulesetVersion = "rs-1",
-        ),
-        safetyFlag = "无",
-        createdAt = com.yaoyouju.app.core.util.BeijingTime.nowIso(),
-        citations = listOf(
-            AnalysisCitation("ci-1", "doc-1", "腰痛诊疗指南（演示）", "影像描述与症状需结合判断", 1),
+            videos = analysis.sections.videos,
         ),
     )
 
@@ -171,11 +216,14 @@ object DemoData {
         ),
     )
 
+    /** A08 原文对照用的报告原文（多行，与设计稿一致） */
+    val reportRawText = "检查所见：腰椎生理曲度存在，各椎体形态、信号未见明显异常。\nL4/5椎间盘轻度膨出。\nL5/S1椎间盘向后突出，相应硬膜囊受压，右侧神经根受压可能。\n椎管未见明显狭窄。\n印象：L5/S1椎间盘突出；L4/5椎间盘膨出。"
+
     val report = Report(
         id = "rp-1",
         careEventId = "ev-1",
         reportDate = "2026-08-30",
-        rawText = "腰椎 MRI 报告：L5/S1 椎间盘向后突出，相应硬膜囊受压，右侧神经根受压可能。腰椎生理曲度变直。",
+        rawText = reportRawText,
         extractedTerms = listOf(ExtractedTerm("L5/S1", 12), ExtractedTerm("硬膜囊受压", 24)),
         sourceType = "报告原文",
         verifyStatus = "有冲突",

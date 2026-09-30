@@ -21,6 +21,8 @@ import androidx.navigation.navArgument
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.TabDestination
 import com.yaoyouju.app.core.design.AppColors
+import com.yaoyouju.app.feature.analysis.AnalysisRoute
+import com.yaoyouju.app.feature.compare.CompareRoute
 import com.yaoyouju.app.feature.confirm.ConfirmRoute
 import com.yaoyouju.app.feature.confusion.ConfusionRoute
 import com.yaoyouju.app.feature.home.HomeRoute
@@ -144,8 +146,20 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
             composable(
                 route = "${Routes.Analysis}?${Routes.AnalysisArg}={${Routes.AnalysisArg}}",
                 arguments = listOf(navArgument(Routes.AnalysisArg) { type = NavType.StringType; defaultValue = "" }),
-            ) { PlaceholderScreen(Routes.Analysis, back) }
-            composable(Routes.ReportCompare) { PlaceholderScreen(Routes.ReportCompare, back) }
+            ) { entry ->
+                AnalysisRoute(
+                    analysisId = entry.arguments?.getString(Routes.AnalysisArg).orEmpty(),
+                    onBack = back,
+                    onCompare = { navController.navigate(Routes.ReportCompare) },
+                    onTimeline = { onSelectTab(TabDestination.Timeline) },
+                    onSummary = { navController.navigate(Routes.Summary) },
+                    onContents = { navController.navigate(Routes.Contents) },
+                    onFallback = { navController.navigate(Routes.Fallback) },
+                    onContentDetail = { id -> navController.navigate(Routes.content(id)) },
+                    onFeedback = { navController.navigate(Routes.Feedback) },
+                )
+            }
+            composable(Routes.ReportCompare) { CompareRoute(onBack = back) }
             composable(Routes.Qa) { PlaceholderScreen(Routes.Qa) }
             composable(Routes.Timeline) { PlaceholderScreen(Routes.Timeline) }
             composable(Routes.Record) { PlaceholderScreen(Routes.Record, back) }

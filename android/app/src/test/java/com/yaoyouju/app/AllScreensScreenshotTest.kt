@@ -7,6 +7,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.yaoyouju.app.core.design.YaoyoujuTheme
 import com.yaoyouju.app.core.components.TabDestination
+import com.yaoyouju.app.feature.analysis.AnalysisScreen
+import com.yaoyouju.app.feature.analysis.AnalysisUiState
+import com.yaoyouju.app.feature.compare.CompareScreen
+import com.yaoyouju.app.feature.compare.CompareTab
+import com.yaoyouju.app.feature.compare.CompareUiState
+import com.yaoyouju.app.feature.compare.TermDef
 import com.yaoyouju.app.feature.confirm.ConfirmScreen
 import com.yaoyouju.app.feature.confirm.ConfirmUiState
 import com.yaoyouju.app.feature.confusion.ConfusionScreen
@@ -181,10 +187,63 @@ class AllScreensScreenshotTest {
         )
     }
 
+    /* ---------- A07 一页理性分析 ---------- */
+    @Test
+    fun a07Analysis() = capture("A07-analysis") {
+        AnalysisScreen(
+            state = AnalysisUiState(
+                loading = false,
+                status = "完成",
+                result = DemoData.analysis,
+                selectedQuestions = setOf(0, 1, 2),
+            ),
+            onBack = {},
+            onCompare = {},
+            onTimeline = {},
+            onSummary = {},
+            onContents = {},
+            onFallback = {},
+            onContentDetail = {},
+            onFeedback = {},
+            onReportError = {},
+            onToggleQuestion = {},
+            onAddQuestions = {},
+        )
+    }
+
+    /* ---------- A08 原文对照 ---------- */
+    @Test
+    fun a08Compare() = capture("A08-compare") {
+        CompareScreen(
+            state = CompareUiState(
+                loading = false,
+                tab = CompareTab.ByExplanation,
+                explanations = DemoData.analysis.sections.explanation,
+                citations = DemoData.analysis.citations,
+                rawText = DemoData.reportRawText,
+                reportDate = "2026-08-30",
+                examType = "腰椎MRI",
+                sideConflict = true,
+                index = 1,
+                terms = listOf(
+                    TermDef("硬膜囊", "包裹脊髓和神经根的膜性结构在影像上的名称。"),
+                    TermDef("神经根", "从脊髓分出、经椎间孔走行的神经起始段。"),
+                    TermDef("椎间盘突出", "椎间盘内容物超出椎体边缘的影像描述，程度与症状不一定对应。"),
+                ),
+            ),
+            onBack = {},
+            onSelectTab = {},
+            onPrev = {},
+            onNext = {},
+            evidenceTitle = { source ->
+                DemoData.analysis.citations.firstOrNull { it.evidenceDocId == source }?.evidenceDocTitle ?: "证据库"
+            },
+        )
+    }
+
     /* ---------- A14 首页 · 当前情况 ---------- */
     @Test
-    fun a14Home() = capture("A14-home") {
-        HomeScreen(
+    fun a14Home() = capture("A14-home") {        HomeScreen(
             state = HomeUiState(
                 loading = false,
                 episode = DemoData.episode,
@@ -193,7 +252,7 @@ class AllScreensScreenshotTest {
                     "今天是否有腿部麻木或无力",
                     "报告写“右侧”，你的描述是“左侧”",
                 ),
-                analysis = DemoData.analysis,
+                analysis = DemoData.homeAnalysis,
                 recommended = DemoData.recommended.take(1),
                 followupQuestionCount = 4,
                 followupDate = "2026-10-08",
