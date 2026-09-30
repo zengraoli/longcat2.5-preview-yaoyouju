@@ -65,7 +65,7 @@ export class LocalMockLlmAdapter implements LlmAdapter {
       }
     }
     if (known.length === 0) {
-      unknown.push({ text: '病程中已确认的事实尚未记录。', source: null });
+      known.push({ text: '病程中已确认的事实尚未记录（已录入但尚未确认的信息会在“仍缺哪些信息”中标出）。', source: null });
     }
 
     // 解释：基于证据库片段生成，每条带来源

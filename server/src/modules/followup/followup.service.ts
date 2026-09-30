@@ -80,17 +80,44 @@ export class FollowupService {
     return this.generate(userId, episodeId);
   }
 
+  /** 校验并清洗摘要内容：各段元素与复诊问题只接受字符串，避免非字符串原样写入 */
+  private sanitize(content: SummaryContent): SummaryContent {
+    const clean = (arr: unknown): Array<{ text: string; source?: string; mark?: string }> =>
+      (Array.isArray(arr) ? arr : [])
+        .filter(
+          (item): item is { text: string; source?: string; mark?: string } =>
+            typeof item === 'object' && item !== null && typeof (item as { text?: unknown }).text === 'string',
+        )
+        .map((item) => ({
+          text: item.text,
+          ...(item.source !== undefined ? { source: String(item.source) } : {}),
+          ...(item.mark !== undefined ? { mark: String(item.mark) } : {}),
+        }));
+    const questions = Array.isArray(content.复诊问题)
+      ? content.复诊问题.filter((q): q is string => typeof q === 'string')
+      : [];
+    return {
+      当前情况: clean(content.当前情况),
+      报告要点: clean(content.报告要点),
+      医嘱要点: clean(content.医嘱要点),
+      尚未确认: clean(content.尚未确认),
+      下一步: clean(content.下一步),
+      复诊问题: questions,
+    };
+  }
+
   /** 保存/更新摘要 */
   save(userId: string, episodeId: string, content: SummaryContent) {
     this.getEpisode(userId, episodeId);
+    const sanitized = this.sanitize(content);
     // 校验内容非空
     const hasContent =
-      content.当前情况.length > 0 ||
-      content.报告要点.length > 0 ||
-      content.医嘱要点.length > 0 ||
-      content.尚未确认.length > 0 ||
-      content.下一步.length > 0 ||
-      content.复诊问题.length > 0;
+      sanitized.当前情况.length > 0 ||
+      sanitized.报告要点.length > 0 ||
+      sanitized.医嘱要点.length > 0 ||
+      sanitized.尚未确认.length > 0 ||
+      sanitized.下一步.length > 0 ||
+      sanitized.复诊问题.length > 0;
     if (!hasContent) {
       throw ERR.CONFLICT('摘要内容为空，无法保存');
     }
@@ -109,18 +136,19 @@ export class FollowupService {
       .prepare(
         `INSERT INTO FOLLOWUP_SUMMARY (id, episode_id, content, export_format, exported_at) VALUES (?, ?, ?, NULL, NULL)`,
       )
-      .run(id, episodeId, JSON.stringify(content));
-    return { id, episodeId, content };
+      .run(id, episodeId, JSON.stringify(sanitized));
+    return { id, episodeId, content: sanitized };
   }
 
   /** 纠正摘要内容 */
   correct(userId: string, summaryId: string, content: SummaryContent) {
     const summary = this.getSummary(userId, summaryId);
+    const sanitized = this.sanitize(content);
     this.appDb.prepare('UPDATE FOLLOWUP_SUMMARY SET content = ? WHERE id = ?').run(
-      JSON.stringify(content),
+      JSON.stringify(sanitized),
       summaryId,
     );
-    return { id: summaryId, episodeId: summary.episodeId, content };
+    return { id: summaryId, episodeId: summary.episodeId, content: sanitized };
   }
 
   /** 问题清单排序 */

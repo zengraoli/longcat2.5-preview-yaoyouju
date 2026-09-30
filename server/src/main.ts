@@ -7,9 +7,12 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  // OpenAPI 文档页（本地静态文件，不加载外部资源）
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
   const expressApp = app.getHttpAdapter().getInstance();
+  // 请求体大小限制 2MB（JSON / URL-encoded）
+  expressApp.use(express.json({ limit: '2mb' }));
+  expressApp.use(express.urlencoded({ extended: true, limit: '2mb' }));
+  // OpenAPI 文档页（本地静态文件，不加载外部资源）
   expressApp.use('/docs', express.static(path.join(__dirname, '../public')));
   app.useGlobalPipes(
     new ValidationPipe({

@@ -72,8 +72,9 @@ describe('后台账号、权限与审计', () => {
     const res = await request(app.getHttpServer())
       .get('/admin/audit-logs')
       .set('X-Admin-Token', token)
-      .expect(401);
+      .expect(403);
     expect(res.body.message).toContain('无权限');
+    expect(res.body.code).toBe(1003);
   });
 
   it('审计哈希链校验：篡改后能发现', async () => {

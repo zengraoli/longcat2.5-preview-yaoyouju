@@ -8,6 +8,12 @@ import { ERR } from '../../common/utils/business-exception';
 export const CONSENT_SCOPES = ['健康信息处理', '分享', '产品改进'] as const;
 export type ConsentScope = (typeof CONSENT_SCOPES)[number];
 
+/** 手机号查找哈希：HMAC-SHA256（带密钥，避免与直接 SHA-256 相同） */
+function phoneHash(phone: string): string {
+  const pepper = process.env.IDENTITY_ENCRYPTION_KEY ?? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  return crypto.createHmac('sha256', pepper).update(phone).digest('hex');
+}
+
 export interface ConsentView {
   scope: string;
   granted: boolean;
@@ -154,10 +160,10 @@ export class AuthService {
   }
 
   private findOrCreateUser(phone: string): { id: string } {
-    const phoneHash = crypto.createHash('sha256').update(phone).digest('hex');
+    const hash = phoneHash(phone);
     const existing = this.identityDb
       .prepare('SELECT user_id AS userId FROM IDENTITY_PROFILE WHERE phone_hash = ?')
-      .get(phoneHash) as { userId: string } | undefined;
+      .get(hash) as { userId: string } | undefined;
     if (existing) return { id: existing.userId };
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
@@ -169,7 +175,7 @@ export class AuthService {
       .prepare(
         'INSERT INTO IDENTITY_PROFILE (user_id, phone_hash, phone_enc, real_name_enc) VALUES (?, ?, ?, NULL)',
       )
-      .run(id, phoneHash, encryptField(phone));
+      .run(id, hash, encryptField(phone));
     return { id };
   }
 }

@@ -13,12 +13,14 @@ export class AdminDashboardController {
   @Get()
   @RequirePermission('*')
   stats() {
-    // 今日任务（按创建日期统计）
-    const today = new Date().toISOString().slice(0, 10);
+    // 今日任务（按创建日期统计，北京时间）
+    const now = new Date();
+    const today = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     const taskTotal = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK').get() as { c: number }).c;
     const taskToday = (this.appDb.prepare('SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE created_at >= ?').get(today) as { c: number }).c;
     const taskFailed = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '失败'").get() as { c: number }).c;
-    const taskBlocked = (this.appDb.prepare("SELECT COUNT(*) AS c FROM ANALYSIS_TASK WHERE status = '排队' AND payload LIKE '%redFlags%'").get() as { c: number }).c;
+    // 阻断：被安全规则引擎停止个性化的次数（今日）
+    const taskBlocked = (this.appDb.prepare("SELECT COUNT(*) AS c FROM SAFETY_EVENT WHERE action_taken = '停止个性化分析' AND created_at >= ?").get(today) as { c: number }).c;
     const pendingReview = (this.appDb.prepare("SELECT COUNT(*) AS c FROM CONTENT_ITEM WHERE current_status = '待审'").get() as { c: number }).c;
     // 待处理举报（FEEDBACK_REPORT.status = '待处理'）
     const pendingReports = (this.appDb.prepare("SELECT COUNT(*) AS c FROM FEEDBACK_REPORT WHERE status = '待处理'").get() as { c: number }).c;

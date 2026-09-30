@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
 import { IsString, MaxLength } from 'class-validator';
+import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { AdminAuthService } from './admin-auth.service';
@@ -73,16 +74,24 @@ export class AdminController {
     return { valid: !tampered, tampered };
   }
 
-  /** 单条授权记录（查看用户原始内容需授权） */
+  /** 单条授权记录（查看用户原始内容需授权）：写入授权表并记审计 */
   @Post('authorizations')
   @UseGuards(AdminGuard)
   createAuthorization(@CurrentAdmin() admin: { adminId: string }, @Body() dto: AuthorizationDto) {
-    return this.audit.record({
+    const id = crypto.randomUUID();
+    this.appDb
+      .prepare(
+        `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(id, admin.adminId, dto.targetType, dto.targetId, dto.reason, new Date().toISOString());
+    this.audit.record({
       actorId: admin.adminId,
       action: 'admin:authorize',
       target: `${dto.targetType}:${dto.targetId}`,
       diff: { reason: dto.reason },
     });
+    return { id, authorized: true };
   }
 
   /** 反馈与举报列表（管理端） */
@@ -103,5 +112,55 @@ export class AdminController {
          FROM ADMIN_USER u JOIN ROLE r ON r.id = u.role_id ORDER BY u.rowid ASC`,
       )
       .all();
+  }
+
+  /** 安全事件列表（匿名标识，不含问卷原文） */
+  @Get('safety-events')
+  @UseGuards(AdminGuard)
+  @RequirePermission('audit:read')
+  listSafetyEvents(@CurrentAdmin() _admin: unknown) {
+    return this.appDb
+      .prepare(
+        `SELECT id, user_id AS userId, rule_code AS ruleCode, severity, action_taken AS actionTaken,
+                source, created_at AS createdAt
+         FROM SAFETY_EVENT ORDER BY created_at DESC, rowid DESC LIMIT 200`,
+      )
+      .all();
+  }
+
+  /** 案例投稿列表 */
+  @Get('cases')
+  @UseGuards(AdminGuard)
+  @RequirePermission('case:review')
+  listCases(@CurrentAdmin() _admin: unknown) {
+    return this.appDb
+      .prepare(
+        `SELECT id, user_id AS userId, edited_content AS editedContent, consent_scope AS consentScope,
+                status, created_at AS createdAt
+         FROM CASE_SUBMISSION ORDER BY created_at DESC, rowid DESC`,
+      )
+      .all();
+  }
+
+  /** 审计导出（需审批，这里返回 CSV 文本） */
+  @Get('audit-logs/export')
+  @UseGuards(AdminGuard)
+  @RequirePermission('audit:read')
+  exportAuditLogs(@CurrentAdmin() admin: { adminId: string }) {
+    const logs = this.audit.list(1000);
+    const header = '时间,操作人,角色,动作,对象,请求ID,哈希';
+    const lines = logs.map((l) =>
+      [
+        l.createdAt,
+        l.actorName ?? l.actorId ?? '系统',
+        l.actorRole ?? '',
+        l.action,
+        l.target ?? '',
+        l.requestId ?? '',
+        l.hash.slice(0, 8),
+      ].join(','),
+    );
+    this.audit.record({ actorId: admin.adminId, action: 'admin:audit-export', target: 'audit-logs' });
+    return { csv: [header, ...lines].join('\n'), count: logs.length };
   }
 }

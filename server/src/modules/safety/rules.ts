@@ -1,5 +1,5 @@
 /** 红旗规则集与服务范围规则（带规则集版本号） */
-export const RULESET_VERSION = 'RF-v1';
+export const RULESET_VERSION = 'RF-v2';
 
 export interface RuleDef {
   code: string;
@@ -15,7 +15,10 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-01',
     name: '大小便功能障碍或鞍区麻木',
-    keywords: ['大小便', '马尾', '鞍区', '失禁', '排便困难', '排尿困难', '大小便功能'],
+    keywords: [
+      '大小便', '马尾', '鞍区', '会阴', '失禁', '排便困难', '排尿困难', '小便解不出',
+      '小便不出来', '尿不出来', '尿潴留', '大小便功能', '大便失禁', '小便失禁',
+    ],
     severity: '高',
     action: '提示就医',
     category: 'red-flag',
@@ -24,7 +27,10 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-02',
     name: '进行性肌力下降',
-    keywords: ['肌力下降', '脚尖无力', '足下垂', '走路无力', '进行性无力', '腿越来越没劲'],
+    keywords: [
+      '肌力下降', '脚尖无力', '足下垂', '走路无力', '进行性无力', '腿越来越没劲',
+      '腿越来越没力气', '腿越来越无力', '越来越没力气', '双腿无力', '腿部无力',
+    ],
     severity: '高',
     action: '提示就医',
     category: 'red-flag',
@@ -33,7 +39,7 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-03',
     name: '夜间痛醒伴体重下降',
-    keywords: ['夜间痛醒', '夜里痛醒', '体重下降', '消瘦', '晚上痛醒'],
+    keywords: ['夜间痛醒', '夜里痛醒', '体重下降', '消瘦', '晚上痛醒', '夜间痛'],
     severity: '高',
     action: '提示就医',
     category: 'red-flag',
@@ -51,7 +57,7 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-05',
     name: '发热伴腰痛',
-    keywords: ['发热', '发烧', '高热', '发冷'],
+    keywords: ['发热', '发烧', '高热', '发冷', '发烧了'],
     severity: '高',
     action: '提示就医',
     category: 'red-flag',
@@ -60,7 +66,7 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-06',
     name: '疼痛剧烈难以忍受',
-    keywords: ['疼痛难忍', '剧烈疼痛', '疼得受不了', '无法入睡'],
+    keywords: ['疼痛难忍', '剧烈疼痛', '疼得受不了', '无法入睡', '痛得受不了'],
     severity: '中',
     action: '提示就医',
     category: 'red-flag',
@@ -69,7 +75,10 @@ export const RULES: RuleDef[] = [
   {
     code: 'SC-01',
     name: '诊断类越界请求',
-    keywords: ['是不是腰椎间盘突出', '是不是癌', '是不是肿瘤', '是什么病', '确诊了吗', '帮我判断是不是', '是不是得了'],
+    keywords: [
+      '是不是腰椎间盘突出', '是不是癌', '是不是肿瘤', '是什么病', '确诊了吗',
+      '帮我判断是不是', '是不是得了',
+    ],
     severity: '中',
     action: '停止个性化分析',
     category: 'out-of-scope',
@@ -103,11 +112,17 @@ export interface RuleHit {
   message: string;
 }
 
+/** 归一化文本：去除空白字符，避免“大 小 便 失 禁”这类带空格变体绕过规则 */
+function normalize(text: string): string {
+  return String(text).replace(/\s+/g, '');
+}
+
 /** 纯函数：在文本中匹配红旗规则 */
 export function matchRedFlags(text: string): RuleHit[] {
+  const normalized = normalize(text);
   const hits: RuleHit[] = [];
   for (const rule of RULES.filter((r) => r.category === 'red-flag')) {
-    if (rule.keywords.some((k) => text.includes(k))) {
+    if (rule.keywords.some((k) => normalized.includes(normalize(k)))) {
       hits.push({
         code: rule.code,
         name: rule.name,
@@ -122,9 +137,10 @@ export function matchRedFlags(text: string): RuleHit[] {
 
 /** 纯函数：在文本中匹配越界请求（诊断 / 手术 / 用药） */
 export function matchOutOfScope(text: string): RuleHit[] {
+  const normalized = normalize(text);
   const hits: RuleHit[] = [];
   for (const rule of RULES.filter((r) => r.category === 'out-of-scope')) {
-    if (rule.keywords.some((k) => text.includes(k))) {
+    if (rule.keywords.some((k) => normalized.includes(normalize(k)))) {
       hits.push({
         code: rule.code,
         name: rule.name,

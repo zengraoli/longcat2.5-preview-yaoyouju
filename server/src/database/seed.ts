@@ -26,6 +26,14 @@ export function initDatabase(
   if (!fbCols.includes('user_id')) {
     appDb.exec('ALTER TABLE FEEDBACK ADD COLUMN user_id TEXT');
   }
+  // 迁移：为旧库补充 SYMPTOM_LOG 的 change_vs_yesterday / activities_done 列
+  const symCols = (appDb.prepare('PRAGMA table_info(SYMPTOM_LOG)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!symCols.includes('change_vs_yesterday')) {
+    appDb.exec('ALTER TABLE SYMPTOM_LOG ADD COLUMN change_vs_yesterday TEXT');
+  }
+  if (!symCols.includes('activities_done')) {
+    appDb.exec('ALTER TABLE SYMPTOM_LOG ADD COLUMN activities_done TEXT');
+  }
   const userCount = appDb.prepare('SELECT COUNT(*) AS c FROM USER').get() as { c: number };
   if (userCount.c > 0) return;
   seed(appDb, identityDb);
@@ -302,18 +310,10 @@ function seed(appDb: Database.Database, identityDb: Database.Database): void {
     const insertIdentity = identityDb.prepare(
       'INSERT INTO IDENTITY_PROFILE (user_id, phone_hash, phone_enc, real_name_enc) VALUES (?, ?, ?, ?)',
     );
-    insertIdentity.run(
-      user1,
-      crypto.createHash('sha256').update('13800000001').digest('hex'),
-      encryptField('13800000001'),
-      encryptField('演示甲'),
-    );
-    insertIdentity.run(
-      user2,
-      crypto.createHash('sha256').update('13800000002').digest('hex'),
-      encryptField('13800000002'),
-      encryptField('演示乙'),
-    );
+    const pepper = process.env.IDENTITY_ENCRYPTION_KEY ?? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const phoneHash = (phone: string) => crypto.createHmac('sha256', pepper).update(phone).digest('hex');
+    insertIdentity.run(user1, phoneHash('13800000001'), encryptField('13800000001'), encryptField('演示甲'));
+    insertIdentity.run(user2, phoneHash('13800000002'), encryptField('13800000002'), encryptField('演示乙'));
 
     const insertConsent = appDb.prepare(
       'INSERT INTO CONSENT (id, user_id, scope, granted_at, revoked_at) VALUES (?, ?, ?, ?, ?)',

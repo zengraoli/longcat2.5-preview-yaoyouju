@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../audit/audit.module';
 import { FeedbackModule } from '../feedback/feedback.module';
 import { AdminController } from './admin.controller';
 import { AdminDashboardController } from './admin-dashboard.controller';
 import { AdminGuardModule } from './admin-guard.module';
 
 @Module({
-  imports: [AdminGuardModule, FeedbackModule],
+  imports: [AdminGuardModule, AuditModule, FeedbackModule],
   controllers: [AdminController, AdminDashboardController],
 })
 export class AdminModule {}

@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { EvidenceRetrieval } from '../../ai/retrieval';
-import { matchOutOfScope, RuleHit } from '../safety/rules';
+import { matchOutOfScope, matchRedFlags, RuleHit } from '../safety/rules';
+import { SafetyService } from '../safety/safety.service';
 
 export interface QaMessageView {
   id: string;
@@ -23,6 +24,7 @@ export class QaService {
   constructor(
     @Inject(APP_DB) private readonly appDb: Database.Database,
     private readonly retrieval: EvidenceRetrieval,
+    private readonly safety: SafetyService,
   ) {}
 
   /** 创建会话（基于当前分析上下文） */
@@ -109,9 +111,27 @@ export class QaService {
       .prepare('INSERT INTO QA_MESSAGE (id, session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, NULL, ?)')
       .run(userMsgId, sessionId, 'user', question, now);
 
+    // 红旗信号：立即提示就医并记录安全事件，不进入普通问答
+    const redFlags = matchRedFlags(question);
+    if (redFlags.length > 0) {
+      this.safety.checkAndRecord(userId, 'qa-ask', question);
+      const content = `${redFlags[0].message} 你可以先记录这次变化，并尽快就医；本轮不会生成个性化分析。`;
+      const msgId = crypto.randomUUID();
+      this.appDb
+        .prepare('INSERT INTO QA_MESSAGE (id, session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, NULL, ?)')
+        .run(msgId, sessionId, 'assistant', content, now);
+      return {
+        message: { id: msgId, role: 'assistant', content, citations: [], createdAt: now },
+        outOfScope: redFlags.map((h) => ({ code: h.code, name: h.name, severity: h.severity, action: h.action, message: h.message })),
+        roundEnded: true,
+        followupQuestionAdded: false,
+      };
+    }
+
     // 越界判定：诊断、手术、用药明确不答
     const outOfScope = matchOutOfScope(question);
     if (outOfScope.length > 0) {
+      this.safety.checkAndRecord(userId, 'qa-ask', question);
       const content =
         `${outOfScope[0].message} 你可以把这个问题加入复诊问题清单，复诊时带给医生。`;
       const msgId = crypto.randomUUID();

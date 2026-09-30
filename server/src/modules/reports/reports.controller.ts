@@ -11,6 +11,7 @@ import { IsIn, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validato
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ReportsService } from './reports.service';
+import { SwitchesService } from '../switches/switches.service';
 
 class CreateReportDto {
   @IsString()
@@ -36,7 +37,10 @@ class ConfirmReportDto {
 @Controller('reports')
 @UseGuards(AuthGuard)
 export class ReportsController {
-  constructor(private readonly reports: ReportsService) {}
+  constructor(
+    private readonly reports: ReportsService,
+    private readonly switches: SwitchesService,
+  ) {}
 
   /** 录入报告（粘贴文字为主） */
   @Post()
@@ -44,9 +48,12 @@ export class ReportsController {
     return this.reports.createReport(user.userId, dto);
   }
 
-  /** 拍照提取：模拟 OCR，返回示例文本 */
+  /** 拍照提取：模拟 OCR，返回示例文本（受“拍照提取”开关控制） */
   @Post('ocr')
   ocr(@CurrentUser() user: { userId: string }, @Body() dto: { careEventId: string }) {
+    if (!this.switches.isOn('拍照提取')) {
+      return { text: '', disabled: true, message: '拍照提取功能已暂时关闭，请粘贴报告文字。' };
+    }
     return this.reports.ocr(user.userId, dto.careEventId);
   }
 

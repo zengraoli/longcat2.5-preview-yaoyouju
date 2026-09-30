@@ -180,9 +180,19 @@ export class ModelsService {
     return { id: releaseId, status: '已回滚' };
   }
 
-  /** 本地模拟的通过率（演示用）：基于评测集名称生成确定性的指标 */
+  /** 本地模拟的通过率（演示用）：基于评测集名称生成确定性的指标，均高于 0.8 门禁线 */
   private mockPassRate(evalSetName: string): number {
-    // 所有评测集默认通过（演示用），门禁阻断通过手动构造失败用例演示
-    return 1;
+    switch (evalSetName) {
+      case '错误安慰':
+        return 0.92;
+      case '关键遗漏':
+        return 0.88;
+      case '左右侧混淆':
+        return 0.85;
+      case '隐私':
+        return 0.95;
+      default:
+        return 0.9;
+    }
   }
 }

@@ -25,10 +25,13 @@ export class AnalysesService {
     if (!episode) {
       throw new NotFoundException('病程不存在');
     }
-    // 安全规则引擎：红旗与服务范围校验
-    const safetyResult = safetyText
-      ? this.safety.checkAndRecord(userId, 'analysis-submit', safetyText)
-      : { rulesetVersion: 'RF-v1', redFlags: [], outOfScope: [], passed: true, safetyTips: [] };
+    // 安全规则引擎：红旗与服务范围校验（提交文字 + 病程中用户自述的事件原文；
+    // 医嘱等医生记录中的红旗关键词是条件性建议，不作为用户症状）
+    const episodeEvents = this.appDb
+      .prepare("SELECT raw_text AS rawText FROM CARE_EVENT WHERE episode_id = ? AND raw_text IS NOT NULL AND source_type = '自述'")
+      .all(episodeId) as Array<{ rawText: string }>;
+    const combinedText = [safetyText ?? '', ...episodeEvents.map((e) => e.rawText)].join('\n');
+    const safetyResult = this.safety.checkAndRecord(userId, 'analysis-submit', combinedText);
 
     // 命中红旗或越界：不创建分析任务，停止个性化分析
     if (!safetyResult.passed) {
@@ -64,6 +67,38 @@ export class AnalysesService {
         safetyTips: [],
       },
     };
+  }
+
+  /** 引用列表（带证据文档标题，供前端显示来源） */
+  private getCitations(analysisId: string) {
+    return this.appDb
+      .prepare(
+        `SELECT c.id, c.evidence_doc_id AS evidenceDocId, d.title AS evidenceDocTitle,
+                c.statement, c.supported
+         FROM ANALYSIS_CITATION c LEFT JOIN EVIDENCE_DOC d ON d.id = c.evidence_doc_id
+         WHERE c.analysis_id = ?`,
+      )
+      .all(analysisId) as Array<{
+        id: string;
+        evidenceDocId: string;
+        evidenceDocTitle: string | null;
+        statement: string;
+        supported: number;
+      }>;
+  }
+
+  /** 过滤分析中已下线的内容推荐（已下线内容不再对用户可见） */
+  private filterOfflineVideos<T>(analysis: T): T {
+    const videos = (analysis as { 视频?: Array<{ contentId: string }> }).视频;
+    if (!videos || videos.length === 0) return analysis;
+    const placeholders = videos.map(() => '?').join(',');
+    const offline = this.appDb
+      .prepare(
+        `SELECT id FROM CONTENT_ITEM WHERE id IN (${placeholders}) AND (current_status != '已发布' OR offline_switch = 1)`,
+      )
+      .all(...videos.map((v) => v.contentId)) as Array<{ id: string }>;
+    const offlineIds = new Set(offline.map((r) => r.id));
+    return { ...analysis, 视频: videos.filter((v) => !offlineIds.has(v.contentId)) } as T;
   }
 
   /** 查询分析：完成时返回五段结果与引用；排队/处理中返回状态；失败返回回退状态 */
@@ -112,15 +147,11 @@ export class AnalysesService {
           }
         | undefined;
       if (!analysis) throw new NotFoundException('分析结果不存在');
-      const citations = this.appDb
-        .prepare(
-          `SELECT id, evidence_doc_id AS evidenceDocId, statement, supported FROM ANALYSIS_CITATION WHERE analysis_id = ?`,
-        )
-        .all(id) as Array<{ id: string; evidenceDocId: string; statement: string; supported: number }>;
+      const citations = this.getCitations(id);
       return {
         taskId: task.id,
         status: '完成',
-        analysis: {
+        analysis: this.filterOfflineVideos({
           id: analysis.id,
           episodeId: analysis.episodeId,
           version: analysis.version,
@@ -130,7 +161,7 @@ export class AnalysesService {
           safetyFlag: analysis.safetyFlag,
           createdAt: analysis.createdAt,
           citations,
-        },
+        }),
       };
     }
 
@@ -180,12 +211,8 @@ export class AnalysesService {
         }
       | undefined;
     if (!analysis) return null;
-    const citations = this.appDb
-      .prepare(
-        `SELECT id, evidence_doc_id AS evidenceDocId, statement, supported FROM ANALYSIS_CITATION WHERE analysis_id = ?`,
-      )
-      .all(analysis.id) as Array<{ id: string; evidenceDocId: string; statement: string; supported: number }>;
-    return {
+    const citations = this.getCitations(analysis.id);
+    return this.filterOfflineVideos({
       id: analysis.id,
       episodeId: analysis.episodeId,
       version: analysis.version,
@@ -195,7 +222,7 @@ export class AnalysesService {
       safetyFlag: analysis.safetyFlag,
       createdAt: analysis.createdAt,
       citations,
-    };
+    });
   }
 
   /** 回退结果：明确说明原因，不无限重试 */

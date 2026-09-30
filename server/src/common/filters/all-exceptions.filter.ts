@@ -35,7 +35,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
             ? ((body as { message: string[] }).message[0] ?? exception.message)
             : ((body as { message?: string }).message ?? exception.message);
       code = this.mapStatusToCode(status);
-      message = msg;
+      // 404 统一中文提示（NestJS 未匹配路由的默认文案是英文）
+      message = status === 404 ? '接口不存在' : msg;
+    } else if (typeof (exception as { status?: unknown })?.status === 'number') {
+      // body-parser 等中间件抛出的错误（如请求体过大）带 status 字段
+      const err = exception as { status: number; message?: string };
+      status = err.status;
+      code = this.mapStatusToCode(status);
+      message = status === 413 ? '请求体过大' : (err.message ?? '请求处理失败');
     } else {
       this.logger.error(exception);
     }
@@ -55,6 +62,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         return 1004;
       case 409:
         return 1005;
+      case 413:
+        return 1001;
       case 423:
         return 1006;
       case 429:

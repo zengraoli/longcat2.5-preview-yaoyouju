@@ -15,10 +15,10 @@ export function sendSmsCode(phone: string) {
   return api.post<{ sent: boolean }>('/auth/sms-code', { phone });
 }
 
-export function login(phone: string, code: string) {
+export function login(phone: string, code: string, agreedScopes?: string[]) {
   return api.post<{ token: string; user: { id: string }; consents: ConsentView[] }>(
     '/auth/login',
-    { phone, code },
+    { phone, code, agreedScopes },
   );
 }
 

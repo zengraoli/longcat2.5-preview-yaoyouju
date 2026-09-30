@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { ArrayNotEmpty, IsArray, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
 import { AdminGuard } from '../admin/admin.guard';
 import { CurrentAdmin } from '../admin/current-admin.decorator';
@@ -43,6 +43,13 @@ class TransitionDto {
   comment?: string;
 }
 
+class BatchOfflineDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  itemIds!: string[];
+}
+
 @Controller('contents')
 export class ContentsController {
   constructor(private readonly contents: ContentsService) {}
@@ -73,6 +80,17 @@ export class ContentsController {
     return this.contents.createItem(admin.adminId, dto);
   }
 
+  /** 管理端：编辑内容（草稿/更正中可编辑） */
+  @Put(':id')
+  @UseGuards(AdminGuard)
+  update(
+    @CurrentAdmin() admin: { adminId: string },
+    @Param('id') id: string,
+    @Body() dto: CreateItemDto,
+  ) {
+    return this.contents.updateItem(admin.adminId, id, dto);
+  }
+
   /** 管理端：状态机流转 */
   @Post(':id/transition')
   @UseGuards(AdminGuard)
@@ -101,7 +119,7 @@ export class ContentsController {
   /** 管理端：批量下线（双人确认） */
   @Post('batch-offline')
   @UseGuards(AdminGuard)
-  batchOffline(@CurrentAdmin() admin: { adminId: string }, @Body() dto: { itemIds: string[] }) {
+  batchOffline(@CurrentAdmin() admin: { adminId: string }, @Body() dto: BatchOfflineDto) {
     return this.contents.batchOffline(admin.adminId, dto.itemIds);
   }
 

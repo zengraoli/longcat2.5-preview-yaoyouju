@@ -72,6 +72,11 @@ function buildQuery(context: ReturnType<typeof loadContext>): string {
 }
 
 function recommendContent(db: Database.Database, query: string) {
+  // 视频推荐开关关闭时不推荐视频
+  const videoSwitch = db
+    .prepare("SELECT enabled FROM FEATURE_SWITCH WHERE key = '视频推荐'")
+    .get() as { enabled: number } | undefined;
+  if (!videoSwitch?.enabled) return [];
   const tokens = (query.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9/]{2,}/g) ?? []).filter(
     (t) => t.length >= 2,
   );

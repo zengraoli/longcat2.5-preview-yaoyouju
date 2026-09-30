@@ -60,6 +60,70 @@ export class ContentsService {
     return { id, currentStatus: '草稿' };
   }
 
+  /** 编辑内容（仅草稿 / 更正中 / 已撤回状态可编辑，编辑后回到草稿） */
+  updateItem(
+    actorId: string,
+    itemId: string,
+    input: {
+      type?: string;
+      title?: string;
+      applicableScope?: string;
+      notApplicable?: string;
+      script?: string;
+      subtitleText?: string;
+    },
+  ): ContentItemView {
+    const item = this.appDb
+      .prepare('SELECT * FROM CONTENT_ITEM WHERE id = ?')
+      .get(itemId) as {
+      id: string;
+      type: string;
+      title: string;
+      applicable_scope: string | null;
+      not_applicable: string | null;
+      current_status: ContentStatus;
+      offline_switch: number;
+    } | undefined;
+    if (!item) throw new NotFoundException('内容不存在');
+    if (!['草稿', '更正中', '已撤回'].includes(item.current_status)) {
+      throw new ConflictException(`「${item.current_status}」状态不可编辑，请先撤回或更正`);
+    }
+    this.appDb
+      .prepare(
+        `UPDATE CONTENT_ITEM SET type = ?, title = ?, applicable_scope = ?, not_applicable = ?
+         WHERE id = ?`,
+      )
+      .run(
+        input.type ?? item.type,
+        input.title ?? item.title,
+        input.applicableScope !== undefined ? input.applicableScope : item.applicable_scope,
+        input.notApplicable !== undefined ? input.notApplicable : item.not_applicable,
+        itemId,
+      );
+    if (input.script !== undefined) {
+      const versionRow = this.appDb
+        .prepare('SELECT MAX(version) AS v FROM CONTENT_VERSION WHERE item_id = ?')
+        .get(itemId) as { v: number | null };
+      const nextVersion = (versionRow.v ?? 0) + 1;
+      this.appDb
+        .prepare(
+          `INSERT INTO CONTENT_VERSION (id, item_id, version, script, asset_key, subtitle_text, model_asset_version, published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+        )
+        .run(
+          crypto.randomUUID(),
+          itemId,
+          nextVersion,
+          input.script,
+          `assets/${itemId}.mp4`,
+          input.subtitleText ?? null,
+          'asset-v1',
+        );
+    }
+    this.audit.record({ actorId, action: 'content:update', target: itemId, diff: { title: input.title } });
+    return this.getView(itemId);
+  }
+
   /** 状态机流转（非法流转返回错误） */
   transitionItem(
     actorId: string,

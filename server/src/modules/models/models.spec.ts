@@ -70,7 +70,7 @@ describe('模型发布与评测', () => {
     const runs = models.listEvalRuns(release.id);
     const failed = runs.find((r) => r.result === '阻断发布');
     expect(failed).toBeTruthy();
-    const metrics = JSON.parse(failed?.metrics ?? '{}') as { 失败用例: Array<Record<string, string>> };
+    const metrics = JSON.parse((failed?.metrics as string | undefined) ?? '{}') as { 失败用例: Array<Record<string, string>> };
     // 失败用例不包含真实用户信息
     const text = JSON.stringify(metrics.失败用例);
     expect(text).not.toMatch(/1\d{10}/);

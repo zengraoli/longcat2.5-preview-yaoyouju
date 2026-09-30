@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { verifyPassword } from '../../database/crypto';
 import { ERR } from '../../common/utils/business-exception';
+import { AuditService } from '../audit/audit.service';
 
 export interface AdminSession {
   token: string;
@@ -16,7 +17,10 @@ export interface AdminSession {
 /** 后台登录：账号密码 + TOTP（演示固定码），无自助注册，连续失败锁定，短会话 */
 @Injectable()
 export class AdminAuthService {
-  constructor(@Inject(APP_DB) private readonly appDb: Database.Database) {}
+  constructor(
+    @Inject(APP_DB) private readonly appDb: Database.Database,
+    private readonly audit: AuditService,
+  ) {}
 
   login(name: string, password: string, totp: string): AdminSession {
     const admin = this.appDb
@@ -38,9 +42,11 @@ export class AdminAuthService {
         }
       | undefined;
     if (!admin) {
+      this.audit.record({ actorId: null, action: 'admin:login-failed', target: name, diff: { reason: '账号不存在' } });
       throw ERR.ADMIN_CREDENTIALS();
     }
     if (admin.status !== 'active') {
+      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '账号已停用' } });
       throw new UnauthorizedException('账号已停用');
     }
     // 锁定到期后重置失败计数
@@ -52,15 +58,18 @@ export class AdminAuthService {
       admin.lockedUntil = null;
     }
     if (admin.lockedUntil && new Date(admin.lockedUntil).getTime() > Date.now()) {
+      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '账号已锁定' } });
       throw ERR.LOCKED('账号已锁定，请稍后再试');
     }
     const expectedTotp = process.env.ADMIN_TOTP_CODE ?? '123456';
     if (admin.mfaEnabled && totp !== expectedTotp) {
       this.recordFailure(admin.id, admin.failedAttempts);
+      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: 'MFA 错误' } });
       throw ERR.ADMIN_MFA();
     }
     if (!verifyPassword(password, admin.passwordHash)) {
       this.recordFailure(admin.id, admin.failedAttempts);
+      this.audit.record({ actorId: admin.id, action: 'admin:login-failed', target: admin.name, diff: { reason: '密码错误' } });
       throw ERR.ADMIN_CREDENTIALS();
     }
     // 登录成功：重置失败计数，创建短会话（30 分钟）；令牌哈希存储
@@ -79,6 +88,7 @@ export class AdminAuthService {
     const role = this.appDb
       .prepare('SELECT name, permissions FROM ROLE WHERE id = ?')
       .get(admin.roleId) as { name: string; permissions: string };
+    this.audit.record({ actorId: admin.id, action: 'admin:login', target: admin.name, diff: { role: role.name } });
     return {
       token,
       adminId: admin.id,
@@ -88,7 +98,7 @@ export class AdminAuthService {
     };
   }
 
-  /** 校验后台会话（同时检查账号是否已停用）；令牌以哈希比对 */
+  /** 校验后台会话（同时检查账号是否已停用、是否处于锁定期间）；令牌以哈希比对 */
   resolveSession(token: string): AdminSession | null {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const session = this.appDb
@@ -97,9 +107,11 @@ export class AdminAuthService {
     if (!session) return null;
     if (new Date(session.expiresAt).getTime() < Date.now()) return null;
     const admin = this.appDb
-      .prepare('SELECT id, name, role_id AS roleId, status FROM ADMIN_USER WHERE id = ?')
-      .get(session.adminId) as { id: string; name: string; roleId: string; status: string } | undefined;
+      .prepare('SELECT id, name, role_id AS roleId, status, locked_until AS lockedUntil FROM ADMIN_USER WHERE id = ?')
+      .get(session.adminId) as { id: string; name: string; roleId: string; status: string; lockedUntil: string | null } | undefined;
     if (!admin || admin.status !== 'active') return null;
+    // 锁定期间旧会话立即失效
+    if (admin.lockedUntil && new Date(admin.lockedUntil).getTime() > Date.now()) return null;
     const role = this.appDb
       .prepare('SELECT name, permissions FROM ROLE WHERE id = ?')
       .get(admin.roleId) as { name: string; permissions: string };
@@ -119,7 +131,7 @@ export class AdminAuthService {
 
   private recordFailure(adminId: string, failedAttempts: number) {
     const threshold = parseInt(process.env.ADMIN_LOCK_THRESHOLD ?? '5', 10);
-    const lockMinutes = parseInt(process.env.ADMIN_LOCK_MINUTES ?? '30', 10);
+    const lockMinutes = parseInt(process.env.ADMIN_LOCK_MINUTES ?? '15', 10);
     const attempts = failedAttempts + 1;
     const lockedUntil =
       attempts >= threshold ? new Date(Date.now() + lockMinutes * 60 * 1000).toISOString() : null;

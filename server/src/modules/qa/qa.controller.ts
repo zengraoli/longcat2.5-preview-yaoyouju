@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
+import { ConsentGuard, RequireConsent } from '../auth/consent.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { QaService } from './qa.service';
 
@@ -25,11 +26,12 @@ class AddFollowupDto {
 }
 
 @Controller('qa')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, ConsentGuard)
 export class QaController {
   constructor(private readonly qa: QaService) {}
 
   @Post('sessions')
+  @RequireConsent('健康信息处理')
   createSession(@CurrentUser() user: { userId: string }, @Body() dto: CreateSessionDto) {
     return this.qa.createSession(user.userId, dto.analysisId, dto.title);
   }
@@ -40,11 +42,13 @@ export class QaController {
   }
 
   @Get('sessions/:id')
+  @RequireConsent('健康信息处理')
   getSession(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
     return this.qa.getSession(user.userId, id);
   }
 
   @Post('sessions/:id/messages')
+  @RequireConsent('健康信息处理')
   ask(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: AskDto) {
     return this.qa.ask(user.userId, id, dto.question);
   }

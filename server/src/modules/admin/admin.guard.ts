@@ -2,6 +2,7 @@ import {
   applyDecorators,
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   SetMetadata,
   UnauthorizedException,
@@ -39,7 +40,8 @@ export class AdminGuard implements CanActivate {
       context.getClass(),
     ]);
     if (permission && !session.permissions.includes(permission) && !session.permissions.includes('*')) {
-      throw new UnauthorizedException('无权限执行该操作');
+      // 越权：已登录但无权限，返回 1003（区别于未登录的 1002）
+      throw new ForbiddenException('无权限执行该操作');
     }
     req.admin = session;
     return true;

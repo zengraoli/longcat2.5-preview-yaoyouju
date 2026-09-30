@@ -132,7 +132,7 @@ async function onLogin() {
     return;
   }
   try {
-    const result = await login(phone.value, code.value);
+    const result = await login(phone.value, code.value, consented.value ? ['健康信息处理'] : []);
     setAuthToken(result.token);
     uni.switchTab({ url: '/pages/home/index' });
   } catch (e) {
