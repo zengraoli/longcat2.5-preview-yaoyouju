@@ -10,13 +10,13 @@
 
       <!-- 筛选 -->
       <div class="contents__filters">
-        <select v-model="filterType" class="contents__select"><option>类型：全部</option><option>视频</option><option>图文</option></select>
-        <select v-model="filterStatus" class="contents__select"><option>状态：全部</option><option>已发布</option><option>待医学审核</option><option>草稿</option><option>更正中</option><option>已撤回</option></select>
+        <select class="contents__select"><option>类型：全部</option><option>视频</option><option>图文</option></select>
+        <select class="contents__select"><option>状态：全部</option><option>已发布</option><option>待医学审核</option><option>草稿</option><option>更正中</option><option>已撤回</option></select>
         <select class="contents__select"><option>适用范围：全部</option></select>
         <select class="contents__select"><option>审核人：全部</option></select>
         <div class="contents__filter-actions">
-          <button class="btn btn--secondary">批量下线（需双人确认）</button>
-          <button class="btn btn--primary">＋ 新建内容</button>
+          <button class="btn btn--secondary" @click="onBatchOffline">批量下线（需双人确认）</button>
+          <button class="btn btn--primary" @click="onCreate">＋ 新建内容</button>
         </div>
       </div>
 
@@ -41,7 +41,7 @@
               <td>{{ item.type }}</td>
               <td><StatusTag :label="item.currentStatus" /></td>
               <td>v{{ item.version ?? '—' }}</td>
-              <td>{{ item.reviewer ?? '—' }}</td>
+              <td>{{ item.reviewerName ?? '—' }}</td>
               <td>{{ item.publishedAt ?? '—' }}</td>
               <td>{{ item.refCount }}</td>
               <td>
@@ -49,7 +49,7 @@
               </td>
               <td class="table__actions">
                 <button class="btn btn--text" @click="goDetail(item)">详情</button>
-                <button class="btn btn--text">更正</button>
+                <button class="btn btn--text" @click="onCorrect(item)">更正</button>
               </td>
             </tr>
           </tbody>
@@ -76,19 +76,11 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { api } from '@/api/client';
+import { listContents, offlineContent, batchOffline, createContent } from '@/api';
 import type { ContentItem } from '@/api/types';
 
 const router = useRouter();
-const filterType = ref('类型：全部');
-const filterStatus = ref('状态：全部');
-
-interface RowItem extends ContentItem {
-  publishedAt: string | null;
-  refCount: number;
-}
-
-const items = ref<RowItem[]>([]);
+const items = ref<Array<ContentItem & { reviewerName?: string; publishedAt?: string | null; refCount?: number }>>([]);
 
 const statusStats = computed(() => {
   const count = (s: string) => items.value.filter((i) => i.currentStatus === s).length;
@@ -101,17 +93,48 @@ const statusStats = computed(() => {
   ];
 });
 
-function goDetail(item: RowItem) {
+function goDetail(item: ContentItem) {
   router.push({ name: 'content-detail', params: { id: item.id } });
 }
 
-onMounted(async () => {
+async function onBatchOffline() {
+  const published = items.value.filter((i) => i.currentStatus === '已发布');
+  if (published.length === 0) return;
   try {
-    items.value = await api.get<RowItem[]>('/contents');
+    await batchOffline(published.map((i) => i.id));
+    await load();
+  } catch (e) {
+    // 错误提示
+  }
+}
+
+async function onCreate() {
+  try {
+    await createContent({ type: '视频', title: '新内容', script: '脚本', subtitleText: '字幕' });
+    await load();
+  } catch (e) {
+    // 错误提示
+  }
+}
+
+async function onCorrect(item: ContentItem) {
+  try {
+    await offlineContent(item.id);
+    await load();
+  } catch (e) {
+    // 错误提示
+  }
+}
+
+async function load() {
+  try {
+    items.value = await listContents();
   } catch {
     // 加载失败不阻塞
   }
-});
+}
+
+onMounted(load);
 </script>
 
 <style scoped>
@@ -197,6 +220,7 @@ onMounted(async () => {
 .table__actions {
   display: flex;
   gap: 8px;
+  white-space: nowrap;
 }
 .table__pagination {
   display: flex;

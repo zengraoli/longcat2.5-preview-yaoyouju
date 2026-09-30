@@ -160,6 +160,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -210,7 +211,7 @@ const terms = ref([
 ]);
 
 function onFeedback(opt: string) {
-  alert(`感谢反馈：${opt}（演示）`);
+  toast(`感谢反馈：${opt}（演示）`);
 }
 
 onMounted(async () => {

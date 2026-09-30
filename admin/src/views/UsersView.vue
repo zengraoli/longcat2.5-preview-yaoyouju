@@ -22,9 +22,9 @@
             <tr v-for="m in members" :key="m.id">
               <td class="table__title">{{ m.name }}</td>
               <td>{{ m.email }}</td>
-              <td><StatusTag :label="m.role" :tone="m.roleTone" /></td>
-              <td><StatusTag :label="m.mfa" :tone="m.mfa === '已绑定' ? 'ok' : 'warn'" /></td>
-              <td>{{ m.lastLogin }}</td>
+              <td><StatusTag :label="m.roleName" :tone="m.roleTone" /></td>
+              <td><StatusTag :label="m.mfaEnabled ? '已绑定' : '未绑定'" :tone="m.mfaEnabled ? 'ok' : 'warn'" /></td>
+              <td>{{ m.lastLoginAt ?? '—' }}</td>
               <td><StatusTag :label="m.status" /></td>
               <td class="table__actions">
                 <button class="btn btn--text">改角色</button>
@@ -99,18 +99,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
+import { listAdminUsers } from '@/api';
+import type { AdminUser } from '@/api/types';
 
-const members = ref([
-  { id: 'admin-super', name: '赵总', email: 'zhao@example.com', role: '超级管理员', roleTone: 'error' as const, mfa: '已绑定', lastLogin: '2026-09-21 09:02', status: '正常' },
-  { id: 'admin-clinical', name: '李医生', email: 'li@example.com', role: '临床审核', roleTone: 'info' as const, mfa: '已绑定', lastLogin: '2026-09-21 10:40', status: '正常' },
-  { id: 'admin-clinical-2', name: '张医生', email: 'zhang@example.com', role: '临床审核', roleTone: 'info' as const, mfa: '已绑定', lastLogin: '2026-09-19 16:20', status: '正常' },
-  { id: 'admin-ops', name: '王编辑', email: 'wang@example.com', role: '运营编辑', roleTone: 'ok' as const, mfa: '已绑定', lastLogin: '2026-09-21 08:55', status: '正常' },
-  { id: 'admin-tech', name: '周工', email: 'zhou@example.com', role: '技术负责人', roleTone: 'warn' as const, mfa: '已绑定', lastLogin: '2026-09-21 11:10', status: '正常' },
-  { id: 'admin-compliance', name: '陈律师', email: 'chen@example.com', role: '合规支持（只读）', roleTone: 'neutral' as const, mfa: '未绑定', lastLogin: '2026-09-15 14:00', status: '待绑定 MFA' },
-]);
+const members = ref<Array<AdminUser & { email: string; roleName: string; roleTone: 'ok' | 'warn' | 'error' | 'info' | 'neutral'; mfaEnabled: boolean; lastLoginAt: string | null; status: string }>>([]);
 
 const permissionMatrix = ref([
   { point: '内容：编辑草稿 / 提交', values: ['✓', '—', '—', '—', '✓'] },
@@ -137,6 +132,23 @@ const dualConfirm = ref([
   { name: '功能开关（高危）', value: '技术负责人 + 临床审核 / 超管' },
   { name: '模型激活 / 回滚', value: '技术负责人 + 超管' },
 ]);
+
+onMounted(async () => {
+  try {
+    const users = await listAdminUsers();
+    members.value = users.map((u) => ({
+      ...u,
+      email: `${u.name}@example.com`,
+      roleName: u.roleId === 'role-super' ? '超级管理员' : u.roleId === 'role-clinical' ? '临床审核' : u.roleId === 'role-ops' ? '运营编辑' : u.roleId === 'role-tech' ? '技术负责人' : '合规支持（只读）',
+      roleTone: u.roleId === 'role-super' ? 'error' as const : u.roleId === 'role-clinical' ? 'info' as const : u.roleId === 'role-ops' ? 'ok' as const : u.roleId === 'role-tech' ? 'warn' as const : 'neutral' as const,
+      mfaEnabled: !!u.mfaEnabled,
+      lastLoginAt: u.lastLoginAt,
+      status: u.status === 'active' ? '正常' : '待绑定 MFA',
+    }));
+  } catch {
+    // 加载失败不阻塞
+  }
+});
 </script>
 
 <style scoped>
@@ -147,6 +159,17 @@ const dualConfirm = ref([
   font-size: 20px;
   font-weight: 500;
   margin: 0;
+}
+.users__grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.users__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 .card {
   background: var(--surface);
@@ -170,6 +193,7 @@ const dualConfirm = ref([
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 .card__tag {
   font-size: 12px;
@@ -191,17 +215,6 @@ const dualConfirm = ref([
   color: var(--text-2);
   line-height: 1.5;
   margin: 12px 0 0;
-}
-.users__grid {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 16px;
-  align-items: start;
-}
-.users__side {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
 }
 .table {
   width: 100%;
@@ -284,6 +297,7 @@ const dualConfirm = ref([
   justify-content: center;
 }
 .btn--primary { background: var(--primary); color: #fff; }
+.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
 .btn--text {
   background: none;

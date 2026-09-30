@@ -153,6 +153,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -194,7 +195,7 @@ function toggleDone(opt: string) {
 }
 
 function onSave(updateCurrent = false) {
-  alert(updateCurrent ? '已保存并更新当前情况（演示）' : '已保存记录（演示）');
+  toast(updateCurrent ? '已保存并更新当前情况（演示）' : '已保存记录（演示）');
 }
 
 onMounted(async () => {

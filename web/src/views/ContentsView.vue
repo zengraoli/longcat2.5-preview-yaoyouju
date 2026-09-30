@@ -135,6 +135,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';

@@ -9,6 +9,8 @@ export interface AdminSession {
   permissions: string[];
 }
 
+const TOKEN_KEY = 'yaoyouju_admin_token';
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     session: null as AdminSession | null,

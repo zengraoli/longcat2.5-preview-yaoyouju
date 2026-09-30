@@ -62,11 +62,11 @@ import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { api } from '@/api/client';
+import { listAuditLogs, verifyAuditLogs } from '@/api';
 import type { AuditLog } from '@/api/types';
 
-const lastVerify = ref('2026-09-21 06:00');
-const total = ref(12406);
+const lastVerify = ref('—');
+const total = ref(0);
 
 interface LogRow {
   time: string;
@@ -80,22 +80,34 @@ interface LogRow {
   hash: string;
 }
 
-const logs = ref<LogRow[]>([
-  { time: '2026-09-21 11:10', actor: '周工', role: '技术负责人', roleTone: 'warn', action: '创建候选发布', actionTone: 'info', target: 'model_release R-2026.09.21-c · 提示词 p14 → p15；检索 R-4 不变', requestId: 'req_9f3a…', hash: 'a81c2e0f' },
-  { time: '2026-09-21 10:52', actor: '李医生', role: '临床审核', roleTone: 'info', action: '读取明文（单条授权）', actionTone: 'warn', target: 'user U-8F3K… · 报告 RPT-5521 与 12 条记录 · 授权 G-0031（举报 #ER-0213）', requestId: 'req_8c11…', hash: '5d7e9a44' },
-  { time: '2026-09-21 10:40', actor: '李医生', role: '临床审核', roleTone: 'info', action: '举报复核', actionTone: 'ok', target: 'error_report #ER-0213 · 状态 triaged → in_review · 结论：引用核对漏检', requestId: 'req_7be0…', hash: 'c03f1b92' },
-  { time: '2026-09-21 09:41', actor: '系统', role: '—', roleTone: 'neutral', action: '安全事件', actionTone: 'error', target: 'safety_event RF-01 · 用户 U-8F3K… · 动作：提示就医 + 停止个性化分析 · 规则 rs-1.3', requestId: 'req_6a77…', hash: 'e2b4d160' },
-  { time: '2026-09-20 17:35', actor: '王编辑', role: '运营编辑', roleTone: 'ok', action: '提交审核', actionTone: 'info', target: 'content C-0007 · v2 · draft → pending_review', requestId: 'req_51d2…', hash: '9a0cf7b3' },
-  { time: '2026-09-20 16:02', actor: '赵总 + 周工', role: '超管 + 技术', roleTone: 'error', action: '功能开关变更（双人）', actionTone: 'warn', target: 'feature_switch ocr_extract · on → off → on（误操作回滚，原因已记录）', requestId: 'req_4e9b…', hash: '7bd51e08' },
-  { time: '2026-09-19 14:20', actor: '陈律师', role: '合规支持', roleTone: 'neutral', action: '查询审计', actionTone: 'info', target: 'audit_log 查询：操作人=李医生 · 动作=读取明文 · 近 30 天', requestId: 'req_3c08…', hash: '12f8a6c5' },
-  { time: '2026-09-18 10:02', actor: '李医生', role: '临床审核', roleTone: 'info', action: '内容更正标记', actionTone: 'warn', target: 'content C-0007 · v1 · published → correcting · 依据举报 #ER-0197', requestId: 'req_2b5f…', hash: 'f4e07d21' },
-  { time: '2026-09-18 09:15', actor: '系统', role: '—', roleTone: 'neutral', action: '删除任务完成', actionTone: 'neutral', target: 'deletion_job DJ-0042 · 用户 U-5ZZQ… · 覆盖：patient*/identity/OSS/缓存/派生摘要 · 备份轮换至 10-18', requestId: 'req_1a44…', hash: 'b7c93e5a' },
-  { time: '2026-09-17 21:30', actor: '系统', role: '—', roleTone: 'neutral', action: '同意撤回', actionTone: 'warn', target: 'consent health_processing · 用户 U-3LMN… · 效果：analysis_locked', requestId: 'req_0f2e…', hash: 'd9a1c07e' },
-]);
+const logs = ref<LogRow[]>([]);
+
+function actionTone(action: string): LogRow['actionTone'] {
+  if (action.includes('安全事件') || action.includes('删除')) return 'error';
+  if (action.includes('撤回') || action.includes('变更') || action.includes('更正')) return 'warn';
+  if (action.includes('创建') || action.includes('提交') || action.includes('发布')) return 'info';
+  return 'neutral';
+}
 
 onMounted(async () => {
   try {
-    await api.get<AuditLog[]>('/admin/audit-logs');
+    const items = await listAuditLogs();
+    logs.value = items.map((l) => ({
+      time: l.createdAt.slice(0, 16).replace('T', ' '),
+      actor: l.actorId ?? '系统',
+      role: '—',
+      roleTone: 'neutral' as const,
+      action: l.action,
+      actionTone: actionTone(l.action),
+      target: l.target ?? '—',
+      requestId: l.requestId ?? '—',
+      hash: l.hash.slice(0, 8),
+    }));
+    total.value = items.length;
+    const verify = await verifyAuditLogs();
+    if (verify.valid) {
+      lastVerify.value = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    }
   } catch {
     // 加载失败不阻塞
   }

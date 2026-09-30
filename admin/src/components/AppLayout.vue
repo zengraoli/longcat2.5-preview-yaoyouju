@@ -96,8 +96,8 @@ function onLogout() {
 }
 .layout__sidebar {
   width: 220px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: #0B3B40;
+  color: #fff;
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
@@ -141,12 +141,12 @@ function onLogout() {
   padding: 0 12px;
   border-radius: 8px;
   font-size: 14px;
-  color: var(--text-2);
+  color: rgba(255, 255, 255, 0.7);
   text-decoration: none;
 }
 .layout__menu-item--active {
-  background: var(--primary-light);
-  color: var(--primary);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
   font-weight: 500;
 }
 .layout__sidebar-footer {
@@ -173,19 +173,20 @@ function onLogout() {
 .layout__user-name {
   font-size: 13px;
   font-weight: 500;
+  color: #fff;
 }
 .layout__user-role {
   font-size: 11px;
-  color: var(--text-3);
+  color: rgba(255, 255, 255, 0.6);
 }
 .layout__logout {
   width: 100%;
   min-height: 36px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   background: none;
   font-size: 13px;
-  color: var(--text-2);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
 }
 .layout__content {

@@ -149,6 +149,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
@@ -221,7 +222,7 @@ function goFollowup() {
 }
 
 function onConfirm() {
-  alert('已确认并更新当前情况（演示）');
+  toast('已确认并更新当前情况（演示）');
 }
 
 onMounted(async () => {
@@ -271,6 +272,16 @@ onMounted(async () => {
   grid-template-columns: 1fr 1.2fr 1fr;
   gap: 16px;
   align-items: start;
+}
+@media (max-width: 1100px) {
+  .dashboard__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .dashboard__grid {
+    grid-template-columns: 1fr;
+  }
 }
 .dashboard__col {
   display: flex;

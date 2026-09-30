@@ -19,7 +19,7 @@
       <div class="layout__actions">
         <button class="layout__emergency" @click="showEmergency = true">⚠ 紧急就医提示</button>
         <span class="layout__bell">🔔</span>
-        <span class="layout__avatar">U</span>
+        <router-link to="/account" class="layout__avatar">U</router-link>
       </div>
     </header>
     <main class="layout__main">

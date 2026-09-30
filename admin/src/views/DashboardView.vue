@@ -12,8 +12,8 @@
       <div class="dashboard__stats">
         <div class="stat-card">
           <div class="stat-card__label">今日分析任务</div>
-          <div class="stat-card__value">{{ stats.tasks.total }}</div>
-          <div class="stat-card__sub">成功 {{ stats.tasks.total - stats.tasks.failed }} · 阻断 {{ redFlags }} · 失败 {{ stats.tasks.failed }}</div>
+          <div class="stat-card__value">{{ stats.tasks.today }}</div>
+          <div class="stat-card__sub">成功 {{ stats.tasks.today - stats.tasks.failed }} · 失败 {{ stats.tasks.failed }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">失败率（15 分钟）</div>
@@ -37,8 +37,8 @@
         </div>
         <div class="stat-card">
           <div class="stat-card__label">待处理举报</div>
-          <div class="stat-card__value stat-card__value--error">{{ stats.pendingReports }}</div>
-          <div class="stat-card__sub">高 1 · 中 2 · 低 2</div>
+          <div class="stat-card__value stat-card__value--error">{{ stats.pendingReports.total }}</div>
+          <div class="stat-card__sub">高 {{ stats.pendingReports.high }} · 中 {{ stats.pendingReports.mid }} · 低 {{ stats.pendingReports.low }}</div>
         </div>
       </div>
 
@@ -135,22 +135,21 @@
 import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { api } from '@/api/client';
+import { getDashboard } from '@/api';
 import type { DashboardStats } from '@/api/types';
 
 const today = new Date().toISOString().slice(0, 10);
 const stats = ref<DashboardStats>({
-  tasks: { total: 312, failed: 3 },
-  pendingReview: 3,
-  pendingReports: 5,
+  tasks: { total: 0, today: 0, failed: 0, blocked: 0 },
+  pendingReview: 0,
+  pendingReports: { total: 0, high: 0, mid: 0, low: 0 },
   safetyEvents: [],
   switches: [],
   evalRuns: [],
 });
 
-const redFlags = computed(() => stats.value.safetyEvents.filter((e) => e.severity === '高').length);
 const failureRate = computed(() =>
-  stats.value.tasks.total === 0 ? '0.0' : ((stats.value.tasks.failed / stats.value.tasks.total) * 100).toFixed(1),
+  stats.value.tasks.today === 0 ? '0.0' : ((stats.value.tasks.failed / stats.value.tasks.today) * 100).toFixed(1),
 );
 
 const chartData = ref(
@@ -178,7 +177,7 @@ function formatTime(iso: string) {
 
 onMounted(async () => {
   try {
-    stats.value = await api.get<DashboardStats>('/admin/dashboard');
+    stats.value = await getDashboard();
   } catch {
     // 加载失败不阻塞
   }
@@ -265,16 +264,9 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 500;
 }
-.card__title--ok { color: var(--ok); }
 .card__tag {
   font-size: 12px;
   color: var(--text-3);
-}
-.card__note {
-  font-size: 12px;
-  color: var(--text-2);
-  line-height: 1.5;
-  margin: 12px 0 0;
 }
 .chart {
   display: flex;
@@ -326,14 +318,17 @@ onMounted(async () => {
   border-bottom: 1px solid var(--border);
 }
 .table td {
-  padding: 10px 12px;
+  padding: 12px;
   border-bottom: 1px solid var(--border);
+  vertical-align: middle;
 }
 .switch-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
 }
 .switch-item__name {
   font-size: 14px;
@@ -349,6 +344,7 @@ onMounted(async () => {
   border-radius: 11px;
   background: var(--border);
   position: relative;
+  flex-shrink: 0;
 }
 .switch::after {
   content: '';
@@ -403,10 +399,13 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
 }
+.btn--primary { background: var(--primary); color: #fff; }
+.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--text {
   background: none;
   color: var(--primary);
   min-height: 32px;
   padding: 0;
+  font-size: 13px;
 }
 </style>

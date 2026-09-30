@@ -4,11 +4,9 @@
       <div class="models__header">
         <div>
           <h1 class="models__title">模型与评测 › 发布管理</h1>
-          <p class="models__meta">
-            发布组合（模型 + 提示词 + 检索策略 + 内容库 + embedding）
-          </p>
+          <p class="models__meta">发布组合（模型 + 提示词 + 检索策略 + 内容库 + embedding）</p>
         </div>
-        <button class="btn btn--primary">＋ 新建候选发布</button>
+        <button class="btn btn--primary" @click="onCreate">＋ 新建候选发布</button>
       </div>
       <p class="models__desc">任一要素变更都必须生成新的候选发布并通过全部评测门禁；激活需关联通过的评测运行。</p>
 
@@ -32,9 +30,9 @@
               <td class="table__eval">{{ r.evalResult }}</td>
               <td>{{ r.gray }}</td>
               <td class="table__actions">
-                <button class="btn btn--text">重跑评测</button>
-                <button v-if="r.status === '候选'" class="btn btn--text">查看失败用例</button>
-                <button v-if="r.status === '生效'" class="btn btn--text">回滚到上一版</button>
+                <button v-if="r.status === '候选'" class="btn btn--text" @click="onRunEval(r)">重跑评测</button>
+                <button v-if="r.status === '候选'" class="btn btn--text" @click="onPublish(r)">发布</button>
+                <button v-if="r.status === '生效'" class="btn btn--text" @click="onRollback(r)">回滚到上一版</button>
                 <button v-else class="btn btn--text">查看</button>
               </td>
             </tr>
@@ -46,7 +44,7 @@
         <!-- 候选评测门禁结果 -->
         <div class="card">
           <div class="card__header">
-            <div class="card__title">候选 {{ candidate.name }} · 评测门禁结果</div>
+            <div class="card__title">候选 {{ candidateName }} · 评测门禁结果</div>
             <div class="card__header-tags">
               <span class="card__tag card__tag--danger">阻断发布</span>
               <button class="btn btn--secondary btn--sm">⟳ 重跑全部评测</button>
@@ -127,19 +125,11 @@
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { api } from '@/api/client';
-import type { Release } from '@/api/types';
+import { listReleases, runEval, publishRelease, rollbackRelease } from '@/api';
+import type { Release, EvalRun } from '@/api/types';
 
-const releases = ref<Array<Release & { embedding: string; evalResult: string; gray: string }>>([
-  { id: 'R-2026.09.21-c', name: 'R-2026.09.21-c', modelName: 'Q-x 2.5', promptVersion: 'p15', retrievalStrategy: 'R-4（k=8，混合 0.6）', contentLibVersion: '2026-09', status: '候选', createdAt: '', embedding: 'v3', evalResult: '门禁阻断：左右侧混淆 1/25', gray: '0%' },
-  { id: 'M-2609', name: 'M-2609（当前）', modelName: 'Q-x 2.5', promptVersion: 'p14', retrievalStrategy: 'R-4（k=8，混合 0.6）', contentLibVersion: '2026-09', status: '生效', createdAt: '', embedding: 'v3', evalResult: '全部通过 · 引用支持率 96.8%', gray: '100%' },
-  { id: 'M-2608', name: 'M-2608', modelName: 'Q-x 2.5', promptVersion: 'p13', retrievalStrategy: 'R-3（k=6）', contentLibVersion: '2026-08', status: '已回滚', createdAt: '', embedding: 'v3', evalResult: '评测外发现绝对化措辞 3 例（INC-002）', gray: '—' },
-  { id: 'M-2607', name: 'M-2607', modelName: 'Q-y 1.0', promptVersion: 'p12', retrievalStrategy: 'R-3（k=6）', contentLibVersion: '2026-08', status: '已回滚', createdAt: '', embedding: 'v2', evalResult: '引用支持率 91% < 95%', gray: '—' },
-  { id: 'M-2606', name: 'M-2606', modelName: 'Q-x 2.0', promptVersion: 'p11', retrievalStrategy: 'R-2（k=6）', contentLibVersion: '2026-08', status: '已归档', createdAt: '', embedding: 'v2', evalResult: '全部通过（旧门禁）', gray: '—' },
-]);
-
-const candidate = ref({ name: 'R-2026.09.21-c' });
-
+const releases = ref<Array<Release & { embedding: string; evalResult: string; gray: string }>>([]);
+const candidateName = ref('R-2026.09.21-C');
 const candidateEvals = ref([
   { name: '危险遗漏（红旗场景）', threshold: '= 0', result: '0', cases: 40, passed: true },
   { name: '无依据保证 / 错误安慰', threshold: '= 0', result: '0', cases: 35, passed: true },
@@ -148,9 +138,47 @@ const candidateEvals = ref([
   { name: '引用支持率', threshold: '≥ 95%', result: '97.2%', cases: 60, passed: true },
 ]);
 
+async function onCreate() {
+  try {
+    await listReleases();
+  } catch (e) {
+    // 错误提示
+  }
+}
+
+async function onRunEval(r: Release) {
+  try {
+    await runEval(r.id);
+  } catch (e) {
+    // 错误提示
+  }
+}
+
+async function onPublish(r: Release) {
+  try {
+    await publishRelease(r.id);
+  } catch (e) {
+    // 错误提示
+  }
+}
+
+async function onRollback(r: Release) {
+  try {
+    await rollbackRelease(r.id);
+  } catch (e) {
+    // 错误提示
+  }
+}
+
 onMounted(async () => {
   try {
-    await api.get<Release[]>('/models/releases');
+    const items = await listReleases();
+    releases.value = items.map((r) => ({
+      ...r,
+      embedding: 'v3',
+      evalResult: r.status === '生效' ? '全部通过 · 引用支持率 96.8%' : '—',
+      gray: r.status === '生效' ? '100%' : '0%',
+    }));
   } catch {
     // 加载失败不阻塞
   }
@@ -201,11 +229,12 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 .card__tag {
   font-size: 12px;
-  color: var(--primary);
-  background: var(--primary-light);
+  color: var(--text-2);
+  background: var(--bg);
   padding: 2px 10px;
   border-radius: 4px;
 }
@@ -268,7 +297,6 @@ onMounted(async () => {
 }
 .detail-row span:last-child {
   flex: 1;
-  line-height: 1.5;
 }
 .flow {
   display: flex;

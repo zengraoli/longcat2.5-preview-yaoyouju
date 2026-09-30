@@ -132,6 +132,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -168,11 +169,11 @@ function onRevoke() {
     window.location.href = '/login';
     return;
   }
-  alert('已撤回同意（演示）');
+  toast('已撤回同意（演示）');
 }
 
 function onDelete() {
-  alert('删除账户需要验证码二次确认（演示）');
+  toast('删除账户需要验证码二次确认（演示）');
 }
 </script>
 

@@ -114,6 +114,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import TipBar from '@/components/TipBar.vue';
@@ -133,7 +134,7 @@ const emergency = ref({ title: '', redFlags: [] as string[], note: '' });
 
 async function onSendCode() {
   if (!/^1\d{10}$/.test(phone.value)) {
-    alert('请输入正确的手机号');
+    toast('请输入正确的手机号');
     return;
   }
   try {
@@ -143,27 +144,36 @@ async function onSendCode() {
       countdown.value -= 1;
       if (countdown.value <= 0) clearInterval(timer);
     }, 1000);
-    alert('验证码已发送（演示固定 123456）');
+    toast('验证码已发送（演示固定 123456）');
   } catch (e) {
-    alert((e as Error).message);
+    toast((e as Error).message);
   }
 }
 
 async function onLogin() {
   if (!agreed.value) {
-    alert('请先阅读并同意用户协议');
+    uni_showToast('请先阅读并同意用户协议');
     return;
   }
   if (!consented.value) {
-    alert('请单独同意处理健康信息');
+    uni_showToast('请单独同意处理健康信息');
     return;
   }
   try {
-    await auth.login(phone.value, code.value);
+    await auth.login(phone.value, code.value, ['健康信息处理']);
     router.push({ name: 'dashboard' });
   } catch (e) {
-    alert((e as Error).message);
+    uni_showToast((e as Error).message);
   }
+}
+
+function uni_showToast(msg: string) {
+  // Web 环境使用轻提示，避免阻塞
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }
 
 onMounted(async () => {

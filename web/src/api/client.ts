@@ -1,9 +1,10 @@
 /**
  * 接口封装：统一响应格式 {"code":0,"data":...,"message":"ok"}；
- * 出错时 code 非 0，message 为中文。所有请求经 /api 代理到 server。
+ * 出错时 code 非 0，message 为中文。令牌持久化在 localStorage。
  */
 
 const BASE = '/api';
+const TOKEN_KEY = 'yaoyouju_web_token';
 
 export class ApiError extends Error {
   code: number;
@@ -13,14 +14,22 @@ export class ApiError extends Error {
   }
 }
 
-let authToken: string | null = null;
-
 export function setAuthToken(token: string | null) {
-  authToken = token;
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
 
-export function getAuthToken() {
-  return authToken;
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
 }
 
 async function request<T>(pathname: string, options: RequestInit = {}): Promise<T> {
@@ -28,7 +37,8 @@ async function request<T>(pathname: string, options: RequestInit = {}): Promise<
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
-  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${BASE}${pathname}`, { ...options, headers });
   const json = (await res.json().catch(() => ({}))) as {
     code: number;
@@ -36,6 +46,10 @@ async function request<T>(pathname: string, options: RequestInit = {}): Promise<
     message: string;
   };
   if (json.code !== 0) {
+    if (json.code === 1002) {
+      setAuthToken(null);
+      onUnauthorized?.();
+    }
     throw new ApiError(json.code, json.message || '请求失败');
   }
   return json.data;

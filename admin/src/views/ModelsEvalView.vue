@@ -137,6 +137,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { api } from '@/api/client';
+import { listEvalSets } from '@/api';
 import type { EvalSet } from '@/api/types';
 
 interface EvalSetRow extends EvalSet {
@@ -179,7 +180,19 @@ const failedCase = ref({
 
 onMounted(async () => {
   try {
-    await api.get<EvalSet[]>('/models/eval-sets');
+    const sets = await listEvalSets();
+    evalSets.value = sets.map((s) => ({
+      ...s,
+      meta: `合成 ${s.caseCount} 例`,
+      threshold: '= 0',
+      desc: s.name,
+      lastRun: '—',
+      result: '—',
+      passed: true,
+      lastPassed: '—',
+      history: 0,
+      ok: true,
+    }));
   } catch {
     // 加载失败不阻塞
   }

@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import { getAuthToken } from '@/api/client';
+import { getAuthToken, setAuthToken, setUnauthorizedHandler } from '@/api/client';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -56,6 +56,14 @@ router.beforeEach((to) => {
     return { name: 'login' };
   }
   return true;
+});
+
+// 登录过期时引导回登录页
+setUnauthorizedHandler(() => {
+  setAuthToken(null);
+  if (router.currentRoute.value.name !== 'login') {
+    router.push({ name: 'login' });
+  }
 });
 
 export default router;

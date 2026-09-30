@@ -9,8 +9,8 @@
       </div>
 
       <div class="safety__grid">
-        <!-- 左：应急开关与事故记录 -->
         <div class="safety__main">
+          <!-- 应急开关 -->
           <div class="card">
             <div class="card__header">
               <div class="card__title">⏻ 应急开关</div>
@@ -18,9 +18,9 @@
             </div>
             <div v-for="sw in switches" :key="sw.key" class="switch-row">
               <div class="switch-row__body">
-                <div class="switch-row__name">{{ sw.name }}</div>
+                <div class="switch-row__name">{{ switchLabel(sw.key) }}</div>
                 <div class="switch-row__key">{{ sw.key }}</div>
-                <div class="switch-row__desc">{{ sw.desc }}</div>
+                <div class="switch-row__desc">{{ switchDesc(sw.key) }}</div>
                 <div class="switch-row__meta">
                   <span class="switch-row__confirm">确认：{{ sw.confirm }}</span>
                   <span class="switch-row__change">最近变更 {{ sw.change }}</span>
@@ -30,30 +30,12 @@
             </div>
           </div>
 
+          <!-- 安全事件 -->
           <div class="card">
             <div class="card__header">
-              <div class="card__title">⚠ 事故记录</div>
-              <button class="btn btn--secondary btn--sm">新建</button>
-            </div>
-            <div v-for="inc in incidents" :key="inc.id" class="incident">
-              <div class="incident__header">
-                <span class="incident__id">{{ inc.id }}</span>
-                <StatusTag :label="inc.severity" />
-                <span class="incident__date">{{ inc.date }}</span>
-              </div>
-              <div class="incident__desc">{{ inc.desc }}</div>
-              <div class="incident__status">{{ inc.status }}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 右：安全事件与规则集 -->
-        <div class="safety__side">
-          <div class="card">
-            <div class="card__header">
-              <div class="card__title">安全事件</div>
+              <div class="card__title">⚠ 安全事件（24 小时）</div>
               <div class="card__header-filters">
-                <span class="card__filter-tag">24h: 高 1 · 待确认 1 · 中 1</span>
+                <span class="card__filter-tag">24h: 高 {{ highCount }} · 待确认 {{ pendingCount }} · 中 {{ midCount }}</span>
                 <select class="card__select"><option>规则：全部</option></select>
                 <select class="card__select"><option>严重度：全部</option></select>
                 <select class="card__select"><option>时间：近 7 天</option></select>
@@ -70,12 +52,15 @@
                   <td class="table__action">{{ e.actionTaken }}（24h 内重确认）· rs-1.3</td>
                   <td>{{ e.source }}</td>
                   <td class="table__user">{{ e.user }}</td>
-                  <td>{{ e.time }}</td>
+                  <td>{{ formatTime(e.createdAt) }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
+        </div>
 
+        <div class="safety__side">
+          <!-- 红旗规则集 -->
           <div class="card">
             <div class="card__header">
               <div class="card__title">🛡 红旗规则集</div>
@@ -100,39 +85,65 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { api } from '@/api/client';
+import { getDashboard, listSwitches, setSwitch } from '@/api';
 import type { DashboardStats } from '@/api/types';
 
-const switches = ref([
-  { key: 'personal_analysis', name: '个性化分析（一页分析 + 问与解释）', desc: '关闭后：不创建分析与对话任务；客户端显示回退页；已审核科普与摘要仍可用', confirm: '双人', change: '09-01 周工 + 李医生', enabled: true },
-  { key: 'video_recommend', name: '视频推荐', desc: '关闭后：分析 ⑤ 段与首页不显示推荐', confirm: '单人 + 原因', change: '09-01 周工 + 李医生', enabled: true },
-  { key: 'ocr_extract', name: '拍照提取（OCR）', desc: '关闭后：仅允许粘贴文字', confirm: '单人 + 原因', change: '09-01 周工 + 李医生', enabled: true },
-  { key: 'case_cards', name: '案例卡片（二期）', desc: '二期功能总开关；默认关闭', confirm: '双人', change: '—', enabled: false },
-  { key: 'model_release:R-2026.09.21-C', name: '候选发布灰度', desc: '当前 0%；被评测门禁阻断', confirm: '双人', change: '—', enabled: false },
-]);
+const stats = ref<DashboardStats | null>(null);
+const switches = ref<Array<{ key: string; enabled: boolean; reason: string; updatedAt: string; confirm: string; change: string }>>([]);
+const events = ref<Array<{ ruleCode: string; severity: string; actionTaken: string; source: string; user: string; createdAt: string }>>([]);
 
-const incidents = ref([
-  { id: 'INC-003', severity: '中', date: '09-18', desc: 'v1 视频含具体活动剂量，超出适用范围', status: '已下线 → 更正中 · 复盘完成' },
-  { id: 'INC-002', severity: '高', date: '09-05', desc: 'M-2608 在 3 例评测外用例中出现绝对化措辞', status: '已回滚 · 加入评测集 · 复盘完成' },
-  { id: 'INC-001', severity: '低', date: '08-28', desc: '证据条目许可待确认期间被检索', status: '已修复 · 管线增加许可门禁' },
-]);
+const highCount = computed(() => events.value.filter((e) => e.severity === '高').length);
+const pendingCount = computed(() => events.value.filter((e) => e.severity === '待确认').length);
+const midCount = computed(() => events.value.filter((e) => e.severity === '中').length);
 
-const events = ref<Array<{ ruleCode: string; severity: string; actionTaken: string; source: string; user: string; time: string }>>([]);
+function switchLabel(key: string) {
+  const map: Record<string, string> = {
+    个性化分析: '个性化分析',
+    视频推荐: '视频推荐',
+    拍照提取: '拍照提取（OCR）',
+    案例卡片: '案例卡片（二期）',
+  };
+  return map[key] ?? key;
+}
+
+function switchDesc(key: string) {
+  const map: Record<string, string> = {
+    个性化分析: '关闭后：不创建分析与对话任务；客户端显示回退页；已审核科普与摘要仍可用',
+    视频推荐: '关闭后：分析 ⑤ 段与首页不显示推荐',
+    拍照提取: '关闭后：仅允许粘贴文字',
+    案例卡片: '二期功能总开关；默认关闭',
+  };
+  return map[key] ?? '';
+}
+
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 
 onMounted(async () => {
   try {
-    const stats = await api.get<DashboardStats>('/admin/dashboard');
-    events.value = stats.safetyEvents.map((e) => ({
+    const [dash, sw] = await Promise.all([getDashboard(), listSwitches()]);
+    stats.value = dash;
+    switches.value = sw.map((s) => ({
+      key: s.key,
+      enabled: !!s.enabled,
+      reason: s.reason,
+      updatedAt: s.updatedAt,
+      confirm: s.key === '个性化分析' ? '双人' : s.key === '拍照提取' ? '单人 + 原因' : '双人',
+      change: s.updatedAt ? s.updatedAt.slice(5, 10) : '—',
+    }));
+    events.value = dash.safetyEvents.map((e) => ({
       ruleCode: e.ruleCode,
       severity: e.severity,
       actionTaken: e.actionTaken,
       source: e.source,
       user: 'U-8F3K…',
-      time: e.createdAt.slice(11, 16),
+      createdAt: e.createdAt,
     }));
   } catch {
     // 加载失败不阻塞
@@ -163,7 +174,7 @@ onMounted(async () => {
 }
 .safety__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 360px;
   gap: 16px;
   align-items: start;
 }
@@ -194,17 +205,6 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 500;
 }
-.card__tag {
-  font-size: 12px;
-  color: var(--primary);
-  background: var(--primary-light);
-  padding: 2px 10px;
-  border-radius: 4px;
-}
-.card__tag--danger {
-  color: var(--error);
-  background: rgba(217, 59, 59, 0.1);
-}
 .card__header-filters {
   display: flex;
   align-items: center;
@@ -231,10 +231,18 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 .card__version {
   font-size: 12px;
   color: var(--text-2);
+}
+.card__tag {
+  font-size: 12px;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 2px 10px;
+  border-radius: 4px;
 }
 .card__note {
   font-size: 12px;
@@ -299,36 +307,6 @@ onMounted(async () => {
 .switch--on::after {
   left: 20px;
 }
-.incident {
-  background: var(--bg);
-  border-radius: 10px;
-  padding: 12px;
-  margin-bottom: 10px;
-}
-.incident__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.incident__id {
-  font-size: 13px;
-  font-weight: 500;
-}
-.incident__date {
-  font-size: 12px;
-  color: var(--text-3);
-  margin-left: auto;
-}
-.incident__desc {
-  font-size: 13px;
-  line-height: 1.5;
-}
-.incident__status {
-  font-size: 12px;
-  color: var(--ok);
-  margin-top: 6px;
-}
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -343,9 +321,9 @@ onMounted(async () => {
   border-bottom: 1px solid var(--border);
 }
 .table td {
-  padding: 10px 12px;
+  padding: 12px;
   border-bottom: 1px solid var(--border);
-  vertical-align: top;
+  vertical-align: middle;
 }
 .table__action {
   line-height: 1.5;
@@ -366,8 +344,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
 }
-.btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
-.btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
 .btn--text {
   background: none;
   color: var(--primary);

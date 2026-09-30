@@ -7,9 +7,9 @@ export interface AdminSession {
 }
 
 export interface DashboardStats {
-  tasks: { total: number; failed: number };
+  tasks: { total: number; today: number; failed: number; blocked: number };
   pendingReview: number;
-  pendingReports: number;
+  pendingReports: { total: number; high: number; mid: number; low: number };
   safetyEvents: Array<{
     ruleCode: string;
     severity: string;

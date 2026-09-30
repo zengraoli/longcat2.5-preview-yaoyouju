@@ -17,10 +17,10 @@ export const useAuthStore = defineStore('auth', {
     async sendSmsCode(phone: string) {
       return api.post<{ sent: boolean }>('/auth/sms-code', { phone });
     },
-    async login(phone: string, code: string) {
+    async login(phone: string, code: string, agreedScopes?: string[]) {
       const result = await api.post<{ token: string; consents: ConsentView[] }>(
         '/auth/login',
-        { phone, code },
+        { phone, code, agreedScopes },
       );
       this.token = result.token;
       this.consents = result.consents;

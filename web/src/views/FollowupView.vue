@@ -84,6 +84,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -113,7 +114,7 @@ const questions = ref([
 ]);
 
 function onExport(format: string) {
-  alert(`已导出${format}（演示）`);
+  toast(`已导出${format}（演示）`);
 }
 
 onMounted(async () => {

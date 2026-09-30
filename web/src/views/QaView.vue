@@ -115,6 +115,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
@@ -197,7 +198,7 @@ function onAddFollowup() {
 
 function uni_showToast() {
   // uni-app 环境用 uni.showToast；web 环境用 alert
-  alert('已加入复诊问题（演示）');
+  toast('已加入复诊问题（演示）');
 }
 
 function goFollowup() {

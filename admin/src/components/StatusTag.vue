@@ -17,10 +17,10 @@ const props = withDefaults(defineProps<Props>(), {
 // 根据标签文案推断色调（三端语义一致）
 const tone = computed(() => {
   if (props.tone !== 'neutral') return props.tone;
-  if (['已确认', '已同意', '已审核 v2', '自述', '已发布', '通过'].includes(props.label)) return 'ok';
-  if (['尚未确认', '未经核实', '报告原文', '待确认', '未开启'].includes(props.label)) return 'warn';
-  if (['有冲突', '已下线 · 更正中', '高', '失败', '阻断发布'].includes(props.label)) return 'error';
-  if (['系统生成', '不作诊断', '中', '低', '已录入'].includes(props.label)) return 'info';
+  if (['已确认', '已同意', '已审核 v2', '已审核 v1', '自述', '已发布', '通过', '正常', '已录入', '已清除', '已标注：随访中'].includes(props.label)) return 'ok';
+  if (['尚未确认', '未经核实', '待确认', '未开启', '待处理', '待审'].includes(props.label)) return 'warn';
+  if (['有冲突', '已下线 · 更正中', '高', '失败', '阻断', '阻断发布', '已回滚', '已停用', '已过期', '已撤回', '已关闭'].includes(props.label)) return 'error';
+  if (['系统生成', '不作诊断', '报告原文', '中', '低', '已授权', '已归档'].includes(props.label)) return 'info';
   return 'neutral';
 });
 </script>
@@ -33,6 +33,7 @@ const tone = computed(() => {
   font-size: 12px;
   font-weight: 500;
   line-height: 1.5;
+  white-space: nowrap;
 }
 .status-tag--ok { color: var(--ok); background: rgba(30, 158, 90, 0.1); }
 .status-tag--warn { color: var(--warn); background: rgba(199, 119, 0, 0.1); }

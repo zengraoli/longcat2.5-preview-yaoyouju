@@ -97,6 +97,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from "@/utils/toast";
 import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -129,7 +130,7 @@ const pipeline = ref({
 
 function onDeactivate() {
   if (!selected.value) return;
-  alert(`已停用 ${selected.value.id}（演示）`);
+  toast(`已停用 ${selected.value.id}（演示）`);
   selected.value = null;
 }
 

@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
 import { IsString, MaxLength } from 'class-validator';
+import Database from 'better-sqlite3';
+import { APP_DB } from '../../database/database.module';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminGuard, RequirePermission } from './admin.guard';
 import { AuditService } from '../audit/audit.service';
@@ -35,6 +37,7 @@ export class AdminController {
     private readonly auth: AdminAuthService,
     private readonly audit: AuditService,
     private readonly feedback: FeedbackService,
+    @Inject(APP_DB) private readonly appDb: Database.Database,
   ) {}
 
   /** 后台登录（账号密码 + TOTP） */
@@ -88,5 +91,17 @@ export class AdminController {
   @RequirePermission('feedback:handle')
   listFeedback(@CurrentAdmin() _admin: unknown) {
     return this.feedback.list();
+  }
+
+  /** 后台成员列表 */
+  @Get('users')
+  @UseGuards(AdminGuard)
+  listUsers(@CurrentAdmin() _admin: unknown) {
+    return this.appDb
+      .prepare(
+        `SELECT u.id, u.name, u.mfa_enabled AS mfaEnabled, u.status, u.last_login_at AS lastLoginAt, r.name AS roleName
+         FROM ADMIN_USER u JOIN ROLE r ON r.id = u.role_id ORDER BY u.rowid ASC`,
+      )
+      .all();
   }
 }

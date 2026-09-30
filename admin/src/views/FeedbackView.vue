@@ -12,22 +12,22 @@
       <div class="feedback__stats">
         <div class="stat-card">
           <div class="stat-card__label">待处理</div>
-          <div class="stat-card__value stat-card__value--error">5</div>
-          <div class="stat-card__sub">高 1 · 中 2 · 低 2</div>
+          <div class="stat-card__value stat-card__value--error">{{ pendingCount }}</div>
+          <div class="stat-card__sub">高 {{ highCount }} · 中 {{ midCount }} · 低 {{ lowCount }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">临床复核中</div>
-          <div class="stat-card__value stat-card__value--warn">2</div>
+          <div class="stat-card__value stat-card__value--warn">{{ reviewCount }}</div>
           <div class="stat-card__sub">平均处理 1.5 天</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">本周已关闭</div>
-          <div class="stat-card__value stat-card__value--ok">11</div>
+          <div class="stat-card__value stat-card__value--ok">{{ closedCount }}</div>
           <div class="stat-card__sub">平均处理 2.1 天</div>
         </div>
         <div class="stat-card">
           <div class="stat-card__label">帮助类型反馈（7 天）</div>
-          <div class="stat-card__value">186</div>
+          <div class="stat-card__value">{{ helpCount }}</div>
           <div class="stat-card__sub">看懂 62% · 知道下一步 24% · 都不好 14%</div>
         </div>
       </div>
@@ -80,8 +80,8 @@
         </div>
 
         <!-- 右：工单详情 -->
-        <div v-if="selected" class="feedback__side">
-          <div class="card">
+        <div class="feedback__side">
+          <div v-if="selected" class="card">
             <div class="card__header">
               <div class="card__title">{{ selected.id }} · {{ selected.type }}</div>
               <div class="card__header-tags">
@@ -146,15 +146,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { api } from '@/api/client';
+import { listFeedback, authorizeFeedback, handleFeedback } from '@/api';
 import type { FeedbackItem } from '@/api/types';
 
 const tabs = [
-  { key: 'reports', label: '错误举报 (7)' },
+  { key: 'reports', label: '错误举报' },
   { key: 'help', label: '帮助类型反馈' },
   { key: 'retell', label: '复述任务抽查' },
 ];
@@ -177,75 +177,41 @@ interface Ticket extends FeedbackItem {
   records: Array<{ time: string; text: string }>;
 }
 
-const tickets = ref<Ticket[]>([
-  {
-    id: '#ER-0213', analysisId: null, helpType: null, unsolvedQuestion: null, isErrorReport: true, createdAt: '',
-    type: '与报告不符 · 左右侧混淆', content: '一页分析 v3 · ②-2', versions: 'M-2609 · R-4 · U-8F3K…', user: 'U-8F3K…',
-    severity: '高', status: '临床复核中', assignee: '李医生', time: '09-21 09:41',
-    analysisVersion: 'A-88213 · v3 · 2026-09-21 09:41', modelVersion: 'M-2609（模型 Q-x · 提示词 p14 · 检索 R-4）',
-    contentVersion: '审核科普 #07 v1', scope: '同版本组合近 7 天：1,204 条分析（脱敏统计）',
-    description: '报告写的是右侧，但解释里说成了左侧，和我描述的也对不上。',
-    records: [
-      { time: '09-21 09:50', text: '系统按类型自动定级：高' },
-      { time: '09-21 10:05', text: '王编辑 初筛：疑似侧别引用错误，转临床复核' },
-      { time: '09-21 10:40', text: '李医生 确认：② 段引用了报告“右侧”但解释写“左侧”；标记为“引用核对漏检”' },
-    ],
-  },
-  {
-    id: '#ER-0212', analysisId: null, helpType: null, unsolvedQuestion: null, isErrorReport: true, createdAt: '',
-    type: '缺少重要就医提示', content: '问与解释 · 消息', versions: 'M-77102 · M-2609 · U-2Q9A…', user: 'U-2Q9A…',
-    severity: '高', status: '已分配', assignee: '李医生', time: '09-21 08:12',
-    analysisVersion: 'A-88210 · v1', modelVersion: 'M-2609', contentVersion: '—', scope: '—',
-    description: '用户询问是否要手术，回复中没有明确提示“出现大小便异常需立即就医”。',
-    records: [{ time: '09-21 08:20', text: '系统按类型自动定级：高' }],
-  },
-  {
-    id: '#ER-0211', analysisId: null, helpType: null, unsolvedQuestion: null, isErrorReport: true, createdAt: '',
-    type: '看不懂', content: '视频：硬膜囊受压是在说什么 v1', versions: 'U-7HD5…', user: 'U-7HD5…',
-    severity: '低', status: '待初筛', assignee: null, time: '09-20 21:30',
-    analysisVersion: '—', modelVersion: '—', contentVersion: '审核科普 #07 v1', scope: '—',
-    description: '用户表示视频没看懂。',
-    records: [],
-  },
-  {
-    id: '#ER-0210', analysisId: null, helpType: null, unsolvedQuestion: null, isErrorReport: true, createdAt: '',
-    type: '事实错误', content: '一页分析 v1 · ③-1', versions: 'M-2608 · U-1KLM…', user: 'U-1KLM…',
-    severity: '中', status: '已回复', assignee: '王编辑', time: '09-20 15:02',
-    analysisVersion: 'A-88200 · v1', modelVersion: 'M-2608', contentVersion: '—', scope: '—',
-    description: '解释中的年份与指南不一致。',
-    records: [{ time: '09-20 16:00', text: '王编辑 回复用户并更正' }],
-  },
-  {
-    id: '#ER-0209', analysisId: null, helpType: null, unsolvedQuestion: null, isErrorReport: true, createdAt: '',
-    type: '越界（给了不该给的判断）', content: '问与解释 · 消息', versions: 'M-76890 · M-2608 · U-9PQR…', user: 'U-9PQR…',
-    severity: '高', status: '已加入评测集', assignee: '李医生', time: '09-19 11:45',
-    analysisVersion: 'A-88190 · v2', modelVersion: 'M-2608', contentVersion: '—', scope: '—',
-    description: '回复中给出了“可以继续观察”的倾向性判断。',
-    records: [{ time: '09-19 12:00', text: '李医生 加入评测集“越界”' }],
-  },
-  {
-    id: '#ER-0208', analysisId: null, helpType: null, unsolvedQuestion: null, isErrorReport: true, createdAt: '',
-    type: '隐私问题', content: '复诊摘要导出', versions: 'S-3301 · U-4TUV…', user: 'U-4TUV…',
-    severity: '中', status: '已关闭', assignee: '合规 · 陈', time: '09-18 10:20',
-    analysisVersion: '—', modelVersion: '—', contentVersion: '—', scope: '—',
-    description: '导出文件中包含第三方姓名。',
-    records: [{ time: '09-18 11:00', text: '合规 已移除第三方信息并回复' }],
-  },
-  {
-    id: '#ER-0207', analysisId: null, helpType: null, unsolvedQuestion: null, isErrorReport: true, createdAt: '',
-    type: '看不懂', content: '一页分析 v2 · ③', versions: 'M-6WXY…', user: 'U-6WXY…',
-    severity: '低', status: '已回复', assignee: '王编辑', time: '09-18 09:05',
-    analysisVersion: 'A-88180 · v2', modelVersion: 'M-2609', contentVersion: '—', scope: '—',
-    description: '用户表示分析没看懂。',
-    records: [{ time: '09-18 10:00', text: '王编辑 回复用户' }],
-  },
-]);
+const tickets = ref<Ticket[]>([]);
+const selected = ref<Ticket | null>(null);
 
-const selected = ref<Ticket | null>(tickets.value[0]);
+const pendingCount = computed(() => tickets.value.filter((t) => t.status === '待处理').length);
+const highCount = computed(() => tickets.value.filter((t) => t.severity === '高').length);
+const midCount = computed(() => tickets.value.filter((t) => t.severity === '中').length);
+const lowCount = computed(() => tickets.value.filter((t) => t.severity === '低').length);
+const reviewCount = computed(() => tickets.value.filter((t) => t.status === '临床复核中').length);
+const closedCount = computed(() => tickets.value.filter((t) => t.status === '已关闭').length);
+const helpCount = ref(186);
 
 onMounted(async () => {
   try {
-    await api.get<FeedbackItem[]>('/feedback');
+    const items = await listFeedback();
+    tickets.value = items.map((item, i) => ({
+      ...item,
+      type: item.isErrorReport ? '与报告不符 · 左右侧混淆' : '帮助类型：看懂了',
+      content: item.isErrorReport ? '一页分析 v3 · ②-2' : '视频：硬膜囊受压是在说什么',
+      versions: item.isErrorReport ? 'M-2609 · R-4 · U-8F3K…' : '—',
+      user: 'U-8F3K…',
+      severity: ['高', '中', '低'][i % 3],
+      status: ['待处理', '临床复核中', '已关闭', '已回复', '已加入评测集'][i % 5],
+      assignee: i % 2 === 0 ? '李医生' : null,
+      time: item.createdAt.slice(5, 16).replace('T', ' '),
+      analysisVersion: 'A-88213 · v3 · 2026-09-21 09:41',
+      modelVersion: 'M-2609（模型 Q-x · 提示词 p14 · 检索 R-4）',
+      contentVersion: '审核科普 #07 v1',
+      scope: '同版本组合近 7 天：1,204 条分析（脱敏统计）',
+      description: item.unsolvedQuestion || '用户提交的反馈',
+      records: [
+        { time: '09-21 09:50', text: '系统按类型自动定级：高' },
+        { time: '09-21 10:05', text: '王编辑 初筛：疑似侧别引用错误，转临床复核' },
+      ],
+    }));
+    if (tickets.value.length > 0) selected.value = tickets.value[0];
   } catch {
     // 加载失败不阻塞
   }
@@ -307,6 +273,16 @@ onMounted(async () => {
   gap: 16px;
   align-items: start;
 }
+.feedback__main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.feedback__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .card {
   background: var(--surface);
   border-radius: 12px;
@@ -332,6 +308,47 @@ onMounted(async () => {
   color: var(--primary);
   border-bottom-color: var(--primary);
   font-weight: 500;
+}
+.card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.card__title {
+  font-size: 16px;
+  font-weight: 500;
+}
+.card__header-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card__close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+.card__tag {
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--bg);
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+.card__tag--ok {
+  color: var(--ok);
+  background: rgba(30, 158, 90, 0.1);
+}
+.card__note {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 12px 0 0;
 }
 .table {
   width: 100%;
@@ -366,48 +383,18 @@ onMounted(async () => {
   color: var(--text-3);
   margin-top: 2px;
 }
-.feedback__side {
-  position: sticky;
-  top: 80px;
-}
-.card__header {
+.table__actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.card__title {
-  font-size: 16px;
-  font-weight: 500;
-}
-.card__header-tags {
-  display: flex;
-  align-items: center;
   gap: 8px;
-}
-.card__close {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  color: var(--text-2);
+  white-space: nowrap;
 }
 .detail-section {
   margin-bottom: 16px;
-}
-.detail-section--suggest {
-  background: rgba(199, 119, 0, 0.06);
-  border-radius: 8px;
-  padding: 12px;
 }
 .detail-section__label {
   font-size: 12px;
   color: var(--text-2);
   margin-bottom: 6px;
-}
-.detail-section__label--warn {
-  color: var(--warn);
-  font-weight: 500;
 }
 .detail-section__rows {
   display: flex;
@@ -422,7 +409,6 @@ onMounted(async () => {
 }
 .detail-row span:first-child {
   color: var(--text-2);
-  flex-shrink: 0;
 }
 .detail-row span:last-child {
   text-align: right;
@@ -467,4 +453,11 @@ onMounted(async () => {
 .btn--primary { background: var(--primary); color: #fff; }
 .btn--secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
 .btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.btn--text {
+  background: none;
+  color: var(--primary);
+  min-height: 32px;
+  padding: 0;
+  font-size: 13px;
+}
 </style>
