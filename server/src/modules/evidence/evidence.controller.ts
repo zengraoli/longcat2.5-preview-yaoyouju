@@ -40,7 +40,7 @@ export class EvidenceController {
 
   /** 证据文档列表 */
   @Get('docs')
-  @RequirePermission('evidence:review')
+  @RequirePermission('evidence:create', 'evidence:review')
   list() {
     return this.evidence.list();
   }

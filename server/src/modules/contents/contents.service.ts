@@ -255,6 +255,7 @@ export class ContentsService {
         if (!this.hasPermission(permissions, 'content:offline')) {
           throw new ForbiddenException(`无权限执行「${action}」`);
         }
+        this.supersedePending(itemId, decision);
         this.insertReview(itemId, actorId, decision, `${action}第一操作人`, comment ?? null);
         this.audit.record({ actorId, action: 'content:offline-initiate', target: itemId });
         return { ...this.getView(itemId), pending: '待第二人确认' } as ContentItemView & { pending: string };
@@ -265,6 +266,7 @@ export class ContentsService {
       if (!this.hasPermission(permissions, 'content:offline')) {
         throw new ForbiddenException(`无权限执行「${action}」`);
       }
+      this.consumePending(itemId, decision);
       const next = transition(item.current_status, action);
       if (!next) throw new ConflictException(`非法状态流转：${item.current_status} 不能执行「${action}」`);
       this.appDb

@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -239,29 +240,20 @@ export class FeedbackService {
     if (!row) throw ERR.NOT_FOUND('反馈不存在');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
-    // 写入单条授权表（每次授权写审计，授权 7 天有效）
+    // 写入单条授权表（每次授权写审计，授权 7 天有效，仅授权人本人可查看原文）
+    // 注意：不修改 FEEDBACK_REPORT.authorized（那是用户勾选的全局授权，与单条授权互不影响）
     this.appDb
       .prepare(
         `INSERT INTO ADMIN_AUTHORIZATION (id, admin_id, target_type, target_id, reason, created_at, expires_at)
          VALUES (?, ?, 'FEEDBACK', ?, '单条授权查看反馈原文', ?, ?)`,
       )
       .run(crypto.randomUUID(), actorId, id, now.toISOString(), expiresAt.toISOString());
-    if (row.isErrorReport) {
-      // 仅错误举报生成处理工单
-      this.appDb
-        .prepare(
-          `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, resolution, authorized)
-           VALUES (?, '中', '已授权', NULL, 1)
-           ON CONFLICT(feedback_id) DO UPDATE SET authorized = 1`,
-        )
-        .run(id);
-    }
     this.audit.record({ actorId, action: 'feedback:authorize', target: id });
     return { id, authorized: true };
   }
 
   /** 处置动作与处理记录（仅管理端）；帮助类反馈不生成举报工单 */
-  handle(actorId: string, id: string, input: { action: string; resolution: string }) {
+  handle(actorId: string, id: string, input: { action: string; resolution: string }, permissions: string[] = []) {
     const row = this.appDb
       .prepare('SELECT id, is_error_report AS isErrorReport FROM FEEDBACK WHERE id = ?')
       .get(id) as { id: string; isErrorReport: number } | undefined;
@@ -275,6 +267,15 @@ export class FeedbackService {
     const ALLOWED_ACTIONS = ['回复用户', '转临床复核', '下线相关内容', '修订解释模板', '加入评测集'];
     if (!ALLOWED_ACTIONS.includes(input.action)) {
       throw ERR.PARAM_INVALID(`不支持的处置动作：${input.action}`);
+    }
+    // 处置动作分级：初筛类（回复用户/转临床复核）需 feedback:triage；
+    // 处置类（下线相关内容/修订解释模板/加入评测集）需 feedback:review（临床复核）
+    const REVIEW_ACTIONS = ['下线相关内容', '修订解释模板', '加入评测集'];
+    if (REVIEW_ACTIONS.includes(input.action) && !permissions.includes('feedback:review')) {
+      throw new ForbiddenException(`无权限执行「${input.action}」`);
+    }
+    if (!REVIEW_ACTIONS.includes(input.action) && !permissions.includes('feedback:triage') && !permissions.includes('feedback:review')) {
+      throw new ForbiddenException(`无权限执行「${input.action}」`);
     }
     // 不同处置动作对应不同状态
     const statusMap: Record<string, string> = {

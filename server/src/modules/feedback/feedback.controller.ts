@@ -109,7 +109,7 @@ export class FeedbackController {
   @Post(':id/handle')
   @UseGuards(AdminGuard)
   @RequirePermission('feedback:triage', 'feedback:review')
-  handle(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string, @Body() dto: HandleDto) {
-    return this.feedback.handle(admin.adminId, id, dto);
+  handle(@CurrentAdmin() admin: CurrentAdminInfo, @Param('id') id: string, @Body() dto: HandleDto) {
+    return this.feedback.handle(admin.adminId, id, dto, admin.permissions);
   }
 }
