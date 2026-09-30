@@ -18,6 +18,9 @@ class AppState {
     var selectedConfusions: List<String> by mutableStateOf(emptyList())
     var lastReportId: String? by mutableStateOf(null)
 
+    /** A02 确认页选中的红旗项，供 A03 就医提示展示 */
+    var redFlagSelected: List<String> by mutableStateOf(emptyList())
+
     /** 登录过期：由网络层置位，主界面观察后回到登录页 */
     var sessionExpired: Boolean by mutableStateOf(false)
 

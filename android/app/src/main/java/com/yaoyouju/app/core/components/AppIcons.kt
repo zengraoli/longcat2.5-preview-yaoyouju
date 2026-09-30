@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Check
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.NotificationsNone
@@ -80,6 +82,8 @@ object AppIcons {
     val Lightbulb = Icons.Outlined.Lightbulb
     val Help = Icons.AutoMirrored.Outlined.HelpOutline
     val Document = Icons.Outlined.Description
+    val Phone = Icons.Outlined.Call
+    val Location = Icons.Outlined.LocationOn
 
     val All: List<ImageVector> = emptyList()
 }

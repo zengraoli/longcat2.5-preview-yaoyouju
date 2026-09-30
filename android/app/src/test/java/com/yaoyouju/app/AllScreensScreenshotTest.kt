@@ -7,10 +7,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.yaoyouju.app.core.design.YaoyoujuTheme
 import com.yaoyouju.app.core.components.TabDestination
+import com.yaoyouju.app.feature.confirm.ConfirmScreen
+import com.yaoyouju.app.feature.confirm.ConfirmUiState
 import com.yaoyouju.app.feature.home.HomeScreen
 import com.yaoyouju.app.feature.home.HomeUiState
 import com.yaoyouju.app.feature.login.LoginScreen
 import com.yaoyouju.app.feature.login.LoginUiState
+import com.yaoyouju.app.feature.redflag.RedFlagScreen
+import com.yaoyouju.app.feature.redflag.RedFlagUiState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,8 +59,49 @@ class AllScreensScreenshotTest {
         )
     }
 
-    /* ---------- A14 首页 · 当前情况 ---------- */
+    /* ---------- A02 当前关键变化确认 ---------- */
     @Test
+    fun a02Confirm() = capture("A02-confirm") {
+        ConfirmScreen(
+            state = ConfirmUiState(
+                step = 1,
+                change = "加重",
+                noneSelected = true,
+                side = "左侧",
+            ),
+            onBack = {},
+            onSelectChange = {},
+            onToggleRedFlag = {},
+            onToggleNone = {},
+            onToggleUncertain = {},
+            onSelectSide = {},
+            onSelectOnset = {},
+            onSetOnsetDate = {},
+            onShowDatePicker = {},
+            onNext = {},
+            onSkip = {},
+        )
+    }
+
+    /* ---------- A03 就医提示 ---------- */
+    @Test
+    fun a03RedFlag() = capture("A03-redflag") {
+        RedFlagScreen(
+            state = RedFlagUiState(
+                selectedText = "会阴区或鞍区麻木、双腿进行性无力",
+                reportHint = "已录入的检查报告原文（2026-08-30）",
+            ),
+            onBack = {},
+            onCall120 = {},
+            onFindHospital = {},
+            onContactDoctor = {},
+            onSummary = {},
+            onContents = {},
+            onDismissHospitalDialog = {},
+        )
+    }
+
+    /* ---------- A14 首页 · 当前情况 ---------- */    @Test
     fun a14Home() = capture("A14-home") {
         HomeScreen(
             state = HomeUiState(

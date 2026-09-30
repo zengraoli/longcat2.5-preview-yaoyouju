@@ -21,8 +21,10 @@ import androidx.navigation.navArgument
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.TabDestination
 import com.yaoyouju.app.core.design.AppColors
+import com.yaoyouju.app.feature.confirm.ConfirmRoute
 import com.yaoyouju.app.feature.home.HomeRoute
 import com.yaoyouju.app.feature.login.LoginRoute
+import com.yaoyouju.app.feature.redflag.RedFlagRoute
 
 /**
  * 单 Activity 的 Compose 导航图。
@@ -102,8 +104,21 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
                     },
                 )
             }
-            composable(Routes.Confirm) { PlaceholderScreen(Routes.Confirm, back) }
-            composable(Routes.RedFlag) { PlaceholderScreen(Routes.RedFlag, back) }
+            composable(Routes.Confirm) {
+                ConfirmRoute(
+                    onBack = back,
+                    onRedFlag = { navController.navigate(Routes.RedFlag) },
+                    onContinue = { navController.navigate(Routes.Confusion) },
+                    onSkip = { navController.navigate(Routes.Confusion) },
+                )
+            }
+            composable(Routes.RedFlag) {
+                RedFlagRoute(
+                    onBack = back,
+                    onSummary = { navController.navigate(Routes.Summary) },
+                    onContents = { navController.navigate(Routes.Contents) },
+                )
+            }
             composable(Routes.Confusion) { PlaceholderScreen(Routes.Confusion, back) }
             composable(Routes.Report) { PlaceholderScreen(Routes.Report, back) }
             composable(Routes.Verify) { PlaceholderScreen(Routes.Verify, back) }
