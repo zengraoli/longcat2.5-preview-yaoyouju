@@ -1,14 +1,5 @@
 import { describe, it, expect } from 'vitest';
-
-/** HTML 转义（导出 PDF 打印弹窗的 XSS 防护） */
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { escapeHtml } from './html';
 
 describe('escapeHtml（打印弹窗 XSS 防护）', () => {
   it('转义 <img onerror> 等脚本注入', () => {

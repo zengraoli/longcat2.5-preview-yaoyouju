@@ -170,6 +170,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { beijingDate } from '@/utils/time';
 import { useRouter, useRoute } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -187,10 +188,11 @@ import {
   previewSummary,
 } from '@/api';
 import type { AnalysisResult } from '@/api/types';
+import { escapeHtml } from '@/utils/html';
 
 const router = useRouter();
 const route = useRoute();
-const today = new Date().toISOString().slice(0, 10);
+const today = beijingDate();
 const analysis = ref<AnalysisResult | null>(null);
 const rawText = ref('');
 const reportDate = ref('');
@@ -396,14 +398,6 @@ function formatDate(iso: string) {
 }
 
 /** 转义 HTML，避免摘要文本在打印弹窗中造成 XSS */
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function toast(msg: string) {
   const el = document.createElement('div');

@@ -85,18 +85,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { beijingDate } from '@/utils/time';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listEpisodes, previewSummary, exportSummary, saveSummary } from '@/api';
 import type { SummaryContent } from '@/api/types';
+import { escapeHtml } from '@/utils/html';
 
 const content = ref<SummaryContent | null>(null);
 const summaryId = ref('');
 const correcting = ref('');
 const correctText = ref('');
 
-const today = new Date().toISOString().slice(0, 10);
+const today = beijingDate();
 
 const questions = computed(() => content.value?.复诊问题 ?? []);
 
@@ -194,14 +196,6 @@ async function onSaveCorrect() {
 }
 
 /** 转义 HTML，避免摘要文本在打印弹窗中造成 XSS */
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function toast(msg: string) {
   const el = document.createElement('div');

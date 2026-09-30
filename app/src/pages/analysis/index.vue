@@ -133,6 +133,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { beijingDate } from '@/utils/time';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import AppChip from '@/components/AppChip.vue';
@@ -142,7 +143,7 @@ import { getAnalysis, createHelpFeedback, createErrorReport, type AnalysisResult
 const pages = getCurrentPages();
 const currentPage = pages[pages.length - 1] as { options?: Record<string, string> };
 const taskId = currentPage?.options?.id ?? '';
-const today = new Date().toISOString().slice(0, 10);
+const today = beijingDate();
 const status = ref('');
 const reason = ref('');
 const result = ref<AnalysisResult | null>(null);

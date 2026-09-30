@@ -86,7 +86,10 @@ const opsHandle = await api('POST', `/feedback/${fbId}/handle`, { action: '下�
 check('运营执行下线相关内容被拒', opsHandle.status === 403, `status=${opsHandle.status}`);
 const clinicalToken = adminTokens['临床审核-沈'];
 const clinicalHandle = await api('POST', `/feedback/${fbId}/handle`, { action: '下线相关内容', resolution: 'x' }, null, clinicalToken);
-check('临床可执行下线相关内容', clinicalHandle.status === 201, `status=${clinicalHandle.status}`);
+check('临床发起下线相关内容', clinicalHandle.status === 201, `status=${clinicalHandle.status}`);
+// 举报下线相关内容需双人确认：超管确认
+const superHandle = await api('POST', `/feedback/${fbId}/handle`, { action: '下线相关内容', resolution: 'x' }, null, superToken);
+check('超管确认下线相关内容', superHandle.status === 201, `status=${superHandle.status}`);
 // 任意动作名被拒
 const badAction = await api('POST', `/feedback/${fbId}/handle`, { action: '随便什么动作', resolution: 'x' }, null, clinicalToken);
 check('任意处置动作被拒', badAction.status === 400 || badAction.status === 1001, `status=${badAction.status}`);
@@ -95,6 +98,10 @@ check('任意处置动作被拒', badAction.status === 400 || badAction.status =
 console.log('=== 单条授权 ===');
 const authRes = await api('POST', `/feedback/${fbId}/authorize`, {}, null, clinicalToken);
 check('临床单条授权', authRes.status === 201, `status=${authRes.status}`);
+// 单条授权需超管审批后生效
+const authId = authRes.data?.data?.authId;
+const approveRes = await api('POST', `/feedback/authorizations/${authId}/approve`, {}, null, superToken);
+check('超管审批单条授权', approveRes.status === 201 && approveRes.data?.data?.status === '已批准', `status=${approveRes.status}`);
 const opsView = await api('GET', '/admin/feedback', null, null, opsToken);
 const opsFb = opsView.data?.data?.find((f) => f.id === fbId);
 check('未授权运营看不到原文', opsFb?.authorized === false && opsFb?.unsolvedQuestion?.includes('脱敏'));

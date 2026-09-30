@@ -131,12 +131,13 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { beijingDate } from '@/utils/time';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listEpisodes, addSymptomLog, createEpisode } from '@/api';
 
-const today = new Date().toISOString().slice(0, 10);
+const today = beijingDate();
 const sitOptions = ['<15分钟', '15-30', '30-60', '>60分钟'];
 const activityOptions = ['能', '部分', '不能'];
 const sleepOptions = [

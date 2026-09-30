@@ -81,6 +81,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
+import { beijingDate } from '@/utils/time';
 import { onShow } from '@dcloudio/uni-app';
 import AppChip from '@/components/AppChip.vue';
 import TipBar from '@/components/TipBar.vue';
@@ -95,7 +96,7 @@ import {
   type QaMessage,
 } from '@/api';
 
-const today = new Date().toISOString().slice(0, 10);
+const today = beijingDate();
 const messages = ref<Array<QaMessage & { outOfScope?: boolean; followupQuestion?: string }>>([]);
 const question = ref('');
 const sessionId = ref('');

@@ -41,8 +41,15 @@ describe('模型发布与评测', () => {
   });
 
   it('门禁全部通过时发布成功（双人确认），可回滚', () => {
-    // 清除种子里的不通过用例（模拟全部修复后重测），使门禁全部通过
-    appDb.prepare("DELETE FROM EVAL_CASE WHERE result = '不通过'").run();
+    // 通过“标记已修复并重跑”修复种子里的不通过用例（不直接删库），验证真实修复路径
+    const failing = appDb.prepare("SELECT id, case_key AS caseKey FROM EVAL_CASE WHERE result = '不通过'").all() as Array<{ id: string; caseKey: string }>;
+    expect(failing.length).toBeGreaterThan(0);
+    for (const c of failing) {
+      const fixed = models.fixCase('admin-tech', c.id);
+      expect(fixed.result).toBe('通过');
+    }
+    const stillFailing = appDb.prepare("SELECT COUNT(*) AS c FROM EVAL_CASE WHERE result = '不通过'").get() as { c: number };
+    expect(stillFailing.c).toBe(0);
     // 先发布一个“好”版本 A（可回滚的目标）
     const releaseA = models.createRelease('admin-tech', {
       modelName: 'local-mock-v3',

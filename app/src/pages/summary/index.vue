@@ -100,12 +100,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { beijingDate } from '@/utils/time';
 import StatusTag from '@/components/StatusTag.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
 import { listEpisodes, previewSummary, saveSummary, exportSummary, type SummaryContent } from '@/api';
 
-const today = new Date().toISOString().slice(0, 10);
+const today = beijingDate();
 const tabs = [
   { key: 'summary', label: '一页交接摘要' },
   { key: 'questions', label: '问题清单' },

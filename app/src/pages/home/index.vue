@@ -115,6 +115,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { beijingDate } from '@/utils/time';
 import { onShow } from '@dcloudio/uni-app';
 import AppButton from '@/components/AppButton.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -189,7 +190,7 @@ function parseFollowupDate(events: Array<{ eventType: string; rawText: string | 
       const weeks = parseInt(m[1], 10);
       const d = new Date();
       d.setDate(d.getDate() + weeks * 7);
-      return d.toISOString().slice(0, 10);
+      return beijingDate(d);
     }
   }
   return null;

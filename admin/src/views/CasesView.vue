@@ -74,9 +74,9 @@
                 <StatusTag :label="riskStatus('outcome')" :tone="riskTone('outcome')" />
               </div>
               <div class="risk-item">
-                <span class="risk-item__icon risk-item__icon--ok">✓</span>
+                <span class="risk-item__icon" :class="caseSwitchOn ? 'risk-item__icon--ok' : ''">{{ caseSwitchOn ? '✓' : '—' }}</span>
                 <span class="risk-item__text">撤回链路：公开卡片 / 索引 / 向量 / 缓存 / 派生摘要</span>
-                <StatusTag label="已配置" />
+                <StatusTag :label="caseSwitchOn ? '已配置' : '案例卡片已关闭'" :tone="caseSwitchOn ? 'ok' : 'warn'" />
               </div>
             </div>
           </div>
@@ -125,7 +125,7 @@ import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { api } from '@/api/client';
-import { reviewCase } from '@/api';
+import { reviewCase, listSwitches } from '@/api';
 
 interface CaseRow {
   id: string;
@@ -139,6 +139,7 @@ interface CaseRow {
 
 const cases = ref<CaseRow[]>([]);
 const selected = ref<CaseRow | null>(null);
+const caseSwitchOn = ref(false);
 
 const stats = computed(() => ({
   pending: cases.value.filter((c) => c.status === '待审').length,
@@ -222,6 +223,12 @@ async function load() {
     if (cases.value.length > 0 && !selected.value) selected.value = cases.value[0];
   } catch {
     // 加载失败不阻塞
+  }
+  try {
+    const switches = await listSwitches();
+    caseSwitchOn.value = !!switches.find((s) => s.key === '案例卡片')?.enabled;
+  } catch {
+    caseSwitchOn.value = false;
   }
 }
 

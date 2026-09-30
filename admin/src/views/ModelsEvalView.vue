@@ -151,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
@@ -197,6 +197,9 @@ const evalSets = ref<EvalSetRow[]>([]);
 const selectedSet = ref<EvalSetRow | null>(null);
 const runRecords = ref<RunRecord[]>([]);
 const failedCases = ref<FailedCase[]>([]);
+
+// 切换评测集时刷新失败用例列表
+watch(selectedSet, () => { void loadFailedCases(); });
 const releases = ref<Release[]>([]);
 const search = ref('');
 const showCreate = ref(false);

@@ -186,6 +186,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { beijingDate } from '@/utils/time';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { listEpisodes, timeline, addSymptomLog, createEpisode, updateEpisode, checkSafety } from '@/api';
@@ -210,7 +211,7 @@ const chartData = computed(() => {
   for (let i = 13; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = beijingDate(d);
     const log = symptomLogs.value.find((l) => l.occurredAt.slice(0, 10) === key);
     const minutes = log && typeof log.sitMinutes === 'number' ? log.sitMinutes : null;
     days.push({
@@ -302,7 +303,7 @@ async function onSave(updateCurrent = false) {
     if (updateCurrent) {
       const ep = episodes[0];
       if (!ep.onsetDate) {
-        await updateEpisode(ep.id, { onsetDate: new Date().toISOString().slice(0, 10), onsetCertainty: '已确认' });
+        await updateEpisode(ep.id, { onsetDate: beijingDate(), onsetCertainty: '已确认' });
       }
     }
     await load();

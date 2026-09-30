@@ -112,7 +112,9 @@ function recommendContent(db: Database.Database, query: string) {
 function processTask(db: Database.Database, task: TaskRow, llm: LocalMockLlmAdapter, retrieval: EvidenceRetrieval) {
   const context = loadContext(db, task.episode_id);
   const query = buildQuery(context);
-  const evidence = retrieval.search(query);
+  let evidence = retrieval.search(query);
+  // 用户自述用词与证据库不一致时，回退到通用腰痛/复诊检索，避免无谓失败
+  if (evidence.length === 0) evidence = retrieval.search('腰痛 复诊 就医 红旗');
   if (evidence.length === 0) {
     throw new Error('证据库检索失败：没有可用的证据片段');
   }

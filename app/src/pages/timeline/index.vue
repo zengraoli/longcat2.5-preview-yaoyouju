@@ -127,6 +127,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { beijingDate } from '@/utils/time';
 import { onShow } from '@dcloudio/uni-app';
 import StatusTag from '@/components/StatusTag.vue';
 import AppChip from '@/components/AppChip.vue';
@@ -157,7 +158,7 @@ const chartData = computed(() => {
   for (let i = 13; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    days.push({ date: d.toISOString().slice(0, 10), minutes: null });
+    days.push({ date: beijingDate(d), minutes: null });
   }
   for (const log of symptomLogs.value) {
     const day = days.find((d) => d.date === log.occurredAt.slice(0, 10));
@@ -203,7 +204,7 @@ function formatEventDate(iso: string) {
 }
 
 function goAdd() {
-  addDate.value = new Date().toISOString().slice(0, 10);
+  addDate.value = beijingDate();
   showAdd.value = true;
 }
 
