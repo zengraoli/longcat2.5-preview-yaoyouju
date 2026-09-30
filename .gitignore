@@ -13,3 +13,13 @@ server/data/
 *.log
 .DS_Store
 scripts/*.png
+
+# Android（原生客户端）
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/captures/
+android/.kotlin/
+*.iml
