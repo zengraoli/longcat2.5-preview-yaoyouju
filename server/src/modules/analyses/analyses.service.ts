@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { SafetyService } from '../safety/safety.service';
+import { ERR } from '../../common/utils/business-exception';
 
 /** 分析编排：安全校验、任务入队、结果查询与回退（Worker 见 src/worker/worker.ts） */
 @Injectable()
@@ -25,12 +26,36 @@ export class AnalysesService {
     if (!episode) {
       throw new NotFoundException('病程不存在');
     }
+    // 空病程不能提交分析：没有任何可分析的内容时直接拒绝，避免 Worker 无效重试
+    const contentCount = (
+      this.appDb
+        .prepare(
+          `SELECT
+             (SELECT COUNT(*) FROM CARE_EVENT WHERE episode_id = ? AND raw_text IS NOT NULL)
+             + (SELECT COUNT(*) FROM REPORT r JOIN CARE_EVENT e ON e.id = r.care_event_id WHERE e.episode_id = ?)
+             + (SELECT COUNT(*) FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id WHERE e.episode_id = ?)
+           AS c`,
+        )
+        .get(episodeId, episodeId, episodeId) as { c: number }
+    ).c;
+    if (contentCount === 0 && !safetyText?.trim()) {
+      throw ERR.PARAM_INVALID('病程中还没有可分析的内容，请先录入报告或记录今天');
+    }
     // 安全规则引擎：红旗与服务范围校验（提交文字 + 病程中用户自述与报告原文的事件；
     // 医嘱等医生记录中的红旗关键词是条件性建议，不作为用户症状）
     const episodeEvents = this.appDb
       .prepare("SELECT raw_text AS rawText FROM CARE_EVENT WHERE episode_id = ? AND raw_text IS NOT NULL AND source_type IN ('自述', '报告原文')")
       .all(episodeId) as Array<{ rawText: string }>;
-    const combinedText = [safetyText ?? '', ...episodeEvents.map((e) => e.rawText)].join('\n');
+    // 用户在问与解释中的提问也纳入安全校验（命中红旗时阻断分析）
+    const qaQuestions = this.appDb
+      .prepare(
+        `SELECT m.content AS content FROM QA_MESSAGE m
+         JOIN QA_SESSION s ON s.id = m.session_id
+         WHERE s.user_id = ? AND m.role = 'user'
+         ORDER BY m.created_at DESC, m.rowid DESC LIMIT 20`,
+      )
+      .all(userId) as Array<{ content: string }>;
+    const combinedText = [safetyText ?? '', ...episodeEvents.map((e) => e.rawText), ...qaQuestions.map((q) => q.content)].join('\n');
     const safetyResult = this.safety.checkAndRecord(userId, 'analysis-submit', combinedText);
 
     // 命中红旗或越界：不创建分析任务，停止个性化分析

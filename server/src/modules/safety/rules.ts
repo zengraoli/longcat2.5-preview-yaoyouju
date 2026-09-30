@@ -17,9 +17,12 @@ export const RULES: RuleDef[] = [
     name: '大小便功能障碍或鞍区麻木',
     keywords: [
       '大小便', '马尾', '鞍区', '会阴', '失禁', '排便困难', '排尿困难', '小便解不出',
-      '小便不出来', '尿不出来', '尿不出', '憋不住尿', '大便控制不住', '大小便控制',
-      '大小便功能', '大便失禁', '小便失禁', '屁股周围发麻', '屁股发麻', '会阴发麻', '会阴麻木',
-      '解不出小便', '解不出尿', '小便解不出', '尿不出', '尿不出来', '憋不住尿', '大便控制不住',
+      '小便不出来', '尿不出来', '尿不出', '排不出来', '排不出尿', '排尿费劲', '尿费力',
+      '才尿得出', '尿尿很费劲', '用力才尿', '憋不住尿', '大便控制不住', '大小便控制',
+      '大小便功能', '大便失禁', '小便失禁', '拉在裤子里', '拉在裤上', '拉裤子',
+      '大便拉在', '上厕所没感觉', '没有尿意', '没有便意', '肛门周围麻', '肛门麻',
+      '肛周麻', '会阴发麻', '会阴麻木', '下体麻木', '下体麻', '屁股周围发麻', '屁股发麻',
+      '解不出小便', '解不出尿', '小便排不出来', '尿排不出来',
     ],
     severity: '高',
     action: '提示就医',
@@ -32,7 +35,10 @@ export const RULES: RuleDef[] = [
     keywords: [
       '肌力下降', '脚尖无力', '足下垂', '走路无力', '进行性无力', '腿越来越没劲',
       '腿越来越没力气', '腿越来越无力', '越来越没力气', '双腿无力', '腿部无力',
-      '腿软', '站不住', '脚抬不起来', '抬不起脚', '腿软得站不住',
+      '腿软', '站不住', '脚抬不起来', '抬不起脚', '腿软得站不住', '没有力气',
+      '腿没劲', '双腿没劲', '两条腿都没劲', '两条腿没劲', '腿都没劲', '脚拖地',
+      '走路脚拖', '拖着脚走', '脚背翘不起来', '脚背翘不起', '翘不起来', '翘不起',
+      '脚背抬不起来', '走路脚拖地',
     ],
     severity: '高',
     action: '提示就医',
@@ -42,7 +48,11 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-03',
     name: '夜间痛醒伴体重下降',
-    keywords: ['夜间痛醒', '夜里痛醒', '晚上痛醒', '疼醒', '体重下降', '消瘦', '夜间痛'],
+    keywords: [
+      '夜间痛醒', '夜里痛醒', '晚上痛醒', '疼醒', '痛醒', '体重下降', '消瘦', '夜间痛',
+      '半夜痛醒', '半夜疼醒', '睡觉会痛醒', '会痛醒', '夜里疼醒', '晚上睡觉会痛醒',
+      '瘦了', '体重减轻', '瘦了10斤', '最近瘦了',
+    ],
     severity: '高',
     action: '提示就医',
     category: 'red-flag',
@@ -51,7 +61,10 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-04',
     name: '外伤后腰部剧痛',
-    keywords: ['外伤', '摔伤', '车祸', '扭伤后剧痛', '砸伤', '摔了一跤', '摔跤', '摔伤', '跌倒'],
+    keywords: [
+      '外伤', '摔伤', '车祸', '扭伤后剧痛', '砸伤', '摔了一跤', '摔跤', '摔伤', '跌倒',
+      '摔下来', '滚下来', '从楼梯', '楼梯上摔', '被车撞', '车撞了', '撞到', '被撞',
+    ],
     severity: '高',
     action: '提示就医',
     category: 'red-flag',
@@ -60,7 +73,10 @@ export const RULES: RuleDef[] = [
   {
     code: 'RF-05',
     name: '发热伴腰痛',
-    keywords: ['发热', '发烧', '高热', '发冷', '发烧了', '发高烧', '体温38', '体温37', '高烧'],
+    keywords: [
+      '发热', '发烧', '高热', '发冷', '发高烧', '体温38', '体温39', '39度', '39℃',
+      '烧到39', '高烧', '发烧了',
+    ],
     severity: '高',
     action: '提示就医',
     category: 'red-flag',
@@ -120,25 +136,55 @@ function normalize(text: string): string {
   return String(text).replace(/\s+/g, '');
 }
 
-/** 否定词：含这些词的从句视为“没有出现该症状”，不触发红旗（只匹配明确否定，避免“没劲”“无力”被误判） */
-const NEGATION_PATTERN = /没有|正常|否认/;
+/**
+ * 否定词（紧邻关键词时视为“没有出现该症状”）。
+ * 只匹配关键词前后紧邻的明确否定，避免“没有外伤但大小便失禁”被整句否定，
+ * 也避免“大小便失禁没有好转”被误否定。
+ * 单字否定词窗口 2 字（“不发烧”），多字否定词窗口 4 字（“排除了马尾”）。
+ */
+const BEFORE_NEGATIONS_SHORT = ['不', '无', '未', '没'];
+const BEFORE_NEGATIONS_LONG = ['没有', '未见', '不会', '排除', '否认', '不曾', '从未'];
+const AFTER_NEGATIONS = ['都还好', '还好', '没问题', '正常', '未见明显异常', '未见异常', '已排除', '都正常'];
 
-/** 把文本按标点切分为从句，过滤掉含否定词的从句 */
-function effectiveClauses(text: string): string[] {
-  return String(text)
-    .split(/[，。；、,.;\n]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !NEGATION_PATTERN.test(s));
+/** 判断关键词匹配处是否被局部否定 */
+function isNegated(clause: string, keyword: string, fromIndex: number): boolean {
+  const idx = clause.indexOf(keyword, fromIndex);
+  if (idx < 0) return false;
+  const before2 = clause.slice(Math.max(0, idx - 2), idx);
+  const before4 = clause.slice(Math.max(0, idx - 4), idx);
+  const after = clause.slice(idx + keyword.length, idx + keyword.length + 8);
+  // 前 2 个字符内出现单字否定（如“不发烧”“无发热”）
+  if (BEFORE_NEGATIONS_SHORT.some((n) => before2.includes(n))) return true;
+  // 前 4 个字符内出现多字否定（如“未见马尾”“排除了马尾”“没有发烧”）
+  if (BEFORE_NEGATIONS_LONG.some((n) => before4.includes(n))) return true;
+  // 后 6 个字符内出现否定（如“大小便都还好”“大小便没问题”“马尾神经未见明显异常”）
+  if (AFTER_NEGATIONS.some((n) => after.includes(n))) return true;
+  return false;
 }
 
-/** 纯函数：在文本中匹配红旗规则（跳过否定句） */
+/** 在单个从句中匹配关键词（跳过被局部否定的匹配） */
+function matchInClause(clause: string, keywords: string[]): boolean {
+  const normalized = normalize(clause);
+  for (const keyword of keywords) {
+    const nk = normalize(keyword);
+    let from = 0;
+    while (from <= normalized.length - nk.length) {
+      const idx = normalized.indexOf(nk, from);
+      if (idx < 0) break;
+      if (!isNegated(normalized, nk, idx)) return true;
+      from = idx + nk.length;
+    }
+  }
+  return false;
+}
+
+/** 纯函数：在文本中匹配红旗规则（跳过局部否定） */
 export function matchRedFlags(text: string): RuleHit[] {
   const hits: RuleHit[] = [];
-  const clauses = effectiveClauses(text);
+  const clauses = String(text).split(/[，。；、,.;\n]/).map((s) => s.trim()).filter((s) => s.length > 0);
   for (const rule of RULES.filter((r) => r.category === 'red-flag')) {
     for (const clause of clauses) {
-      const normalized = normalize(clause);
-      if (rule.keywords.some((k) => normalized.includes(normalize(k)))) {
+      if (matchInClause(clause, rule.keywords)) {
         hits.push({
           code: rule.code,
           name: rule.name,

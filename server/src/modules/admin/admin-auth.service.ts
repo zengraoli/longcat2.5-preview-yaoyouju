@@ -126,9 +126,10 @@ export class AdminAuthService {
     };
   }
 
-  /** 退出登录 */
+  /** 退出登录（令牌以哈希比对） */
   logout(token: string): void {
-    this.appDb.prepare('DELETE FROM ADMIN_SESSION WHERE token = ?').run(token);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    this.appDb.prepare('DELETE FROM ADMIN_SESSION WHERE token = ?').run(tokenHash);
   }
 
   private recordFailure(adminId: string, failedAttempts: number) {

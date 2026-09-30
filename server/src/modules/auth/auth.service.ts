@@ -74,6 +74,7 @@ export class AuthService {
       }
     }
     const token = crypto.randomUUID();
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const ttlHours = parseInt(process.env.SESSION_TTL_HOURS ?? '72', 10);
     const createdAt = new Date();
     const expiresAt = new Date(createdAt.getTime() + ttlHours * 3600 * 1000);
@@ -81,7 +82,7 @@ export class AuthService {
       .prepare(
         'INSERT INTO SESSION (id, user_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)',
       )
-      .run(crypto.randomUUID(), user.id, token, createdAt.toISOString(), expiresAt.toISOString());
+      .run(crypto.randomUUID(), user.id, tokenHash, createdAt.toISOString(), expiresAt.toISOString());
     this.logger.log(`用户登录成功：${user.id}`);
     return { token, user: { id: user.id }, consents: this.getConsents(user.id) };
   }
@@ -157,14 +158,23 @@ export class AuthService {
     return !!row;
   }
 
-  /** 校验会话，返回 userId；无效或过期返回 null */
+  /** 校验会话，返回 userId；无效或过期返回 null（令牌以哈希比对，兼容旧明文令牌） */
   resolveSession(token: string): string | null {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const session = this.appDb
       .prepare('SELECT user_id AS userId, expires_at AS expiresAt FROM SESSION WHERE token = ?')
+      .get(tokenHash) as { userId: string; expiresAt: string } | undefined;
+    if (session) {
+      if (new Date(session.expiresAt).getTime() < Date.now()) return null;
+      return session.userId;
+    }
+    // 兼容旧库中明文存储的令牌
+    const legacy = this.appDb
+      .prepare('SELECT user_id AS userId, expires_at AS expiresAt FROM SESSION WHERE token = ?')
       .get(token) as { userId: string; expiresAt: string } | undefined;
-    if (!session) return null;
-    if (new Date(session.expiresAt).getTime() < Date.now()) return null;
-    return session.userId;
+    if (!legacy) return null;
+    if (new Date(legacy.expiresAt).getTime() < Date.now()) return null;
+    return legacy.userId;
   }
 
   /** 退出登录：服务端销毁会话 */
@@ -198,11 +208,11 @@ export class AuthService {
       if (feedbackIds.length > 0) {
         this.appDb.prepare(`DELETE FROM FEEDBACK WHERE id IN (${feedbackIds.map(() => '?').join(',')})`).run(...feedbackIds);
       }
-      // 问答会话（引用 ANALYSIS）
+      // 问答会话（含未关联分析的会话）：先删消息与会话
       const sessionIds = (
         this.appDb
-          .prepare(`SELECT id FROM QA_SESSION WHERE analysis_id IN (${analysisIds.map(() => '?').join(',') || "''"})`)
-          .all(...analysisIds) as Array<{ id: string }>
+          .prepare('SELECT id FROM QA_SESSION WHERE user_id = ? OR analysis_id IN (SELECT id FROM ANALYSIS WHERE episode_id IN (SELECT id FROM EPISODE WHERE user_id = ?))')
+          .all(userId, userId) as Array<{ id: string }>
       ).map((r) => r.id);
       for (const sid of sessionIds) {
         this.appDb.prepare('DELETE FROM QA_MESSAGE WHERE session_id = ?').run(sid);
@@ -228,6 +238,9 @@ export class AuthService {
       if (episodeIds.length > 0) {
         this.appDb.prepare(`DELETE FROM EPISODE WHERE id IN (${episodeIds.map(() => '?').join(',')})`).run(...episodeIds);
       }
+      // 安全事件与案例投稿直接引用 user_id
+      this.appDb.prepare('DELETE FROM SAFETY_EVENT WHERE user_id = ?').run(userId);
+      this.appDb.prepare('DELETE FROM CASE_SUBMISSION WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM CONSENT WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM SESSION WHERE user_id = ?').run(userId);
       this.appDb.prepare('DELETE FROM USER WHERE id = ?').run(userId);

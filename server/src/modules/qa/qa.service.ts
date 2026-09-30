@@ -16,6 +16,9 @@ export interface QaMessageView {
 
 const REASSURANCE_PATTERN = /确定吗|真的吗|一定|保证|没事吧|会不会有事|能放心吗|没问题吧|你说的是真的/;
 
+/** 严重程度类问题：不作诊断、不评分，稳定解释并转为复诊问题 */
+const SEVERITY_PATTERN = /是不是很严重|严重吗|厉害吗|要紧吗|有多严重|是不是很厉害|严重不严重|是不是很要紧|会不会很严重/;
+
 const STABLE_EXPLANATION =
   '我们理解你的担心，同样的回答再说明一次：我们不作诊断，也不能保证症状的具体原因；影像上的表现与症状严重程度并不完全一致。这个问题建议带给医生，由医生面诊判断。';
 
@@ -111,27 +114,10 @@ export class QaService {
       .prepare('INSERT INTO QA_MESSAGE (id, session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, NULL, ?)')
       .run(userMsgId, sessionId, 'user', question, now);
 
-    // 红旗信号：立即提示就医并记录安全事件，同时写入自述事件（阻断后续分析）
+    // 红旗信号：立即提示就医并记录安全事件（分析提交时会扫描提问记录，拦截后续分析）
     const redFlags = matchRedFlags(question);
     if (redFlags.length > 0) {
       this.safety.checkAndRecord(userId, 'qa-ask', question);
-      // 写入自述事件，确保护红旗内容被分析提交时拦截
-      const sessionRow = this.appDb
-        .prepare('SELECT analysis_id AS analysisId FROM QA_SESSION WHERE id = ?')
-        .get(sessionId) as { analysisId: string | null } | undefined;
-      const analysis = sessionRow?.analysisId
-        ? (this.appDb
-            .prepare('SELECT episode_id AS episodeId FROM ANALYSIS WHERE id = ?')
-            .get(sessionRow.analysisId) as { episodeId: string } | undefined)
-        : undefined;
-      if (analysis) {
-        this.appDb
-          .prepare(
-            `INSERT INTO CARE_EVENT (id, episode_id, event_type, occurred_at, reported_at, source_type, raw_text, verify_status)
-             VALUES (?, ?, '症状', ?, ?, '自述', ?, '尚未确认')`,
-          )
-          .run(crypto.randomUUID(), analysis.episodeId, new Date().toISOString(), new Date().toISOString(), question);
-      }
       const content = `${redFlags[0].message} 你可以先记录这次变化，并尽快就医；本轮不会生成个性化分析。`;
       const msgId = crypto.randomUUID();
       this.appDb
@@ -158,6 +144,22 @@ export class QaService {
       return {
         message: { id: msgId, role: 'assistant', content, citations: [], createdAt: now },
         outOfScope,
+        roundEnded: false,
+        followupQuestionAdded: false,
+      };
+    }
+
+    // 严重程度类问题：不作诊断、不评分，给出稳定解释并转为复诊问题
+    if (SEVERITY_PATTERN.test(question)) {
+      const content =
+        '我们不能评估你的症状严重程度，这需要医生结合查体与检查来判断。可以把“我的情况严重吗”这个问题加入复诊问题清单，复诊时请医生评估。';
+      const msgId = crypto.randomUUID();
+      this.appDb
+        .prepare('INSERT INTO QA_MESSAGE (id, session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, NULL, ?)')
+        .run(msgId, sessionId, 'assistant', content, now);
+      return {
+        message: { id: msgId, role: 'assistant', content, citations: [], createdAt: now },
+        outOfScope: [{ code: 'SC-04', name: '严重程度评估', severity: '中', action: '停止个性化分析', message: content }],
         roundEnded: false,
         followupQuestionAdded: false,
       };
