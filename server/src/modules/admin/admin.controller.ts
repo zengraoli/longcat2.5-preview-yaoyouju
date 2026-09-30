@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { IsString, MaxLength } from 'class-validator';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminGuard, RequirePermission } from './admin.guard';
@@ -41,6 +41,16 @@ export class AdminController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto.name, dto.password, dto.totp);
+  }
+
+  /** 后台退出登录 */
+  @Post('logout')
+  @UseGuards(AdminGuard)
+  logout(@Req() req: { headers: Record<string, string> }) {
+    const header = req.headers['x-admin-token'] ?? '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (token) this.auth.logout(token);
+    return { loggedOut: true };
   }
 
   /** 审计日志列表 */

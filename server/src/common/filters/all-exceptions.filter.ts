@@ -8,8 +8,9 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { fail } from '../utils/response';
+import { BusinessException } from '../utils/business-exception';
 
-/** 全局异常处理：所有错误都返回统一格式，message 为中文 */
+/** 全局异常处理：所有错误都返回统一格式，message 为中文，业务码与 errors.md 一致 */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -20,7 +21,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let code = 5001;
     let message = '服务内部错误';
 
-    if (exception instanceof HttpException) {
+    if (exception instanceof BusinessException) {
+      status = exception.getStatus();
+      code = exception.businessCode;
+      message = exception.message;
+    } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const body = exception.getResponse();
       const msg =

@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB } from '../../database/database.module';
 import { verifyPassword } from '../../database/crypto';
+import { ERR } from '../../common/utils/business-exception';
 
 export interface AdminSession {
   token: string;
@@ -37,27 +38,35 @@ export class AdminAuthService {
         }
       | undefined;
     if (!admin) {
-      throw new UnauthorizedException('账号或密码错误');
+      throw ERR.ADMIN_CREDENTIALS();
     }
     if (admin.status !== 'active') {
       throw new UnauthorizedException('账号已停用');
     }
+    // 锁定到期后重置失败计数
+    if (admin.lockedUntil && new Date(admin.lockedUntil).getTime() <= Date.now()) {
+      this.appDb
+        .prepare('UPDATE ADMIN_USER SET failed_attempts = 0, locked_until = NULL WHERE id = ?')
+        .run(admin.id);
+      admin.failedAttempts = 0;
+      admin.lockedUntil = null;
+    }
     if (admin.lockedUntil && new Date(admin.lockedUntil).getTime() > Date.now()) {
-      throw new UnauthorizedException('账号已锁定，请稍后再试');
+      throw ERR.LOCKED('账号已锁定，请稍后再试');
     }
     const expectedTotp = process.env.ADMIN_TOTP_CODE ?? '123456';
     if (admin.mfaEnabled && totp !== expectedTotp) {
       this.recordFailure(admin.id, admin.failedAttempts);
-      throw new UnauthorizedException('MFA 验证码错误');
+      throw ERR.ADMIN_MFA();
     }
     if (!verifyPassword(password, admin.passwordHash)) {
       this.recordFailure(admin.id, admin.failedAttempts);
-      throw new UnauthorizedException('账号或密码错误');
+      throw ERR.ADMIN_CREDENTIALS();
     }
-    // 登录成功：重置失败计数，创建短会话（2 小时）
+    // 登录成功：重置失败计数，创建短会话（30 分钟）
     const token = crypto.randomUUID();
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 2 * 3600 * 1000);
+    const expiresAt = new Date(now.getTime() + 30 * 60 * 1000);
     this.appDb
       .prepare(
         `INSERT INTO ADMIN_SESSION (id, admin_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`,
@@ -78,7 +87,7 @@ export class AdminAuthService {
     };
   }
 
-  /** 校验后台会话 */
+  /** 校验后台会话（同时检查账号是否已停用） */
   resolveSession(token: string): AdminSession | null {
     const session = this.appDb
       .prepare('SELECT admin_id AS adminId, expires_at AS expiresAt FROM ADMIN_SESSION WHERE token = ?')
@@ -86,9 +95,9 @@ export class AdminAuthService {
     if (!session) return null;
     if (new Date(session.expiresAt).getTime() < Date.now()) return null;
     const admin = this.appDb
-      .prepare('SELECT id, name, role_id AS roleId FROM ADMIN_USER WHERE id = ?')
-      .get(session.adminId) as { id: string; name: string; roleId: string } | undefined;
-    if (!admin) return null;
+      .prepare('SELECT id, name, role_id AS roleId, status FROM ADMIN_USER WHERE id = ?')
+      .get(session.adminId) as { id: string; name: string; roleId: string; status: string } | undefined;
+    if (!admin || admin.status !== 'active') return null;
     const role = this.appDb
       .prepare('SELECT name, permissions FROM ROLE WHERE id = ?')
       .get(admin.roleId) as { name: string; permissions: string };
@@ -101,9 +110,14 @@ export class AdminAuthService {
     };
   }
 
+  /** 退出登录 */
+  logout(token: string): void {
+    this.appDb.prepare('DELETE FROM ADMIN_SESSION WHERE token = ?').run(token);
+  }
+
   private recordFailure(adminId: string, failedAttempts: number) {
     const threshold = parseInt(process.env.ADMIN_LOCK_THRESHOLD ?? '5', 10);
-    const lockMinutes = parseInt(process.env.ADMIN_LOCK_MINUTES ?? '15', 10);
+    const lockMinutes = parseInt(process.env.ADMIN_LOCK_MINUTES ?? '30', 10);
     const attempts = failedAttempts + 1;
     const lockedUntil =
       attempts >= threshold ? new Date(Date.now() + lockMinutes * 60 * 1000).toISOString() : null;

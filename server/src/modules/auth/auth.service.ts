@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { APP_DB, IDENTITY_DB } from '../../database/database.module';
 import { encryptField, maskPhone } from '../../database/crypto';
+import { ERR } from '../../common/utils/business-exception';
 
 export const CONSENT_SCOPES = ['健康信息处理', '分享', '产品改进'] as const;
 export type ConsentScope = (typeof CONSENT_SCOPES)[number];
@@ -12,6 +13,16 @@ export interface ConsentView {
   granted: boolean;
   grantedAt: string | null;
   revokedAt: string | null;
+}
+
+/** 判断客户端传来的 granted 是否为“同意” */
+function isGranted(granted: unknown): boolean {
+  if (typeof granted === 'boolean') return granted;
+  if (typeof granted === 'string') {
+    const v = granted.trim().toLowerCase();
+    return v === 'true' || v === 'yes' || v === '1' || v === '同意';
+  }
+  return false;
 }
 
 @Injectable()
@@ -26,24 +37,36 @@ export class AuthService {
   /** 发送短信验证码：演示固定 123456，只写日志且手机号脱敏 */
   sendSmsCode(phone: string): { sent: boolean } {
     if (!/^1\d{10}$/.test(phone)) {
-      throw Object.assign(new Error('手机号格式不正确'), { status: 400 });
+      throw ERR.PARAM_INVALID('手机号格式不正确');
     }
     const code = process.env.SMS_CODE ?? '123456';
     this.logger.log(`短信验证码已发送（演示固定码 ${code}）至 ${maskPhone(phone)}`);
     return { sent: true };
   }
 
-  /** 手机号验证码登录；首次登录自动创建匿名用户与身份档案 */
-  login(phone: string, code: string): {
+  /** 手机号验证码登录；首次登录自动创建匿名用户与身份档案；可附带登录页勾选的同意 */
+  login(
+    phone: string,
+    code: string,
+    agreedScopes?: string[],
+  ): {
     token: string;
     user: { id: string };
     consents: ConsentView[];
   } {
     const expected = process.env.SMS_CODE ?? '123456';
     if (code !== expected) {
-      throw Object.assign(new Error('验证码错误'), { status: 400, code: 2001 });
+      throw ERR.SMS_CODE();
     }
     const user = this.findOrCreateUser(phone);
+    // 记录登录页勾选的同意（如“单独同意：处理我的健康信息”）
+    if (Array.isArray(agreedScopes)) {
+      for (const scope of agreedScopes) {
+        if (CONSENT_SCOPES.includes(scope as ConsentScope)) {
+          this.setConsent(user.id, scope, true);
+        }
+      }
+    }
     const token = crypto.randomUUID();
     const ttlHours = parseInt(process.env.SESSION_TTL_HOURS ?? '72', 10);
     const createdAt = new Date();
@@ -76,14 +99,15 @@ export class AuthService {
   }
 
   /** 单独勾选同意；撤回立即生效 */
-  setConsent(userId: string, scope: string, granted: boolean): ConsentView[] {
+  setConsent(userId: string, scope: string, granted: unknown): ConsentView[] {
     if (!CONSENT_SCOPES.includes(scope as ConsentScope)) {
-      throw Object.assign(new Error('未知的同意范围'), { status: 400 });
+      throw ERR.PARAM_INVALID('未知的同意范围');
     }
+    const wantGrant = isGranted(granted);
     const existing = this.appDb
       .prepare('SELECT id, revoked_at AS revokedAt FROM CONSENT WHERE user_id = ? AND scope = ?')
       .get(userId, scope) as { id: string; revokedAt: string | null } | undefined;
-    if (granted) {
+    if (wantGrant) {
       if (existing && !existing.revokedAt) {
         // 已同意，无需重复写入
       } else if (existing) {
@@ -114,7 +138,7 @@ export class AuthService {
     return !!row;
   }
 
-  /** 校验会话，返回 userId；无效或过期抛 401 */
+  /** 校验会话，返回 userId；无效或过期返回 null */
   resolveSession(token: string): string | null {
     const session = this.appDb
       .prepare('SELECT user_id AS userId, expires_at AS expiresAt FROM SESSION WHERE token = ?')
@@ -122,6 +146,11 @@ export class AuthService {
     if (!session) return null;
     if (new Date(session.expiresAt).getTime() < Date.now()) return null;
     return session.userId;
+  }
+
+  /** 退出登录：服务端销毁会话 */
+  logout(token: string): void {
+    this.appDb.prepare('DELETE FROM SESSION WHERE token = ?').run(token);
   }
 
   private findOrCreateUser(phone: string): { id: string } {

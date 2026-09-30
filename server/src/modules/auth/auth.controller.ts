@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
-import { IsIn, IsString, Matches } from 'class-validator';
+import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 import { AuthService, CONSENT_SCOPES, ConsentScope } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from './current-user.decorator';
@@ -15,6 +15,11 @@ class LoginDto {
 
   @IsString()
   code!: string;
+
+  /** 登录页勾选的同意范围（如“单独同意：处理我的健康信息”） */
+  @IsOptional()
+  @IsString({ each: true })
+  agreedScopes?: string[];
 }
 
 class ConsentDto {
@@ -36,11 +41,11 @@ export class AuthController {
     return this.auth.sendSmsCode(dto.phone);
   }
 
-  /** 手机号验证码登录 */
+  /** 手机号验证码登录（可附带登录页勾选的同意） */
   @Post('login')
   @HttpCode(200)
   login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.phone, dto.code);
+    return this.auth.login(dto.phone, dto.code, dto.agreedScopes);
   }
 
   /** 当前用户的同意记录（可查） */
@@ -55,6 +60,17 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @HttpCode(200)
   setConsent(@CurrentUser() user: { userId: string }, @Body() dto: ConsentDto) {
-    return this.auth.setConsent(user.userId, dto.scope, dto.granted === 'true');
+    return this.auth.setConsent(user.userId, dto.scope, dto.granted);
+  }
+
+  /** 退出登录（服务端销毁当前会话） */
+  @Post('logout')
+  @UseGuards(AuthGuard)
+  @HttpCode(200)
+  logout(@Req() req: { headers: Record<string, string> }) {
+    const header = req.headers['authorization'] ?? '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (token) this.auth.logout(token);
+    return { loggedOut: true };
   }
 }

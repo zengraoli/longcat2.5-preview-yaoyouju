@@ -57,8 +57,9 @@ describe('后台账号、权限与审计', () => {
     const res = await request(app.getHttpServer())
       .post('/admin/login')
       .send({ name: '合规-顾', password: 'Admin@123456', totp: '123456' })
-      .expect(401);
+      .expect(423);
     expect(res.body.message).toContain('锁定');
+    expect(res.body.code).toBe(1006);
   });
 
   it('各角色越权访问被拒绝', async () => {
