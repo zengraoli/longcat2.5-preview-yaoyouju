@@ -7,6 +7,7 @@
           <p class="dashboard__subtitle">{{ episode?.title || '尚未建立病程' }}</p>
         </div>
         <div class="dashboard__header-actions">
+          <button class="btn btn--primary" @click="onGenerateAnalysis">⚙ 生成一页分析</button>
           <button class="btn btn--primary" @click="goRecord">✎ 记录今天</button>
           <button class="btn btn--secondary" @click="showReportForm = !showReportForm">⬆ 录入报告</button>
         </div>
@@ -85,9 +86,7 @@
                 <StatusTag label="不作诊断" />
               </div>
             </div>
-            <p class="analysis__intro" v-if="analysis">
-              你上传的报告中提到了 L5/S1；你描述目前腰痛持续约 1 个月且最近加重。报告日期已确认，症状开始日期和是否出现腿部无力还需要确认。下面先解释报告术语，再整理复诊时需要确认的问题。
-            </p>
+            <p class="analysis__intro" v-if="analysis">{{ analysisIntro }}</p>
             <div v-if="analysis">
               <div v-for="(item, i) in analysis.sections.已知" :key="`k${i}`" class="analysis__item">
                 <StatusTag label="已知" />
@@ -170,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
@@ -185,7 +184,7 @@ const showReportForm = ref(false);
 const reportText = ref('');
 const reportDate = ref('');
 
-const pendingItems = ref<Array<{ question: string; options: string[]; value: string }>>([]);
+const pendingItems = ref<Array<{ question: string; options: string[]; value: string; eventId?: string }>>([]);
 const recentRecords = ref<Array<{ date: string; tone: string; text: string }>>([]);
 const followupDate = ref('');
 const daysUntil = ref(0);
@@ -199,10 +198,43 @@ function goReport() {
   showReportForm.value = true;
 }
 
+async function onGenerateAnalysis() {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      toast('请先录入报告或记录今天');
+      return;
+    }
+    const { createAnalysis } = await import('@/api');
+    const result = await createAnalysis(episodes[0].id);
+    if (result.safety.redFlags.length > 0) {
+      toast(result.safety.redFlags.map((r) => r.message).join(''));
+      return;
+    }
+    if (result.status === 'blocked') {
+      toast('分析已被安全规则阻断，请先处理就医提示');
+      return;
+    }
+    router.push({ name: 'analysis', params: { id: result.taskId } });
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
+
 async function onSubmitReport() {
   if (!reportText.value.trim()) {
     toast('请填写报告原文');
     return;
+  }
+  // 红旗预检：报告原文含红旗信号时提示就医（不阻断保存）
+  try {
+    const { checkSafety } = await import('@/api');
+    const safety = await checkSafety(reportText.value, 'report');
+    if (!safety.passed && safety.redFlags.length > 0) {
+      toast(safety.redFlags.map((r) => r.message).join(''));
+    }
+  } catch {
+    // 预检失败不阻断
   }
   try {
     let episodes = await listEpisodes();
@@ -250,14 +282,13 @@ async function onConfirm() {
       toast('请先建立病程');
       return;
     }
-    const text = answered.map((i) => `${i.question}→${i.value}`).join('；');
-    await addEvent(episodes[0].id, {
-      eventType: '症状',
-      occurredAt: new Date().toISOString(),
-      sourceType: '自述',
-      rawText: `工作台确认：${text}`,
-      verifyStatus: '尚未确认',
-    });
+    // 把确认结果写回对应事件（不再新增“工作台确认”事件，避免污染待确认项与摘要）
+    const { correctEvent } = await import('@/api');
+    for (const item of answered) {
+      if (item.eventId) {
+        await correctEvent(item.eventId, { verifyStatus: '已确认' });
+      }
+    }
     toast('已确认并更新当前情况');
     await load();
   } catch (e) {
@@ -268,6 +299,18 @@ async function onConfirm() {
 function formatDate(iso: string) {
   return iso ? iso.slice(0, 10) : '';
 }
+
+/** 分析引言：基于真实数据生成，不写死示例内容 */
+const analysisIntro = computed(() => {
+  if (!analysis.value) return '';
+  const known = analysis.value.sections.已知;
+  const unknown = analysis.value.sections.未知;
+  const parts: string[] = [];
+  if (known.length > 0) parts.push(`已确认 ${known.length} 条信息`);
+  if (unknown.length > 0) parts.push(`有 ${unknown.length} 项尚未确认`);
+  if (parts.length === 0) return '下面按“已知 / 解释 / 未知 / 下一步”整理。';
+  return `下面按“已知 / 解释 / 未知 / 下一步”整理：${parts.join('，')}。`;
+});
 
 function toast(msg: string) {
   const el = document.createElement('div');
@@ -284,12 +327,12 @@ async function load() {
       episode.value = episodes[0];
       const latest = await getLatestAnalysis(episodes[0].id);
       if (latest) analysis.value = latest;
-      // 待确认项：来自病程中尚未确认的记录
+      // 待确认项：来自病程中尚未确认的记录（带 eventId，确认时写回原事件）
       const tl = await timeline(episodes[0].id);
-      const pending: Array<{ question: string; options: string[]; value: string }> = [];
+      const pending: Array<{ question: string; options: string[]; value: string; eventId?: string }> = [];
       for (const e of tl.events) {
         if (e.verifyStatus === '尚未确认' && e.rawText) {
-          pending.push({ question: e.rawText, options: ['已确认', '有冲突'], value: '' });
+          pending.push({ question: e.rawText, options: ['已确认', '有冲突'], value: '', eventId: e.id });
         }
       }
       for (const log of tl.symptomLogs) {
@@ -298,6 +341,47 @@ async function load() {
         }
       }
       pendingItems.value = pending;
+      // 最近记录：最近的病程事件
+      recentRecords.value = tl.events
+        .slice(-5)
+        .reverse()
+        .map((e) => ({
+          date: e.occurredAt.slice(5, 10),
+          tone: e.sourceType === '报告原文' ? 'info' : e.verifyStatus === '尚未确认' ? 'warn' : 'ok',
+          text: e.rawText || e.eventType,
+        }));
+      // 复诊问题数
+      try {
+        const { previewSummary } = await import('@/api');
+        const summary = await previewSummary(episodes[0].id);
+        followupQuestionCount.value = summary.复诊问题.length;
+      } catch {
+        // 忽略
+      }
+      // 为你推荐：基于报告术语匹配
+      try {
+        const { listPublishedContents } = await import('@/api');
+        const contents = await listPublishedContents();
+        const reportText = tl.events
+          .filter((e) => e.eventType === '报告' && e.rawText)
+          .map((e) => e.rawText)
+          .join(' ');
+        const tokens = (reportText.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9\/]{2,}/g) ?? []).filter((t) => t.length >= 2);
+        const scored = contents.map((c) => {
+          let score = 0;
+          for (const t of tokens) {
+            if (c.title.includes(t) || (c.applicableScope ?? '').includes(t)) score += 1;
+          }
+          return { c, score };
+        });
+        recommended.value = scored
+          .filter((s) => s.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 2)
+          .map((s) => s.c);
+      } catch {
+        // 忽略
+      }
     }
   } catch {
     // 未登录时不阻塞

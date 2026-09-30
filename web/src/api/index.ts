@@ -66,6 +66,10 @@ export function createEpisode(title: string, onsetDate?: string, onsetCertainty?
   });
 }
 
+export function updateEpisode(id: string, input: { title?: string; onsetDate?: string; onsetCertainty?: string }) {
+  return api.put<{ id: string }>(`/episodes/${id}`, input);
+}
+
 export function addEvent(episodeId: string, input: {
   eventType: string;
   occurredAt: string;
@@ -196,8 +200,12 @@ export interface QaMessage {
 }
 
 /* ---------- 问答 ---------- */
-export function createQaSession(analysisId: string, title: string) {
-  return api.post<{ id: string }>('/qa/sessions', { analysisId, title });
+export function createQaSession(analysisId: string | null, title: string) {
+  return api.post<{ id: string; analysisId: string | null }>('/qa/sessions', { analysisId, title });
+}
+
+export function listQaSessions() {
+  return api.get<Array<{ id: string; analysisId: string | null; title: string | null; createdAt: string }>>('/qa/sessions');
 }
 
 export function getQaSession(id: string) {
@@ -217,6 +225,17 @@ export function addFollowupQuestion(sessionId: string, question: string) {
 }
 
 /* ---------- 复诊摘要 ---------- */
+export function listMyFeedback() {
+  return api.get<Array<{
+    id: string;
+    helpType: string | null;
+    unsolvedQuestion: string | null;
+    isErrorReport: boolean;
+    createdAt: string;
+    status?: string;
+  }>>('/feedback/mine');
+}
+
 export function previewSummary(episodeId: string) {
   return api.get<SummaryContent>(`/followup/summary?episodeId=${episodeId}`);
 }

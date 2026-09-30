@@ -27,7 +27,7 @@
       <div class="contents-page__grid">
         <!-- 左：内容卡片 -->
         <div class="contents-page__main">
-          <p class="contents-page__section-title">为你推荐（原因：你的报告提到 L5/S1、硬膜囊受压）</p>
+          <p class="contents-page__section-title">为你推荐{{ recommendationReason }}</p>
           <div class="contents-page__cards">
             <div
               v-for="item in recommended"
@@ -38,19 +38,19 @@
               <div class="content-card__thumb">{{ item.type === '视频' ? '▶' : '🖼' }}</div>
               <div class="content-card__body">
                 <div class="content-card__title">{{ item.title }}</div>
-                <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }} · {{ item.type === '视频' ? '2:10' : '3分钟阅读' }}</div>
+                <div class="content-card__meta">{{ item.type === '视频' ? '视频' : '图文' }}</div>
                 <div class="content-card__tags">
-                  <StatusTag label="已审核 v2" />
+                  <StatusTag label="已审核" />
                   <span class="content-card__scope">适用：{{ item.applicableScope }}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <p class="contents-page__section-title">全部内容（{{ all.length }}）</p>
+          <p class="contents-page__section-title">全部内容（{{ filteredAll.length }}）</p>
           <div class="contents-page__cards">
             <div
-              v-for="item in all"
+              v-for="item in filteredAll"
               :key="item.id"
               class="content-card"
               @click="onSelect(item)"
@@ -106,16 +106,22 @@
               <div class="drawer__retell">
                 <div class="drawer__retell-title">看完后，用一句话说说你理解了什么（可选）</div>
                 <textarea
+                  v-model="retellText"
                   class="drawer__textarea"
                   placeholder="例如：L5/S1 是腰椎最下面那个椎间盘的位置…"
                   :maxlength="500"
                 />
-                <button class="btn btn--primary btn--sm">提交</button>
+                <button class="btn btn--primary btn--sm" @click="onSubmitRetell">提交</button>
               </div>
               <div class="drawer__feedback">
                 <div class="drawer__feedback-title">这条内容对你有帮助吗？</div>
                 <div class="drawer__feedback-chips">
-                  <button v-for="opt in ['看懂了', '没看懂', '内容有误（举报）']" :key="opt" class="chip">
+                  <button
+                    v-for="opt in ['看懂了', '没看懂', '内容有误（举报）']"
+                    :key="opt"
+                    class="chip"
+                    @click="onContentFeedback(opt)"
+                  >
                     {{ opt }}
                   </button>
                 </div>
@@ -130,17 +136,24 @@
 
 <script setup lang="ts">
 import { toast } from "@/utils/toast";
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
 import { api } from '@/api/client';
-import { getContentDetail } from '@/api';
+import { getContentDetail, listEpisodes, getLatestAnalysis, createHelpFeedback } from '@/api';
 import type { ContentItem, ContentDetail } from '@/api/types';
 
-const filters = ['全部', '报告术语', '节段位置', '医生会观察什么', '信息来源怎么看', '生活影响'];
+const filters = ['全部', '视频', '图文组件'];
 const activeFilter = ref('全部');
 const selected = ref<ContentDetail | null>(null);
+const retellText = ref('');
+const recommendationReason = ref('');
+
+const filteredAll = computed(() => {
+  if (activeFilter.value === '全部') return all.value;
+  return all.value.filter((i) => i.type === activeFilter.value);
+});
 
 async function onSelect(item: ContentItem) {
   try {
@@ -155,12 +168,67 @@ const all = ref<ContentItem[]>([]);
 onMounted(async () => {
   try {
     const items = await api.get<ContentItem[]>('/contents/published');
-    recommended.value = items.slice(0, 3);
-    all.value = items.slice(3);
+    // 为你推荐：基于用户报告术语匹配
+    let reportText = '';
+    try {
+      const episodes = await listEpisodes();
+      if (episodes.length > 0) {
+        const { timeline } = await import('@/api');
+        const tl = await timeline(episodes[0].id);
+        const reportEvent = [...tl.events].reverse().find((e) => e.eventType === '报告' && e.rawText);
+        if (reportEvent) reportText = reportEvent.rawText ?? '';
+      }
+    } catch {
+      // 忽略
+    }
+    const tokens = (reportText.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9\/]{2,}/g) ?? []).filter((t) => t.length >= 2);
+    const scored = items.map((c) => {
+      let score = 0;
+      for (const t of tokens) {
+        if (c.title.includes(t) || (c.applicableScope ?? '').includes(t)) score += 1;
+      }
+      return { c, score };
+    });
+    const matched = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
+    recommended.value = matched.slice(0, 3).map((s) => s.c);
+    recommendationReason.value = matched.length > 0 ? '（原因：与你的报告或病程匹配）' : '';
+    const recommendedIds = new Set(recommended.value.map((i) => i.id));
+    all.value = items.filter((i) => !recommendedIds.has(i.id));
   } catch {
     // 加载失败不阻塞
   }
 });
+
+async function onSubmitRetell() {
+  if (!selected.value) return;
+  if (!retellText.value.trim()) {
+    toast('请先填写你的理解');
+    return;
+  }
+  // 复述用于检验理解，不写入病程
+  toast('已提交，感谢检验');
+  retellText.value = '';
+}
+
+async function onContentFeedback(opt: string) {
+  if (!selected.value) return;
+  if (opt === '内容有误（举报）') {
+    toast('请前往“反馈与举报”页提交详细描述');
+    return;
+  }
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const analysis = await getLatestAnalysis(episodes[0].id);
+      if (analysis) {
+        await createHelpFeedback(analysis.id, opt === '看懂了' ? '看懂了' : '都不好', `内容反馈（${selected.value.title}）：${opt}`);
+      }
+    }
+    toast('感谢反馈');
+  } catch (e) {
+    toast((e as Error).message);
+  }
+}
 </script>
 
 <style scoped>

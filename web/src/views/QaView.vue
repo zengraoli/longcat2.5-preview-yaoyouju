@@ -107,6 +107,7 @@ import {
   getLatestAnalysis,
   createQaSession,
   getQaSession,
+  listQaSessions,
   askQuestion,
   addFollowupQuestion,
   type QaMessage,
@@ -133,7 +134,13 @@ const contextText = ref('正在加载…');
 const contextItems = ref<Array<{ label: string; value: string; tag?: string }>>([]);
 
 async function onAsk(q: string) {
-  if (!q.trim() || !sessionId.value) return;
+  if (!q.trim()) return;
+  // 没有分析时也能提问：创建无分析上下文的会话
+  if (!sessionId.value) {
+    const created = await createQaSession(null, '自由提问');
+    sessionId.value = created.id;
+    contextText.value = '基于通用上下文（未关联具体分析）';
+  }
   question.value = '';
   messages.value.push({ role: 'user', content: q });
   try {
@@ -148,7 +155,7 @@ async function onAsk(q: string) {
       msg.followup = q;
     }
     messages.value.push(msg);
-    explainedCount.value += 1;
+    explainedCount.value = messages.value.filter((m) => m.role === 'user').length;
   } catch (e) {
     toast((e as Error).message);
   }
@@ -159,11 +166,16 @@ function onSend() {
 }
 
 async function onAddFollowup(q: string) {
-  // 真实环境调用 /qa/sessions/:id/followup-questions
-  if (!followupQuestions.value.includes(q)) {
-    followupQuestions.value.push(q);
+  if (!sessionId.value) return;
+  try {
+    await addFollowupQuestion(sessionId.value, q);
+    if (!followupQuestions.value.includes(q)) {
+      followupQuestions.value.push(q);
+    }
+    toast('已加入复诊问题');
+  } catch (e) {
+    toast((e as Error).message);
   }
-  toast('已加入复诊问题');
 }
 
 function goFollowup() {
@@ -183,8 +195,12 @@ onMounted(async () => {
     const episodes = await listEpisodes();
     if (episodes.length > 0) {
       const latest = await getLatestAnalysis(episodes[0].id);
-      if (latest) {
-        const session = await createQaSession(latest.id, '报告术语解释');
+      // 优先复用已有会话，保留历史（不再每次进入都新建会话）
+      const existing = await listQaSessions();
+      const session = latest
+        ? (existing.find((s) => s.analysisId === latest.id) ?? existing[0])
+        : existing[0];
+      if (session) {
         sessionId.value = session.id;
         const historyData = await getQaSession(session.id);
         messages.value = historyData.messages.map((m: { role: string; content: string; citations: Array<{ docId: string; docTitle: string }> }) => ({
@@ -192,16 +208,30 @@ onMounted(async () => {
           content: m.content,
           citations: (m.citations ?? []).map((c: { docId: string; docTitle: string }) => ({ docId: c.docId, docTitle: c.docTitle })),
         }));
-        explainedCount.value = historyData.messages.filter((m: { role: string }) => m.role === 'assistant').length;
+        explainedCount.value = historyData.messages.filter((m: { role: string }) => m.role === 'user').length;
+        contextText.value = latest
+          ? `基于一页分析 v${latest.version}（${latest.createdAt.slice(0, 10)}）`
+          : '基于通用上下文（未关联具体分析）';
+        contextItems.value = latest
+          ? [
+              { label: '分析版本', value: `v${latest.version}`, tag: '系统生成' },
+              { label: '模型', value: latest.modelReleaseId },
+              { label: '病程', value: episodes[0].title },
+            ]
+          : [];
+      } else if (latest) {
+        const created = await createQaSession(latest.id, '报告术语解释');
+        sessionId.value = created.id;
         contextText.value = `基于一页分析 v${latest.version}（${latest.createdAt.slice(0, 10)}）`;
-        contextItems.value = [
-          { label: '分析版本', value: `v${latest.version}`, tag: '系统生成' },
-          { label: '模型', value: latest.modelReleaseId },
-          { label: '病程', value: episodes[0].title },
-        ];
       } else {
-        contextText.value = '尚未生成分析';
+        contextText.value = '尚未生成分析，可先自由提问';
       }
+      // 历史会话
+      history.value = existing.map((s) => ({
+        date: s.createdAt.slice(0, 10),
+        title: s.title ?? '会话',
+        count: 0,
+      }));
     }
   } catch {
     // 未登录时不阻塞

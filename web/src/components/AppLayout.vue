@@ -164,17 +164,21 @@ onMounted(async () => {
     min-height: 56px;
     flex-wrap: nowrap;
   }
-  .layout__brand-name {
+  .layout__name {
     display: none;
   }
   .layout__menu {
     flex: 1;
+    min-width: 0;
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
   }
   .layout__menu-item {
     white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .layout__actions {
     flex-shrink: 0;
   }
   .layout__main {

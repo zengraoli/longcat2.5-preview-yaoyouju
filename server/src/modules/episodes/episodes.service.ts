@@ -68,6 +68,25 @@ export class EpisodesService {
     return episode;
   }
 
+  /** 更新病程（标题 / 开始日期 / 确定程度） */
+  updateEpisode(
+    userId: string,
+    episodeId: string,
+    input: { title?: string; onsetDate?: string | null; onsetCertainty?: string },
+  ) {
+    this.getEpisode(userId, episodeId);
+    if (input.title !== undefined && !input.title.trim()) {
+      throw new ForbiddenException('病程名称不能为空');
+    }
+    this.appDb
+      .prepare(
+        `UPDATE EPISODE SET title = COALESCE(?, title), onset_date = CASE WHEN ? IS NULL THEN onset_date ELSE ? END,
+         onset_certainty = COALESCE(?, onset_certainty) WHERE id = ?`,
+      )
+      .run(input.title ?? null, input.onsetDate, input.onsetDate, input.onsetCertainty ?? null, episodeId);
+    return this.getEpisode(userId, episodeId);
+  }
+
   listEvents(userId: string, episodeId: string): CareEventView[] {
     this.getEpisode(userId, episodeId);
     return this.appDb

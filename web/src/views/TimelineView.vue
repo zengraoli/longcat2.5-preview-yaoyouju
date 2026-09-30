@@ -7,7 +7,6 @@
           <p class="timeline-page__meta">{{ episode?.title || '尚未建立病程' }}</p>
         </div>
         <div class="timeline-page__actions">
-          <button class="btn btn--secondary">▽ 筛选</button>
           <button class="btn btn--primary" @click="onAdd">＋ 新增事件</button>
         </div>
       </div>
@@ -57,6 +56,7 @@
                 </div>
               </div>
             </div>
+            <p v-if="events.length === 0" class="timeline__empty">暂无记录</p>
           </div>
         </div>
 
@@ -163,6 +163,23 @@
           </div>
         </div>
       </div>
+
+      <!-- 新增事件弹层 -->
+      <div v-if="showAdd" class="mask" @click.self="showAdd = false">
+        <div class="dialog">
+          <div class="dialog__header">
+            <span class="dialog__title">新增记录</span>
+            <button class="dialog__close" @click="showAdd = false">✕</button>
+          </div>
+          <textarea
+            v-model="addText"
+            class="dialog__textarea"
+            placeholder="记录原文（如报告片段、医嘱、症状变化）"
+            :maxlength="2000"
+          />
+          <button class="btn btn--primary btn--block" @click="addEvent">保存</button>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -171,7 +188,7 @@
 import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { listEpisodes, timeline, addSymptomLog, createEpisode } from '@/api';
+import { listEpisodes, timeline, addSymptomLog, createEpisode, updateEpisode, checkSafety } from '@/api';
 import type { Episode } from '@/api/types';
 
 const episode = ref<Episode | null>(null);
@@ -228,6 +245,8 @@ const change = ref<string | null>(null);
 const leg = ref<string | null>(null);
 const done = ref<string[]>([]);
 const worry = ref('');
+const showAdd = ref(false);
+const addText = ref('');
 
 function toggleDone(opt: string) {
   const idx = done.value.indexOf(opt);
@@ -247,6 +266,17 @@ async function onSave(updateCurrent = false) {
       await createEpisode('腰痛', undefined, '尚未确认');
       episodes = await listEpisodes();
     }
+    // 红旗预检：最担心什么含红旗时提示就医（不阻断保存）
+    if (worry.value.trim()) {
+      try {
+        const safety = await checkSafety(worry.value, 'record');
+        if (!safety.passed && safety.redFlags.length > 0) {
+          toast(safety.redFlags.map((r) => r.message).join(''));
+        }
+      } catch {
+        // 预检失败不阻断
+      }
+    }
     await addSymptomLog(episodes[0].id, {
       occurredAt: new Date().toISOString(),
       sitMinutes: sitMinutes.value ?? undefined,
@@ -258,23 +288,44 @@ async function onSave(updateCurrent = false) {
       topWorry: worry.value || undefined,
     });
     toast('已保存');
+    // 保存并更新当前情况：同步更新病程的开始日期（若未设置）
+    if (updateCurrent) {
+      const ep = episodes[0];
+      if (!ep.onsetDate) {
+        await updateEpisode(ep.id, { onsetDate: new Date().toISOString().slice(0, 10), onsetCertainty: '已确认' });
+      }
+    }
+    await load();
   } catch (e) {
     toast((e as Error).message);
   }
 }
 
 function onAdd() {
-  const text = prompt('记录原文（如报告片段、医嘱、症状变化）');
-  if (!text || !text.trim()) return;
-  addEvent(text.trim());
+  showAdd.value = true;
+  addText.value = '';
 }
 
-async function addEvent(text: string) {
+async function addEvent() {
+  const text = addText.value.trim();
+  if (!text) {
+    toast('请填写记录内容');
+    return;
+  }
   try {
     let episodes = await listEpisodes();
     if (episodes.length === 0) {
       await createEpisode('腰痛', undefined, '尚未确认');
       episodes = await listEpisodes();
+    }
+    // 红旗预检
+    try {
+      const safety = await checkSafety(text, 'event');
+      if (!safety.passed && safety.redFlags.length > 0) {
+        toast(safety.redFlags.map((r) => r.message).join(''));
+      }
+    } catch {
+      // 预检失败不阻断
     }
     const { addEvent: createEvent } = await import('@/api');
     await createEvent(episodes[0].id, {
@@ -283,6 +334,8 @@ async function addEvent(text: string) {
       sourceType: '自述',
       rawText: text,
     });
+    showAdd.value = false;
+    addText.value = '';
     toast('已保存');
     await load();
   } catch (e) {
@@ -293,7 +346,7 @@ async function addEvent(text: string) {
 function toast(msg: string) {
   const el = document.createElement('div');
   el.textContent = msg;
-  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;';
+  el.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#1B2230;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;max-width:80%;text-align:center;';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2000);
 }
@@ -329,6 +382,8 @@ onMounted(load);
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 .timeline-page__title {
   font-size: 20px;
@@ -425,22 +480,11 @@ onMounted(load);
   color: var(--text-2);
   margin: 12px 0 0;
 }
-.table {
-  width: 100%;
-  border-collapse: collapse;
+.timeline__empty {
   font-size: 13px;
-}
-.table th {
-  text-align: left;
-  font-size: 12px;
-  color: var(--text-2);
-  font-weight: 500;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.table td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  text-align: center;
+  padding: 24px 0;
 }
 .timeline__event {
   display: flex;
@@ -542,6 +586,54 @@ onMounted(load);
 }
 .record__textarea:focus {
   border-color: var(--primary);
+}
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+.dialog {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px;
+  width: 480px;
+  max-width: 100%;
+}
+.dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.dialog__title {
+  font-size: 16px;
+  font-weight: 500;
+}
+.dialog__close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+.dialog__textarea {
+  width: 100%;
+  min-height: 100px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
 }
 .btn {
   min-height: 40px;

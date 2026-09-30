@@ -23,6 +23,14 @@
               <div class="card__title">{{ section.title }}</div>
               <button class="btn btn--text" @click="onCorrect(section.key)">✎ 纠正</button>
             </div>
+            <!-- 纠正弹层 -->
+            <div v-if="correcting === section.key" class="correct-editor">
+              <textarea v-model="correctText" class="correct-editor__textarea" :maxlength="2000" />
+              <div class="correct-editor__actions">
+                <button class="btn btn--primary btn--sm" @click="onSaveCorrect">保存</button>
+                <button class="btn btn--secondary btn--sm" @click="correcting = ''">取消</button>
+              </div>
+            </div>
             <div v-for="(item, i) in section.items" :key="i" class="card__body">
               {{ item.text }}
             </div>
@@ -136,7 +144,15 @@ async function onExport(format: '文本' | 'PDF' | '图片') {
         toast('复制失败，请手动选择文本');
       }
     } else {
-      toast('PDF 通过浏览器打印生成，本接口返回文本内容。');
+      // PDF 通过浏览器打印生成
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`<html><head><title>复诊交接摘要</title></head><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${result.text}</pre></body></html>`);
+        win.document.close();
+        win.print();
+      } else {
+        toast('请允许弹出窗口以打印 PDF');
+      }
     }
   } catch (e) {
     toast((e as Error).message);
@@ -155,8 +171,26 @@ function onCorrect(key: string) {
   } else {
     correctText.value = '';
   }
-  // 简化：直接提示在摘要页编辑
-  toast('请在摘要内容上直接修改后重新保存');
+}
+
+async function onSaveCorrect() {
+  if (!content.value || !correcting.value) return;
+  const key = correcting.value as keyof SummaryContent;
+  const section = content.value[key];
+  if (Array.isArray(section) && section.length > 0 && typeof section[0] === 'object') {
+    (section[0] as { text: string }).text = correctText.value;
+  }
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      await saveSummary(episodes[0].id, content.value);
+    }
+    correcting.value = '';
+    toast('已保存纠正');
+    await load();
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function toast(msg: string) {
@@ -240,6 +274,29 @@ onMounted(load);
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+.correct-editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.correct-editor__textarea {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.correct-editor__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
 }
 .question-item {
   display: flex;

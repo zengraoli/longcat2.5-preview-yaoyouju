@@ -154,7 +154,20 @@ import { useRouter } from 'vue-router';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, getLatestAnalysis, createHelpFeedback, createErrorReport, timeline } from '@/api';
+import {
+  listEpisodes,
+  getLatestAnalysis,
+  createHelpFeedback,
+  createErrorReport,
+  timeline,
+  createQaSession,
+  listQaSessions,
+  addFollowupQuestion,
+  addEvent,
+  exportSummary,
+  saveSummary,
+  previewSummary,
+} from '@/api';
 import type { AnalysisResult } from '@/api/types';
 
 const router = useRouter();
@@ -193,16 +206,35 @@ function sourceLabel(source: string | null) {
 
 function onFeedback(opt: string) {
   if (!analysis.value) return;
-  createHelpFeedback(analysis.value.id, opt);
-  toast('感谢反馈');
+  createHelpFeedback(analysis.value.id, opt)
+    .then(() => toast('感谢反馈'))
+    .catch((e) => toast((e as Error).message));
 }
 
-function onExport() {
-  toast('PDF 通过浏览器打印生成，可在摘要页导出文本');
+async function onExport() {
+  if (!analysis.value) return;
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) return;
+    const preview = await previewSummary(episodes[0].id);
+    const saved = await saveSummary(episodes[0].id, preview);
+    const result = await exportSummary(saved.id, 'PDF');
+    // 通过浏览器打印生成 PDF
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(`<html><head><title>复诊交接摘要</title></head><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${result.text}</pre></body></html>`);
+      win.document.close();
+      win.print();
+    } else {
+      toast('导出文本已生成，请允许弹出窗口以打印 PDF');
+    }
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function onShare() {
-  toast('演示环境不支持分享');
+  toast('演示环境不支持分享；正式环境将生成只读链接');
 }
 
 function onReportError() {
@@ -214,17 +246,48 @@ function onReportError() {
     .catch((e) => toast((e as Error).message));
 }
 
-function onAddFollowup() {
+async function onAddFollowup() {
   if (!analysis.value) return;
-  toast('已加入复诊问题清单（演示）');
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) return;
+    // 复用或创建问答会话，把“下一步”条目加入复诊问题清单
+    const existing = await listQaSessions();
+    const session = existing.find((s) => s.analysisId === analysis.value!.id) ?? existing[0];
+    const sessionId = session
+      ? session.id
+      : (await createQaSession(analysis.value.id, '分析补充问题')).id;
+    const questions = analysis.value.sections.下一步.map((s) => s.text);
+    for (const q of questions) {
+      await addFollowupQuestion(sessionId, q);
+    }
+    toast(`已加入 ${questions.length} 条复诊问题`);
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
-function onPlay(video: { title: string }) {
-  toast(`播放：${video.title}（演示）`);
+function onPlay(video: { title: string; contentId: string }) {
+  router.push({ name: 'contents' });
+  toast(`播放：${video.title}（演示视频）`);
 }
 
-function onSaveTimeline() {
-  toast('已保存到病程（演示）');
+async function onSaveTimeline() {
+  if (!analysis.value) return;
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length === 0) return;
+    await addEvent(episodes[0].id, {
+      eventType: '行动',
+      occurredAt: new Date().toISOString(),
+      sourceType: '自述',
+      rawText: `已生成一页分析 v${analysis.value.version}（模型 ${analysis.value.modelReleaseId}）`,
+      verifyStatus: '已确认',
+    });
+    toast('已保存到病程');
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }
 
 function onGenSummary() {

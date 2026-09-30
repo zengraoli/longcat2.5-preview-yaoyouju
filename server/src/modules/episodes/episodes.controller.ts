@@ -37,6 +37,21 @@ class CreateEpisodeDto {
   onsetCertainty?: string;
 }
 
+class UpdateEpisodeDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  title?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  onsetDate?: string;
+
+  @IsOptional()
+  @IsString()
+  onsetCertainty?: string;
+}
+
 class AddEventDto {
   @IsIn(['报告', '症状', '医嘱', '行动', '结局'])
   eventType!: string;
@@ -116,6 +131,12 @@ export class EpisodesController {
   @Get(':id')
   detail(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
     return this.episodes.getEpisode(user.userId, id);
+  }
+
+  @Put(':id')
+  @RequireConsent('健康信息处理')
+  update(@CurrentUser() user: { userId: string }, @Param('id') id: string, @Body() dto: UpdateEpisodeDto) {
+    return this.episodes.updateEpisode(user.userId, id, dto);
   }
 
   @Get(':id/events')

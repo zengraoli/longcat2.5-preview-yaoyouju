@@ -14,7 +14,7 @@
             :key="item.key"
             class="account-page__nav-item"
             :class="{ 'account-page__nav-item--active': activeNav === item.key }"
-            @click="activeNav = item.key"
+            @click="onNavClick(item.key)"
           >
             {{ item.icon }} {{ item.label }}
           </button>
@@ -68,7 +68,7 @@
                   可读格式（PDF / JSON），包含病程、报告原文、分析版本与同意记录。完成后链接 24 小时内有效。
                 </p>
                 <p class="export-card__meta">上次导出：2026-09-15 · 已过期</p>
-                <button class="btn btn--secondary">申请导出</button>
+                <button class="btn btn--secondary" @click="onApplyExport">申请导出</button>
               </div>
               <div class="export-card export-card--danger">
                 <div class="export-card__title export-card__title--danger">🗑 删除账户与数据</div>
@@ -105,6 +105,18 @@
             </table>
           </div>
 
+          <!-- 账户 -->
+          <div v-if="activeNav === 'account'" class="card">
+            <div class="card__title">账户</div>
+            <div class="account-info">
+              <div class="account-info__row"><span>手机号</span><span>{{ maskedPhone || '—' }}</span></div>
+              <div class="account-info__row"><span>匿名内部标识</span><span>{{ anonymousId }}</span></div>
+              <div class="account-info__row"><span>分析模型</span><span>{{ modelVersion || '—' }}</span></div>
+              <div class="account-info__row"><span>上次导出</span><span>{{ lastExport || '—' }}</span></div>
+            </div>
+            <p class="card__note">分析内容与身份信息分离存储；手机号在列表与日志中脱敏。</p>
+          </div>
+
           <!-- 服务信息 -->
           <div v-if="activeNav === 'service'" class="card">
             <div class="card__title">服务信息</div>
@@ -137,7 +149,7 @@ import { ref, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import { useAuthStore } from '@/stores/auth';
-import { getMe, getConsents, setConsent, logout, deleteAccount } from '@/api';
+import { getMe, getConsents, setConsent, logout, deleteAccount, listEpisodes } from '@/api';
 
 const auth = useAuthStore();
 
@@ -153,7 +165,58 @@ const navItems = [
   { key: 'service', label: '服务信息', icon: 'ℹ' },
   { key: 'logout', label: '退出登录', icon: '→' },
 ];
-const activeNav = ref('consents');
+const activeNav = ref('account');
+const modelVersion = ref('');
+const lastExport = ref('');
+
+function onNavClick(key: string) {
+  if (key === 'logout') {
+    onLogout();
+    return;
+  }
+  activeNav.value = key;
+}
+
+async function onLogout() {
+  try {
+    await logout();
+  } catch {
+    // 本地仍清除
+  }
+  auth.logout();
+  window.location.href = '/login';
+}
+
+async function loadAccount() {
+  try {
+    const episodes = await listEpisodes();
+    if (episodes.length > 0) {
+      const { getLatestAnalysis, previewSummary } = await import('@/api');
+      const analysis = await getLatestAnalysis(episodes[0].id);
+      if (analysis) modelVersion.value = analysis.modelReleaseId;
+      try {
+        const summary = await previewSummary(episodes[0].id);
+        lastExport.value = '未导出';
+      } catch {
+        lastExport.value = '未导出';
+      }
+    }
+  } catch {
+    // 加载失败不阻塞
+  }
+  try {
+    const { listMyFeedback } = await import('@/api');
+    feedbackRows.value = (await listMyFeedback()).map((f: { id: string; helpType: string | null; unsolvedQuestion: string | null; isErrorReport: boolean; createdAt: string; status?: string }) => ({
+      id: f.id.slice(0, 8),
+      content: f.unsolvedQuestion || f.helpType || '—',
+      type: f.isErrorReport ? '错误举报' : '帮助类型',
+      status: f.status ?? '已提交',
+      time: f.createdAt.slice(0, 16).replace('T', ' '),
+    }));
+  } catch {
+    // 加载失败不阻塞
+  }
+}
 
 const feedbackRows = ref<Array<{ id: string; content: string; type: string; status: string; time: string }>>([]);
 
@@ -162,17 +225,6 @@ function formatTime(iso: string | null) {
 }
 
 async function onRevoke() {
-  if (activeNav.value === 'logout') {
-    try {
-      await logout();
-    } catch {
-      // 本地仍清除
-    }
-    auth.logout();
-    window.location.href = '/login';
-    return;
-  }
-
   try {
     const result = await setConsent('健康信息处理', false);
     consentRows.value = result.map((c: { scope: string; granted: boolean; grantedAt: string | null }) => ({
@@ -190,6 +242,10 @@ async function onRevoke() {
 }
 
 const deleteConfirmed = ref(false);
+
+function onApplyExport() {
+  toast('演示环境暂不支持完整数据导出；正式环境将生成可读格式（PDF / JSON），链接 24 小时内有效。');
+}
 
 function onDelete() {
   // 两步确认：先弹确认提示，再执行删除
@@ -227,6 +283,7 @@ onMounted(async () => {
   } catch {
     // 未登录
   }
+  await loadAccount();
 });
 </script>
 
@@ -358,6 +415,21 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--text-3);
   margin: 0 0 12px;
+}
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.account-info__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  gap: 12px;
+}
+.account-info__row span:first-child {
+  color: var(--text-2);
 }
 .service-item {
   margin-bottom: 16px;
