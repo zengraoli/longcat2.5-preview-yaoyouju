@@ -77,7 +77,14 @@ const allMenu: MenuItem[] = [
 
 const visibleMenu = computed(() => {
   const perms = auth.session?.permissions ?? [];
-  return allMenu.filter((item) => perms.includes('*') || perms.includes(item.permission));
+  return allMenu.filter((item) => {
+    if (perms.includes('*')) return true;
+    // 内容库：编辑或审定角色都可见
+    if (item.permission === 'content:edit') {
+      return perms.includes('content:edit') || perms.includes('content:review');
+    }
+    return perms.includes(item.permission);
+  });
 });
 
 function isActive(to: string) {

@@ -72,7 +72,7 @@ describe('反馈与错误举报', () => {
     // 后台登录
     const adminLogin = await request(app.getHttpServer())
       .post('/admin/login')
-      .send({ name: '合规-顾', password: 'Admin@123456', totp: '123456' });
+      .send({ name: '运营编辑-林', password: 'Admin@123456', totp: '123456' });
     const adminToken = adminLogin.body.data.token;
     // 授权
     const authorized = await request(app.getHttpServer())

@@ -25,10 +25,10 @@ export class AnalysesService {
     if (!episode) {
       throw new NotFoundException('病程不存在');
     }
-    // 安全规则引擎：红旗与服务范围校验（提交文字 + 病程中用户自述的事件原文；
+    // 安全规则引擎：红旗与服务范围校验（提交文字 + 病程中用户自述与报告原文的事件；
     // 医嘱等医生记录中的红旗关键词是条件性建议，不作为用户症状）
     const episodeEvents = this.appDb
-      .prepare("SELECT raw_text AS rawText FROM CARE_EVENT WHERE episode_id = ? AND raw_text IS NOT NULL AND source_type = '自述'")
+      .prepare("SELECT raw_text AS rawText FROM CARE_EVENT WHERE episode_id = ? AND raw_text IS NOT NULL AND source_type IN ('自述', '报告原文')")
       .all(episodeId) as Array<{ rawText: string }>;
     const combinedText = [safetyText ?? '', ...episodeEvents.map((e) => e.rawText)].join('\n');
     const safetyResult = this.safety.checkAndRecord(userId, 'analysis-submit', combinedText);

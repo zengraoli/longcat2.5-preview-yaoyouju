@@ -101,9 +101,10 @@ export class AdminController {
     return this.feedback.list();
   }
 
-  /** 后台成员列表 */
+  /** 后台成员列表（需 user:read 权限） */
   @Get('users')
   @UseGuards(AdminGuard)
+  @RequirePermission('user:read')
   listUsers(@CurrentAdmin() _admin: unknown) {
     return this.appDb
       .prepare(
@@ -211,10 +212,10 @@ export class AdminController {
     return { id, status: next };
   }
 
-  /** 审计导出（需审批，这里返回 CSV 文本） */
+  /** 审计导出（需 audit:export 权限，写审计） */
   @Get('audit-logs/export')
   @UseGuards(AdminGuard)
-  @RequirePermission('audit:read')
+  @RequirePermission('audit:export')
   exportAuditLogs(@CurrentAdmin() admin: { adminId: string }) {
     const logs = this.audit.list(1000);
     const header = '时间,操作人,角色,动作,对象,请求ID,哈希';

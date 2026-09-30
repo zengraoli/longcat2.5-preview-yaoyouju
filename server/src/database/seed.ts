@@ -42,11 +42,12 @@ export function initDatabase(
 function seed(appDb: Database.Database, identityDb: Database.Database): void {
   const tx = appDb.transaction(() => {
     // ---------- 角色与后台账号 ----------
+    // 权限矩阵对照设计稿 B10（最小必要）
     const roles: Array<[string, string, string[]]> = [
-      ['role-ops', '运营编辑', ['content:edit', 'content:submit', 'case:review']],
-      ['role-clinical', '临床审核', ['content:review', 'evidence:review']],
-      ['role-tech', '技术', ['model:release', 'eval:run', 'switch:read']],
-      ['role-compliance', '合规', ['feedback:handle', 'audit:read', 'switch:write']],
+      ['role-ops', '运营编辑', ['content:edit', 'content:submit', 'case:review', 'evidence:review', 'feedback:handle', 'user:read']],
+      ['role-clinical', '临床审核', ['content:review', 'evidence:review', 'feedback:handle', 'user:read']],
+      ['role-tech', '技术', ['model:release', 'eval:run', 'switch:read', 'user:read']],
+      ['role-compliance', '合规', ['audit:read', 'switch:write', 'user:read']],
       ['role-super', '超级管理', ['*']],
     ];
     const insertRole = appDb.prepare(

@@ -51,8 +51,8 @@ describe('内容库与审核流程', () => {
   it('创建 → 提交审核 → 通过 → 发布（双人确认）', () => {
     const item = contents.createItem(actor1, { type: '视频', title: '测试内容', script: '脚本' });
     expect(item.currentStatus).toBe('草稿');
-    expect(contents.transitionItem(actor1, item.id, '提交审核').currentStatus).toBe('待审');
-    expect(contents.transitionItem(actor2, item.id, '通过').currentStatus).toBe('已审定');
+    expect(contents.transitionItem(actor1, item.id, '提交审核', undefined, ['content:edit']).currentStatus).toBe('待审');
+    expect(contents.transitionItem(actor2, item.id, '通过', undefined, ['content:review']).currentStatus).toBe('已审定');
     // 发布：第一个审核人发起
     const first = contents.publish(actor2, item.id);
     expect(first.status).toBe('待第二人确认');
@@ -66,13 +66,13 @@ describe('内容库与审核流程', () => {
 
   it('非法流转返回错误', () => {
     const item = contents.createItem(actor1, { type: '视频', title: '测试内容' });
-    expect(() => contents.transitionItem(actor1, item.id, '发布')).toThrow('非法状态流转');
+    expect(() => contents.transitionItem(actor1, item.id, '发布', undefined, ['content:review'])).toThrow('非法状态流转');
   });
 
   it('一键下线后用户端接口立即不可见，并能定位引用页面', () => {
     const item = contents.createItem(actor1, { type: '视频', title: '测试内容' });
-    contents.transitionItem(actor1, item.id, '提交审核');
-    contents.transitionItem(actor2, item.id, '通过');
+    contents.transitionItem(actor1, item.id, '提交审核', undefined, ['content:edit']);
+    contents.transitionItem(actor2, item.id, '通过', undefined, ['content:review']);
     contents.publish(actor2, item.id);
     contents.publish(actor1, item.id);
     // 用户端可见（种子数据 5 条已发布 + 本条）
@@ -89,8 +89,8 @@ describe('内容库与审核流程', () => {
 
   it('审核记录与版本链可查', () => {
     const item = contents.createItem(actor1, { type: '视频', title: '测试内容', script: '脚本' });
-    contents.transitionItem(actor1, item.id, '提交审核');
-    contents.transitionItem(actor2, item.id, '通过', '表述准确');
+    contents.transitionItem(actor1, item.id, '提交审核', undefined, ['content:edit']);
+    contents.transitionItem(actor2, item.id, '通过', '表述准确', ['content:review']);
     const records = contents.reviewRecords(item.id);
     expect(records.length).toBe(2);
     const versions = contents.versions(item.id);

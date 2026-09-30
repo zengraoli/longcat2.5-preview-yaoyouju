@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -130,7 +131,14 @@ export class ContentsService {
     itemId: string,
     action: ContentAction,
     comment?: string,
+    permissions: string[] = [],
   ): ContentItemView {
+    // 按动作校验权限（B10 权限矩阵）：提交/更正需 content:edit，通过/退回/撤回需 content:review
+    const needPermission =
+      action === '提交审核' || action === '更正' ? 'content:edit' : 'content:review';
+    if (!permissions.includes('*') && !permissions.includes(needPermission)) {
+      throw new ForbiddenException(`无权限执行「${action}」`);
+    }
     const item = this.appDb
       .prepare('SELECT * FROM CONTENT_ITEM WHERE id = ?')
       .get(itemId) as {

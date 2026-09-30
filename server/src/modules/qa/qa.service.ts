@@ -111,10 +111,27 @@ export class QaService {
       .prepare('INSERT INTO QA_MESSAGE (id, session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, NULL, ?)')
       .run(userMsgId, sessionId, 'user', question, now);
 
-    // 红旗信号：立即提示就医并记录安全事件，不进入普通问答
+    // 红旗信号：立即提示就医并记录安全事件，同时写入自述事件（阻断后续分析）
     const redFlags = matchRedFlags(question);
     if (redFlags.length > 0) {
       this.safety.checkAndRecord(userId, 'qa-ask', question);
+      // 写入自述事件，确保护红旗内容被分析提交时拦截
+      const sessionRow = this.appDb
+        .prepare('SELECT analysis_id AS analysisId FROM QA_SESSION WHERE id = ?')
+        .get(sessionId) as { analysisId: string | null } | undefined;
+      const analysis = sessionRow?.analysisId
+        ? (this.appDb
+            .prepare('SELECT episode_id AS episodeId FROM ANALYSIS WHERE id = ?')
+            .get(sessionRow.analysisId) as { episodeId: string } | undefined)
+        : undefined;
+      if (analysis) {
+        this.appDb
+          .prepare(
+            `INSERT INTO CARE_EVENT (id, episode_id, event_type, occurred_at, reported_at, source_type, raw_text, verify_status)
+             VALUES (?, ?, '症状', ?, ?, '自述', ?, '尚未确认')`,
+          )
+          .run(crypto.randomUUID(), analysis.episodeId, new Date().toISOString(), new Date().toISOString(), question);
+      }
       const content = `${redFlags[0].message} 你可以先记录这次变化，并尽快就医；本轮不会生成个性化分析。`;
       const msgId = crypto.randomUUID();
       this.appDb

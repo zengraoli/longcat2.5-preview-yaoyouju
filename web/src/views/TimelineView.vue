@@ -96,6 +96,19 @@
               <button class="chip chip--skip" @click="activity = null">跳过</button>
             </div>
 
+            <div class="record__question">睡眠受影响程度</div>
+            <div class="record__chips">
+              <button
+                v-for="opt in sleepOptions"
+                :key="opt.value"
+                class="chip"
+                :class="{ 'chip--selected': sleepImpact === opt.value }"
+                @click="sleepImpact = opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+
             <div class="record__question">与昨天相比</div>
             <div class="record__chips">
               <button
@@ -158,7 +171,7 @@
 import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/components/AppLayout.vue';
 import StatusTag from '@/components/StatusTag.vue';
-import { listEpisodes, timeline, addSymptomLog } from '@/api';
+import { listEpisodes, timeline, addSymptomLog, createEpisode } from '@/api';
 import type { Episode } from '@/api/types';
 
 const episode = ref<Episode | null>(null);
@@ -198,12 +211,19 @@ const sitOptions = [
   { label: '>60分钟', value: 75 },
 ];
 const activityOptions = ['能', '部分', '不能'];
+const sleepOptions = [
+  { label: '没影响', value: 0 },
+  { label: '偶尔醒', value: 1 },
+  { label: '常醒', value: 2 },
+  { label: '几乎没睡', value: 3 },
+];
 const changeOptions = ['加重', '差不多', '减轻'];
 const legOptions = ['有', '没有', '尚未确认'];
 const doneOptions = ['步行', '热敷', '按医嘱用药', '休息', '康复练习', '工作/久坐', '其他'];
 
 const sitMinutes = ref<number | null>(null);
 const activity = ref<string | null>(null);
+const sleepImpact = ref<number | null>(null);
 const change = ref<string | null>(null);
 const leg = ref<string | null>(null);
 const done = ref<string[]>([]);
@@ -221,12 +241,17 @@ function formatDate(iso: string) {
 
 async function onSave(updateCurrent = false) {
   try {
-    const episodes = await listEpisodes();
-    if (episodes.length === 0) return;
+    let episodes = await listEpisodes();
+    if (episodes.length === 0) {
+      // 自动创建病程
+      await createEpisode('腰痛', undefined, '尚未确认');
+      episodes = await listEpisodes();
+    }
     await addSymptomLog(episodes[0].id, {
       occurredAt: new Date().toISOString(),
       sitMinutes: sitMinutes.value ?? undefined,
       plannedActivityDone: activity.value ?? undefined,
+      sleepImpact: sleepImpact.value ?? undefined,
       legChange: leg.value ?? undefined,
       changeVsYesterday: change.value ?? undefined,
       activitiesDone: done.value.length > 0 ? done.value.join('、') : undefined,
@@ -246,10 +271,10 @@ function onAdd() {
 
 async function addEvent(text: string) {
   try {
-    const episodes = await listEpisodes();
+    let episodes = await listEpisodes();
     if (episodes.length === 0) {
-      toast('请先建立病程');
-      return;
+      await createEpisode('腰痛', undefined, '尚未确认');
+      episodes = await listEpisodes();
     }
     const { addEvent: createEvent } = await import('@/api');
     await createEvent(episodes[0].id, {

@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ArrayNotEmpty, IsArray, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
-import { AdminGuard } from '../admin/admin.guard';
-import { CurrentAdmin } from '../admin/current-admin.decorator';
+import { AdminGuard, RequirePermission } from '../admin/admin.guard';
+import { CurrentAdmin, CurrentAdminInfo } from '../admin/current-admin.decorator';
 
 import { ContentsService } from './contents.service';
 import { ContentAction } from './state-machine';
@@ -82,6 +82,7 @@ export class ContentsController {
   /** 管理端：创建内容（草稿） */
   @Post()
   @UseGuards(AdminGuard)
+  @RequirePermission('content:edit')
   create(@CurrentAdmin() admin: { adminId: string }, @Body() dto: CreateItemDto) {
     return this.contents.createItem(admin.adminId, dto);
   }
@@ -89,6 +90,7 @@ export class ContentsController {
   /** 管理端：编辑内容（草稿/更正中可编辑） */
   @Put(':id')
   @UseGuards(AdminGuard)
+  @RequirePermission('content:edit')
   update(
     @CurrentAdmin() admin: { adminId: string },
     @Param('id') id: string,
@@ -101,16 +103,17 @@ export class ContentsController {
   @Post(':id/transition')
   @UseGuards(AdminGuard)
   transition(
-    @CurrentAdmin() admin: { adminId: string },
+    @CurrentAdmin() admin: CurrentAdminInfo,
     @Param('id') id: string,
     @Body() dto: TransitionDto,
   ) {
-    return this.contents.transitionItem(admin.adminId, id, dto.action, dto.comment);
+    return this.contents.transitionItem(admin.adminId, id, dto.action, dto.comment, admin.permissions);
   }
 
   /** 管理端：发布（双人确认） */
   @Post(':id/publish')
   @UseGuards(AdminGuard)
+  @RequirePermission('content:review')
   publish(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
     return this.contents.publish(admin.adminId, id);
   }
@@ -118,6 +121,7 @@ export class ContentsController {
   /** 管理端：一键下线并定位引用页面 */
   @Post(':id/offline')
   @UseGuards(AdminGuard)
+  @RequirePermission('content:review')
   offline(@CurrentAdmin() admin: { adminId: string }, @Param('id') id: string) {
     return this.contents.offline(admin.adminId, id);
   }
@@ -125,6 +129,7 @@ export class ContentsController {
   /** 管理端：批量下线（双人确认） */
   @Post('batch-offline')
   @UseGuards(AdminGuard)
+  @RequirePermission('content:review')
   batchOffline(@CurrentAdmin() admin: { adminId: string }, @Body() dto: BatchOfflineDto) {
     return this.contents.batchOffline(admin.adminId, dto.itemIds);
   }
@@ -132,6 +137,7 @@ export class ContentsController {
   /** 审核记录 */
   @Get(':id/reviews')
   @UseGuards(AdminGuard)
+  @RequirePermission('content:review')
   reviews(@Param('id') id: string) {
     return this.contents.reviewRecords(id);
   }
@@ -139,6 +145,7 @@ export class ContentsController {
   /** 版本链 */
   @Get(':id/versions')
   @UseGuards(AdminGuard)
+  @RequirePermission('content:review')
   versions(@Param('id') id: string) {
     return this.contents.versions(id);
   }

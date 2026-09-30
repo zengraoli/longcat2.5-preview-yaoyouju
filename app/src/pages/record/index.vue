@@ -133,7 +133,7 @@ import { ref } from 'vue';
 import AppChip from '@/components/AppChip.vue';
 import AppButton from '@/components/AppButton.vue';
 import TipBar from '@/components/TipBar.vue';
-import { listEpisodes, addSymptomLog, createEpisode } from '@/api';
+import { listEpisodes, addSymptomLog, createEpisode, checkSafety } from '@/api';
 
 const today = new Date().toISOString().slice(0, 10);
 const sitOptions = ['<15分钟', '15-30', '30-60', '>60分钟'];
@@ -178,6 +178,26 @@ function sitMinutesToNumber(opt: string): number | undefined {
 }
 
 async function onSave(updateCurrent = false) {
+  // 红旗预检：最担心什么 / 腿部症状等字段含红旗内容时优先提示就医
+  const worryText = worry.value.trim();
+  if (worryText) {
+    try {
+      const safety = await checkSafety(worryText, 'record');
+      if (!safety.passed && safety.redFlags.length > 0) {
+        uni.showModal({
+          title: '需要及时寻求专业帮助',
+          content: safety.redFlags.map((r) => r.message).join(''),
+          showCancel: false,
+          success: () => {
+            uni.navigateTo({ url: '/pages/redflag/index' });
+          },
+        });
+        return;
+      }
+    } catch {
+      // 预检失败不阻断保存
+    }
+  }
   try {
     let episodes = await listEpisodes();
     if (episodes.length === 0) {
