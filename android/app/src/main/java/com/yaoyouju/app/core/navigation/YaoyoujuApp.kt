@@ -25,12 +25,15 @@ import com.yaoyouju.app.feature.analysis.AnalysisRoute
 import com.yaoyouju.app.feature.compare.CompareRoute
 import com.yaoyouju.app.feature.confirm.ConfirmRoute
 import com.yaoyouju.app.feature.confusion.ConfusionRoute
+import com.yaoyouju.app.feature.contentdetail.ContentDetailRoute
+import com.yaoyouju.app.feature.contents.ContentsRoute
 import com.yaoyouju.app.feature.home.HomeRoute
 import com.yaoyouju.app.feature.login.LoginRoute
 import com.yaoyouju.app.feature.qa.QaRoute
 import com.yaoyouju.app.feature.record.RecordRoute
 import com.yaoyouju.app.feature.redflag.RedFlagRoute
 import com.yaoyouju.app.feature.report.ReportRoute
+import com.yaoyouju.app.feature.summary.SummaryRoute
 import com.yaoyouju.app.feature.timeline.TimelineRoute
 import com.yaoyouju.app.feature.verify.VerifyRoute
 
@@ -176,8 +179,14 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
                     onSaved = { back() },
                 )
             }
-            composable(Routes.Summary) { PlaceholderScreen(Routes.Summary) }
-            composable(Routes.Contents) { PlaceholderScreen(Routes.Contents, back) }
+            composable(Routes.Summary) { SummaryRoute(onSelectTab = onSelectTab) }
+            composable(Routes.Contents) {
+                ContentsRoute(
+                    onSelectTab = onSelectTab,
+                    onBack = back,
+                    onOpenDetail = { id -> navController.navigate(Routes.content(id)) },
+                )
+            }
             composable(Routes.Home) {
                 HomeRoute(
                     onSelectTab = onSelectTab,
@@ -193,7 +202,12 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
             composable(
                 route = "${Routes.ContentDetail}?${Routes.ContentArg}={${Routes.ContentArg}}",
                 arguments = listOf(navArgument(Routes.ContentArg) { type = NavType.StringType; defaultValue = "" }),
-            ) { PlaceholderScreen(Routes.ContentDetail, back) }
+            ) { entry ->
+                ContentDetailRoute(
+                    contentId = entry.arguments?.getString(Routes.ContentArg).orEmpty(),
+                    onBack = back,
+                )
+            }
             composable(Routes.Feedback) { PlaceholderScreen(Routes.Feedback, back) }
             composable(Routes.Mine) { PlaceholderScreen(Routes.Mine) }
             composable(Routes.Fallback) { PlaceholderScreen(Routes.Fallback, back) }

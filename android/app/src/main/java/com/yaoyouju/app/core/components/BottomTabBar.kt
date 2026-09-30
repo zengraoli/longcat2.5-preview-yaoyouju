@@ -31,7 +31,7 @@ enum class TabDestination(val label: String, val icon: ImageVector) {
 
 @Composable
 fun BottomTabBar(
-    selected: TabDestination,
+    selected: TabDestination?,
     onSelect: (TabDestination) -> Unit,
     modifier: Modifier = Modifier,
 ) {

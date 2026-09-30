@@ -158,19 +158,53 @@ object DemoData {
         id = "ct-1",
         type = "视频",
         title = "腰椎节段位置：L5/S1 在哪里",
-        applicableScope = "已确诊腰椎间盘突出、想理解影像术语的人",
-        notApplicable = "急性外伤、出现红旗信号者",
-        reason = "报告提到 L5/S1",
+        applicableScope = "想了解报告中“L5/S1”“节段”等术语的含义",
+        notApplicable = "判断自己的突出程度、是否需要手术、康复动作选择",
+        reason = "你的报告（2026-08-30）提到 L5/S1",
         duration = "2:10",
         auditVersion = 2,
-        script = "这一节讲清楚腰椎分节与 L5/S1 的位置，帮助你读懂报告里的术语。",
-        subtitleText = "腰椎共有五节……L5 是第五节，S1 是骶椎第一节。",
-        modelAssetVersion = "asset-v2",
-        publishedAt = "2026-09-10T01:00:00Z",
+        script = "脊柱由一节节椎骨组成，腰椎有 5 节，从上到下叫 L1 到 L5；L5 下面是骶骨 S1。两节骨头之间的软垫叫椎间盘，“L5/S1”就是第 5 腰椎和第 1 骶椎之间的那个椎间盘……",
+        subtitleText = "脊柱由一节节椎骨组成，腰椎有 5 节，从上到下叫 L1 到 L5；L5 下面是骶骨 S1。两节骨头之间的软垫叫椎间盘，“L5/S1”就是第 5 腰椎和第 1 骶椎之间的那个椎间盘……",
+        modelAssetVersion = "指南 G-03 · 科普 #12",
+        publishedAt = "2026-08-10T01:00:00Z",
         reviews = listOf(
-            ContentReview("通过", "范围与表述准确", "2026-09-09T03:00:00Z", "临床审核·李医生"),
+            ContentReview("通过", "范围与表述准确", "2026-08-08T03:00:00Z", "临床审核·李医生"),
         ),
-        versions = listOf(ContentVersionInfo(2, "2026-09-10T01:00:00Z")),
+        versions = listOf(ContentVersionInfo(2, "2026-08-10T01:00:00Z")),
+    )
+
+    /** A13 内容库列表（与设计稿一致） */
+    val contentLibrary = listOf(
+        ContentItem(
+            id = "ct-1", type = "视频", title = "腰椎节段位置：L5/S1 在哪里",
+            applicableScope = "报告术语", notApplicable = null,
+            reason = "你的报告提到 L5/S1、硬膜囊受压", duration = "2:10", auditVersion = 2,
+        ),
+        ContentItem(
+            id = "ct-2", type = "图文组件", title = "“硬膜囊受压”是在说什么",
+            applicableScope = "报告术语", notApplicable = null,
+            reason = "你的报告提到 L5/S1、硬膜囊受压", duration = "3分钟阅读", auditVersion = 1,
+        ),
+        ContentItem(
+            id = "ct-3", type = "视频", title = "影像上的突出与疼痛为什么不是一回事",
+            applicableScope = "病程变化", notApplicable = null,
+            duration = "3:05", auditVersion = 1,
+        ),
+        ContentItem(
+            id = "ct-4", type = "视频", title = "复诊时医生一般会观察什么",
+            applicableScope = null, notApplicable = "不含家庭自测评分",
+            duration = "2:40", auditVersion = 1,
+        ),
+        ContentItem(
+            id = "ct-5", type = "图文组件", title = "如何看一条信息的来源与适用范围",
+            applicableScope = "信息来源", notApplicable = null,
+            duration = "4分钟阅读", auditVersion = 1,
+        ),
+        ContentItem(
+            id = "ct-6", type = "视频", title = "保守治疗期间的日常活动建议",
+            applicableScope = "生活影响", notApplicable = null,
+            duration = "2:55", auditVersion = 1, offline = true,
+        ),
     )
 
     val events = listOf(
@@ -240,7 +274,11 @@ object DemoData {
     )
 
     val summary = SummaryContent(
-        current = listOf(SummaryEntry("约 2026 年 8 月中旬开始腰痛，具体日期不确定；起初以久坐后酸痛为主。", "自述", "日期尚未确认")),
+        current = listOf(
+            SummaryEntry("约 2026 年 8 月中旬开始腰痛，具体日期不确定；起初以久坐后酸痛为主。", "自述", "日期尚未确认"),
+            SummaryEntry("目前腰痛持续约 1 个月，最近 1 周加重；主要在左侧；能坐约 30 分钟；夜间痛醒 1 次/晚。是否有腿部无力：尚未确认。无大小便或鞍区异常。", "自述 · 12 条记录", "腿部无力：尚未确认"),
+            SummaryEntry("每日步行约 20 分钟、热敷；避免久坐；未使用药物。", "自述", null),
+        ),
         report = listOf(SummaryEntry("2026-08-30 腰椎 MRI：“L5/S1椎间盘向后突出，相应硬膜囊受压，右侧神经根受压可能。”", "报告原文", "与自述侧别不一致")),
         advice = listOf(SummaryEntry("保守治疗，4 周后复查（2026-09-10 就诊时医生口头建议）。", "自述转述", "未经核实")),
         unconfirmed = listOf(SummaryEntry("腿部无力：尚未确认", null, "尚未确认")),

@@ -292,6 +292,8 @@ data class ContentItem(
     val reason: String? = null,
     val duration: String? = null,
     val auditVersion: Int? = null,
+    /** 演示数据可标记下线项（服务端仅返回已发布内容） */
+    val offline: Boolean = false,
 )
 
 @Serializable

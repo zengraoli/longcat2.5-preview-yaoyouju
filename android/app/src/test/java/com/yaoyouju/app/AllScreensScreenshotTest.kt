@@ -27,10 +27,18 @@ import com.yaoyouju.app.feature.redflag.RedFlagScreen
 import com.yaoyouju.app.feature.redflag.RedFlagUiState
 import com.yaoyouju.app.feature.report.ReportScreen
 import com.yaoyouju.app.feature.report.ReportUiState
+import com.yaoyouju.app.feature.contentdetail.ContentDetailScreen
+import com.yaoyouju.app.feature.contentdetail.ContentDetailUiState
+import com.yaoyouju.app.feature.contents.ContentsScreen
+import com.yaoyouju.app.feature.contents.ContentsUiState
 import com.yaoyouju.app.feature.qa.QaScreen
 import com.yaoyouju.app.feature.qa.QaUiState
 import com.yaoyouju.app.feature.record.RecordScreen
 import com.yaoyouju.app.feature.record.RecordUiState
+import com.yaoyouju.app.feature.summary.SummaryScreen
+import com.yaoyouju.app.feature.summary.SummarySection
+import com.yaoyouju.app.feature.summary.SummaryTab
+import com.yaoyouju.app.feature.summary.SummaryUiState
 import com.yaoyouju.app.feature.timeline.ChartBar
 import com.yaoyouju.app.feature.timeline.TimelineItem
 import com.yaoyouju.app.feature.timeline.TimelineScreen
@@ -370,6 +378,67 @@ class AllScreensScreenshotTest {
             onToggleActivity = {},
             onTopWorryChange = {},
             onSave = {},
+        )
+    }
+
+    /* ---------- A12 复诊摘要 ---------- */
+    @Test
+    fun a12Summary() = capture("A12-summary") {
+        SummaryScreen(
+            state = SummaryUiState(
+                loading = false,
+                tab = SummaryTab.Doc,
+                content = DemoData.summary,
+                sections = listOf(
+                    SummarySection("当前情况", "当前情况", DemoData.summary.current),
+                    SummarySection("报告要点", "相关检查原文", DemoData.summary.report),
+                    SummarySection("医嘱要点", "已经接受的专业建议", DemoData.summary.advice),
+                    SummarySection("尚未确认", "尚未确认", DemoData.summary.unconfirmed),
+                    SummarySection("下一步", "下一步", DemoData.summary.next),
+                ),
+                today = "2026-09-21",
+            ),
+            onSelectTab = {},
+            onSelectSummaryTab = {},
+            onCorrect = {},
+            onCorrectTextChange = {},
+            onSaveCorrect = {},
+            onCancelCorrect = {},
+            onExport = {},
+        )
+    }
+
+    /* ---------- A13 审核内容库 ---------- */
+    @Test
+    fun a13Contents() = capture("A13-contents") {
+        ContentsScreen(
+            state = ContentsUiState(
+                loading = false,
+                category = "全部",
+                recommended = DemoData.contentLibrary.take(2),
+                all = DemoData.contentLibrary,
+                filtered = DemoData.contentLibrary,
+            ),
+            onSelectTab = {},
+            onBack = {},
+            onSelectCategory = {},
+            onQueryChange = {},
+            onToggleSearch = {},
+            onOpenDetail = {},
+        )
+    }
+
+    /* ---------- A15 视频详情 ---------- */
+    @Test
+    fun a15ContentDetail() = capture("A15-content-detail") {
+        ContentDetailScreen(
+            state = ContentDetailUiState(loading = false, detail = DemoData.contentDetail),
+            onBack = {},
+            onRetellChange = {},
+            onSubmitRetell = {},
+            onToggleSubtitle = {},
+            onFeedback = {},
+            reviewDate = "2026-08",
         )
     }
 
