@@ -31,8 +31,10 @@ import com.yaoyouju.app.core.components.AppCard
 import com.yaoyouju.app.core.components.AppChip
 import com.yaoyouju.app.core.components.AppChipState
 import com.yaoyouju.app.core.components.AppIcons
+import com.yaoyouju.app.core.components.BottomTabBar
 import com.yaoyouju.app.core.components.ChipRow
 import com.yaoyouju.app.core.components.StatusTag
+import com.yaoyouju.app.core.components.TabDestination
 import com.yaoyouju.app.core.components.TipBar
 import com.yaoyouju.app.core.components.TipBarType
 import com.yaoyouju.app.core.components.TopBar
@@ -56,15 +58,22 @@ fun AnalysisScreen(
     onReportError: () -> Unit,
     onToggleQuestion: (Int) -> Unit,
     onAddQuestions: () -> Unit,
+    onSelectTab: (TabDestination) -> Unit,
+    onShare: () -> Unit,
+    onMore: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppColors.Bg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = AppDimens.PageMargin)
-            .padding(bottom = 32.dp),
+            .background(AppColors.Bg),
     ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = AppDimens.PageMargin)
+                .padding(bottom = 24.dp),
+        ) {
         TopBar(
             title = "一页分析",
             onBack = onBack,
@@ -73,13 +82,13 @@ fun AnalysisScreen(
                     imageVector = AppIcons.Share,
                     contentDescription = "分享",
                     tint = AppColors.Text2,
-                    modifier = Modifier.size(20.dp).padding(end = 4.dp),
+                    modifier = Modifier.size(20.dp).padding(end = 4.dp).clickable { onShare() },
                 )
                 Icon(
                     imageVector = AppIcons.More,
                     contentDescription = "更多",
                     tint = AppColors.Text2,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp).clickable { onMore() },
                 )
             },
         )
@@ -93,6 +102,30 @@ fun AnalysisScreen(
                     color = AppColors.Text2,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            result == null && !state.loading && state.status == "empty" -> AppCard {
+                Text(text = "还没有可展示的一页分析", color = AppColors.Text1, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = "先记录今天或录入报告，核对后即可生成分析。",
+                    color = AppColors.Text2,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                AppButton(
+                    text = "查看病程记录",
+                    onClick = onTimeline,
+                    type = AppButtonType.Soft,
+                    block = true,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                AppButton(
+                    text = "查看已审核资料",
+                    onClick = onContents,
+                    type = AppButtonType.Secondary,
+                    block = true,
+                    modifier = Modifier.padding(top = 10.dp),
                 )
             }
 
@@ -310,6 +343,8 @@ fun AnalysisScreen(
                 )
             }
         }
+        }
+        BottomTabBar(selected = null, onSelect = onSelectTab)
     }
 }
 

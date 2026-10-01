@@ -69,7 +69,7 @@ fun ContentsScreen(
                 },
             )
 
-            if (showSearch && state.query.isNotEmpty()) {
+            if (showSearch) {
                 AppTextField(
                     value = state.query,
                     onValueChange = onQueryChange,

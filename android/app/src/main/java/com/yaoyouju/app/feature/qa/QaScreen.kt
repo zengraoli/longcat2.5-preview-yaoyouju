@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,9 +28,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yaoyouju.app.core.components.AppButton
 import com.yaoyouju.app.core.components.AppChip
 import com.yaoyouju.app.core.components.AppIcons
 import com.yaoyouju.app.core.components.BottomTabBar
@@ -51,6 +53,9 @@ fun QaScreen(
     onSend: () -> Unit,
     onQuickAsk: (String) -> Unit,
     onAddFollowup: (String) -> Unit,
+    onOpenHistory: () -> Unit,
+    onCloseHistory: () -> Unit,
+    onOpenSession: (String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val initialCount = remember { state.messages.size }
@@ -70,7 +75,7 @@ fun QaScreen(
                     imageVector = AppIcons.Course,
                     contentDescription = "历史会话",
                     tint = AppColors.Text2,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp).clickable { onOpenHistory() },
                 )
             }
             Row(
@@ -101,13 +106,19 @@ fun QaScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 16.dp, bottom = 12.dp),
         ) {
-            items(state.messages, key = { it.id }) { message ->
+            itemsIndexed(state.messages, key = { _, it -> it.id }) { index, message ->
                 if (message.role == "user") {
                     UserBubble(message.content)
                 } else {
+                    val userQuestion = state.messages
+                        .subList(0, index)
+                        .lastOrNull { it.role == "user" }
+                        ?.content
+                        .orEmpty()
                     AssistantBubble(
                         message = message,
                         outOfScope = state.outOfScopeMessageIds.contains(message.id),
+                        userQuestion = userQuestion,
                         onAddFollowup = onAddFollowup,
                     )
                 }
@@ -134,6 +145,10 @@ fun QaScreen(
 
         BottomTabBar(selected = TabDestination.Qa, onSelect = onSelectTab, modifier = Modifier.padding(top = 8.dp))
     }
+
+    if (state.showHistory) {
+        HistoryDialog(state = state, onClose = onCloseHistory, onOpenSession = onOpenSession)
+    }
 }
 
 @Composable
@@ -151,7 +166,7 @@ private fun UserBubble(text: String) {
 }
 
 @Composable
-private fun AssistantBubble(message: QaMessage, outOfScope: Boolean, onAddFollowup: (String) -> Unit) {
+private fun AssistantBubble(message: QaMessage, outOfScope: Boolean, userQuestion: String, onAddFollowup: (String) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
             modifier = Modifier.size(32.dp).background(AppColors.Primary, CircleShape),
@@ -186,9 +201,70 @@ private fun AssistantBubble(message: QaMessage, outOfScope: Boolean, onAddFollow
                     text = "＋ 把这个最担心的问题加入复诊问题",
                     color = AppColors.Primary,
                     style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(top = 8.dp).clickable { onAddFollowup(message.content.take(50)) },
+                    modifier = Modifier.padding(top = 8.dp).clickable {
+                        onAddFollowup(userQuestion.ifBlank { message.content.take(50) })
+                    },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun HistoryDialog(
+    state: QaUiState,
+    onClose: () -> Unit,
+    onOpenSession: (String) -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0x66000000)).clickable { onClose() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(32.dp)
+                .widthIn(max = 420.dp)
+                .background(AppColors.Surface, RoundedCornerShape(AppDimens.RadiusCard))
+                .clickable(enabled = false) {}
+                .padding(20.dp),
+        ) {
+            Text(text = "历史会话", color = AppColors.Text1, style = MaterialTheme.typography.titleSmall)
+            if (state.sessions.isEmpty()) {
+                Text(
+                    text = "暂无历史会话",
+                    color = AppColors.Text3,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            } else {
+                state.sessions.forEach { session ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenSession(session.id) }
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = session.title ?: "问答会话",
+                            color = AppColors.Text1,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "${session.messageCount} 问",
+                            color = AppColors.Text3,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+            AppButton(
+                text = "关闭",
+                onClick = onClose,
+                block = true,
+                modifier = Modifier.padding(top = 16.dp),
+            )
         }
     }
 }

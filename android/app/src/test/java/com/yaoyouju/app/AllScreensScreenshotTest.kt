@@ -234,6 +234,9 @@ class AllScreensScreenshotTest {
             onReportError = {},
             onToggleQuestion = {},
             onAddQuestions = {},
+            onSelectTab = {},
+            onShare = {},
+            onMore = {},
         )
     }
 
@@ -300,6 +303,9 @@ class AllScreensScreenshotTest {
             onSend = {},
             onQuickAsk = {},
             onAddFollowup = {},
+            onOpenHistory = {},
+            onCloseHistory = {},
+            onOpenSession = {},
         )
     }
 
@@ -445,6 +451,8 @@ class AllScreensScreenshotTest {
             onSubmitRetell = {},
             onToggleSubtitle = {},
             onFeedback = {},
+            onReportContent = {},
+            onShare = {},
             reviewDate = "2026-08",
         )
     }
@@ -470,6 +478,7 @@ class AllScreensScreenshotTest {
             onSelectHelpType = {},
             onSubmit = {},
             onCancel = {},
+            onAddScreenshot = {},
         )
     }
 
@@ -494,6 +503,8 @@ class AllScreensScreenshotTest {
             onConfirmDelete = {},
             onDismissDeleteConfirm = {},
             onLogout = {},
+            onFeedback = {},
+            onInfo = {},
         )
     }
 
@@ -541,6 +552,9 @@ class AllScreensScreenshotTest {
             onContents = {},
             onShowEmergency = {},
             onDismissPending = {},
+            onConfusion = {},
+            onNotification = {},
+            onAvatar = {},
         )
     }
 }

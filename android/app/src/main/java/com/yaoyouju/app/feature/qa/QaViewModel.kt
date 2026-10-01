@@ -13,6 +13,7 @@ import com.yaoyouju.app.data.AddFollowupQuestionRequest
 import com.yaoyouju.app.data.AskRequest
 import com.yaoyouju.app.data.CreateQaSessionRequest
 import com.yaoyouju.app.data.QaMessage
+import com.yaoyouju.app.data.QaSession
 import kotlinx.coroutines.launch
 
 data class QaUiState(
@@ -24,6 +25,8 @@ data class QaUiState(
     val input: String = "",
     val sending: Boolean = false,
     val quickQuestions: List<String> = listOf("复诊时该怎么描述？", "哪些变化要提前就医？", "保守治疗一般多久？"),
+    val showHistory: Boolean = false,
+    val sessions: List<QaSession> = emptyList(),
 )
 
 class QaViewModel : ViewModel() {
@@ -37,47 +40,70 @@ class QaViewModel : ViewModel() {
         viewModelScope.launch {
             val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
             val episode = episodes.firstOrNull()
-            if (episode == null) {
-                state = state.copy(loading = false, contextText = "尚未建立病程，可先自由提问")
+            if (episode != null) AppGraph.appState.currentEpisode = episode
+            val analysis = episode?.let {
+                runCatching { apiCall { AppGraph.api.getLatestAnalysis(it.id) } }.getOrNull()
+            }
+            if (analysis != null) AppGraph.appState.latestAnalysis = analysis
+            val contextText = when {
+                analysis != null -> "本轮基于：${BeijingTime.today()} 当前情况 + 一页分析 v${analysis.version}"
+                episode != null -> "尚未生成分析，可先自由提问"
+                else -> "尚未建立病程，可先自由提问"
+            }
+            if (sessionId != null) {
+                state = state.copy(loading = false, contextText = contextText)
                 return@launch
             }
-            AppGraph.appState.currentEpisode = episode
-            val analysis = runCatching { apiCall { AppGraph.api.getLatestAnalysis(episode.id) } }.getOrNull()
-            if (analysis == null) {
-                state = state.copy(loading = false, contextText = "尚未生成分析，可先自由提问")
-                return@launch
-            }
-            AppGraph.appState.latestAnalysis = analysis
-            if (sessionId == null) {
-                val sessions = runCatching { apiCall { AppGraph.api.listQaSessions() } }.getOrNull().orEmpty()
-                val session = sessions.firstOrNull { it.analysisId == analysis.id } ?: sessions.firstOrNull()
-                if (session != null) {
-                    sessionId = session.id
-                    val history = runCatching { apiCall { AppGraph.api.getQaSession(session.id) } }.getOrNull()
-                    state = state.copy(
-                        loading = false,
-                        messages = history?.messages.orEmpty(),
-                        explainedCount = history?.messages.orEmpty().count { it.role == "user" },
-                        contextText = "本轮基于：${BeijingTime.today()} 当前情况 + 一页分析 v${analysis.version}",
-                    )
-                } else {
-                    val created = runCatching {
-                        apiCall {
-                            AppGraph.api.createQaSession(
-                                CreateQaSessionRequest(analysis.id, "报告术语解释", analysis.episodeId),
-                            )
-                        }
-                    }.getOrNull()
-                    sessionId = created?.id
-                    state = state.copy(
-                        loading = false,
-                        contextText = "本轮基于：${BeijingTime.today()} 当前情况 + 一页分析 v${analysis.version}",
-                    )
-                }
-            } else {
+            // 即使还没有分析，也要恢复历史会话，不能清空
+            val sessions = runCatching { apiCall { AppGraph.api.listQaSessions() } }.getOrNull().orEmpty()
+            val session = (analysis?.let { a -> sessions.firstOrNull { it.analysisId == a.id } })
+                ?: sessions.firstOrNull()
+            if (session != null) {
+                sessionId = session.id
+                val history = runCatching { apiCall { AppGraph.api.getQaSession(session.id) } }.getOrNull()
                 state = state.copy(
                     loading = false,
-                    contextText = "本轮基于：${BeijingTime.today()} 当前情况 + 一页分析 v${analysis.version}",
+                    messages = history?.messages.orEmpty(),
+                    explainedCount = history?.messages.orEmpty().count { it.role == "user" },
+                    contextText = contextText,
+                )
+            } else if (analysis != null) {
+                val created = runCatching {
+                    apiCall {
+                        AppGraph.api.createQaSession(
+                            CreateQaSessionRequest(analysis.id, "报告术语解释", analysis.episodeId),
+                        )
+                    }
+                }.getOrNull()
+                sessionId = created?.id
+                state = state.copy(loading = false, contextText = contextText)
+            } else {
+                state = state.copy(loading = false, contextText = contextText)
+            }
+        }
+    }
+
+    fun openHistory() {
+        state = state.copy(showHistory = true)
+        viewModelScope.launch {
+            val sessions = runCatching { apiCall { AppGraph.api.listQaSessions() } }.getOrNull().orEmpty()
+            state = state.copy(sessions = sessions)
+        }
+    }
+
+    fun closeHistory() {
+        state = state.copy(showHistory = false)
+    }
+
+    fun openSession(id: String) {
+        viewModelScope.launch {
+            val history = runCatching { apiCall { AppGraph.api.getQaSession(id) } }.getOrNull()
+            if (history != null) {
+                sessionId = id
+                state = state.copy(
+                    showHistory = false,
+                    messages = history.messages,
+                    explainedCount = history.messages.count { it.role == "user" },
                 )
             }
         }

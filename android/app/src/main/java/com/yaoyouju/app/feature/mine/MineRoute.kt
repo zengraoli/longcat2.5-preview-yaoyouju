@@ -15,6 +15,7 @@ import com.yaoyouju.app.core.components.TabDestination
 fun MineRoute(
     onSelectTab: (TabDestination) -> Unit,
     onLoggedOut: () -> Unit,
+    onFeedback: () -> Unit,
 ) {
     val vm: MineViewModel = viewModel()
     val context = LocalContext.current
@@ -30,6 +31,8 @@ fun MineRoute(
         onConfirmDelete = { vm.deleteAccount(onLoggedOut) },
         onDismissDeleteConfirm = { vm.setShowDeleteConfirm(false) },
         onLogout = { vm.logout(onLoggedOut) },
+        onFeedback = onFeedback,
+        onInfo = { AppGraph.appState.toast(it) },
     )
 }
 

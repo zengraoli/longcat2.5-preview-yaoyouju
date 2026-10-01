@@ -49,6 +49,7 @@ fun FeedbackScreen(
     onSelectHelpType: (String) -> Unit,
     onSubmit: () -> Unit,
     onCancel: () -> Unit,
+    onAddScreenshot: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -145,7 +146,7 @@ fun FeedbackScreen(
                     minHeight = 120,
                 )
                 Row(
-                    modifier = Modifier.padding(top = 12.dp).clickable { },
+                    modifier = Modifier.padding(top = 12.dp).clickable { onAddScreenshot() },
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

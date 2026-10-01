@@ -229,6 +229,7 @@ data class QaSession(
     val episodeId: String? = null,
     val title: String? = null,
     val createdAt: String = "",
+    val messageCount: Int = 0,
 )
 
 @Serializable

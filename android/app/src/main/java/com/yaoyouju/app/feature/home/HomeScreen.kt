@@ -57,6 +57,9 @@ fun HomeScreen(
     onContents: () -> Unit,
     onShowEmergency: (Boolean) -> Unit,
     onDismissPending: () -> Unit,
+    onConfusion: () -> Unit,
+    onNotification: () -> Unit,
+    onAvatar: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize().background(AppColors.Bg)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -86,10 +89,10 @@ fun HomeScreen(
                             imageVector = AppIcons.Bell,
                             contentDescription = "通知",
                             tint = AppColors.Text1,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(22.dp).clickable { onNotification() },
                         )
                         Box(
-                            modifier = Modifier.size(32.dp).background(AppColors.PrimaryLight, CircleShape),
+                            modifier = Modifier.size(32.dp).background(AppColors.PrimaryLight, CircleShape).clickable { onAvatar() },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -147,6 +150,33 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             AppButton(text = "稍后", onClick = onDismissPending, type = AppButtonType.Secondary)
+                        }
+                    }
+                }
+
+                // 新用户 / 没有待确认项时也要能看到确认与选择困惑的入口
+                if (state.pendingItems.isEmpty()) {
+                    AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
+                        Text(text = "先说说现在的情况", color = AppColors.Text1, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = "确认当前关键变化（约 30 秒），或先选择你最想解决的问题。",
+                            color = AppColors.Text2,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            AppButton(
+                                text = "确认当前变化",
+                                onClick = onConfirm,
+                                type = AppButtonType.Soft,
+                                modifier = Modifier.weight(1f),
+                            )
+                            AppButton(
+                                text = "选择主要困惑",
+                                onClick = onConfusion,
+                                type = AppButtonType.Secondary,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
                 }

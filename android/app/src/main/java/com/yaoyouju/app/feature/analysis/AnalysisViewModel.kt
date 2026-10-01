@@ -76,6 +76,33 @@ class AnalysisViewModel : ViewModel() {
         super.onCleared()
     }
 
+    /** deep link 不带参数打开 A07：展示当前病程的最新分析，没有则提示 */
+    fun loadLatest() {
+        pollJob?.cancel()
+        pollJob = viewModelScope.launch {
+            state = state.copy(loading = true)
+            val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
+            val episode = episodes.firstOrNull()
+            if (episode == null) {
+                state = state.copy(loading = false, status = "empty")
+                return@launch
+            }
+            AppGraph.appState.currentEpisode = episode
+            val latest = runCatching { apiCall { AppGraph.api.getLatestAnalysis(episode.id) } }.getOrNull()
+            if (latest == null) {
+                state = state.copy(loading = false, status = "empty")
+            } else {
+                AppGraph.appState.latestAnalysis = latest
+                state = state.copy(
+                    loading = false,
+                    status = "完成",
+                    result = latest,
+                    selectedQuestions = latest.sections.next.indices.toSet(),
+                )
+            }
+        }
+    }
+
     fun toggleQuestion(index: Int) {
         val set = state.selectedQuestions.toMutableSet()
         if (set.contains(index)) set.remove(index) else set.add(index)

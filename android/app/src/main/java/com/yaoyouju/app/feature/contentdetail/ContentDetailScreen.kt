@@ -49,6 +49,8 @@ fun ContentDetailScreen(
     onSubmitRetell: () -> Unit,
     onToggleSubtitle: () -> Unit,
     onFeedback: (String) -> Unit,
+    onReportContent: () -> Unit,
+    onShare: () -> Unit,
     reviewDate: String,
 ) {
     val detail = state.detail
@@ -68,7 +70,7 @@ fun ContentDetailScreen(
                         imageVector = AppIcons.Share,
                         contentDescription = "分享",
                         tint = AppColors.Text1,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(20.dp).clickable { onShare() },
                     )
                 },
             )
@@ -76,7 +78,11 @@ fun ContentDetailScreen(
 
         if (detail == null) {
             Box(modifier = Modifier.fillMaxWidth().padding(AppDimens.PageMargin)) {
-                Text(text = "内容加载中…", color = AppColors.Text3, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = if (state.loading) "内容加载中…" else "没有找到这条内容，请返回内容库重新选择。",
+                    color = AppColors.Text3,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
             return
         }
@@ -223,7 +229,9 @@ fun ContentDetailScreen(
                         AppChip(
                             text = option,
                             state = if (state.feedback == option) AppChipState.Selected else AppChipState.Unselected,
-                            onClick = { onFeedback(option) },
+                            onClick = {
+                                if (option == "内容有误（举报）") onReportContent() else onFeedback(option)
+                            },
                         )
                     }
                 }

@@ -3,6 +3,7 @@ package com.yaoyouju.app.feature.feedback
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.yaoyouju.app.AppGraph
 
 /** A16 路由 */
 @Composable
@@ -19,5 +20,6 @@ fun FeedbackRoute(onBack: () -> Unit) {
         onSelectHelpType = vm::selectHelpType,
         onSubmit = { vm.submit(onBack) },
         onCancel = onBack,
+        onAddScreenshot = { AppGraph.appState.toast("添加截图：演示版暂不支持上传，可在描述中说明") },
     )
 }

@@ -58,10 +58,16 @@ adb shell am start -n com.yaoyouju.app/.MainActivity
 
 ## deep link
 
-支持 `yaoyouju://<页面编号>` 直接打开对应页面，方便测试：
+支持 `yaoyouju-app://<页面编号>` 直接打开对应页面，方便测试（使用独立 scheme，避免与设备上其他应用冲突）：
 
 ```bash
-adb shell am start -a android.intent.action.VIEW -d "yaoyouju://A07"
+adb shell am start -a android.intent.action.VIEW -d "yaoyouju-app://A07"
+```
+
+如果仍弹出选择器，可用显式组件方式：
+
+```bash
+adb shell am start -n com.yaoyouju.app/.MainActivity -a android.intent.action.VIEW -d "yaoyouju-app://A07"
 ```
 
 页面编号：A01 登录、A02 关键变化确认、A03 就医提示、A04 选择困惑、A05 录入报告、A06 核对、

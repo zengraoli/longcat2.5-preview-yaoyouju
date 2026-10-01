@@ -3,6 +3,7 @@ package com.yaoyouju.app.feature.home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.TabDestination
 
 /** A14 路由：连接 ViewModel 与导航。 */
@@ -10,6 +11,7 @@ import com.yaoyouju.app.core.components.TabDestination
 fun HomeRoute(
     onSelectTab: (TabDestination) -> Unit,
     onConfirm: () -> Unit,
+    onConfusion: () -> Unit,
     onRecord: () -> Unit,
     onReport: () -> Unit,
     onQa: () -> Unit,
@@ -32,5 +34,8 @@ fun HomeRoute(
         onContents = {},
         onShowEmergency = vm::setShowEmergency,
         onDismissPending = vm::dismissPending,
+        onConfusion = onConfusion,
+        onNotification = { AppGraph.appState.toast("通知：演示版暂无新通知") },
+        onAvatar = { onSelectTab(TabDestination.Mine) },
     )
 }

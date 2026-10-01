@@ -17,5 +17,8 @@ fun QaRoute(onSelectTab: (TabDestination) -> Unit) {
         onSend = { vm.ask(vm.state.input) },
         onQuickAsk = { vm.ask(it) },
         onAddFollowup = vm::addFollowupQuestion,
+        onOpenHistory = vm::openHistory,
+        onCloseHistory = vm::closeHistory,
+        onOpenSession = vm::openSession,
     )
 }

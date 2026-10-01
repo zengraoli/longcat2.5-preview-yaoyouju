@@ -51,6 +51,8 @@ fun MineScreen(
     onConfirmDelete: () -> Unit,
     onDismissDeleteConfirm: () -> Unit,
     onLogout: () -> Unit,
+    onFeedback: () -> Unit,
+    onInfo: (String) -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize().background(AppColors.Bg)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -71,7 +73,7 @@ fun MineScreen(
                         imageVector = AppIcons.Settings,
                         contentDescription = "设置",
                         tint = AppColors.Text1,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(22.dp).clickable { onInfo("设置：演示版暂未提供更多设置项") },
                     )
                 }
 
@@ -148,7 +150,7 @@ fun MineScreen(
                         icon = AppIcons.Info,
                         title = "服务范围与不做的事",
                         desc = "不作诊断、不给手术判断、不调整药物、不生成严重程度总分",
-                        onClick = {},
+                        onClick = { onInfo("服务范围：不作诊断、不给手术判断、不调整药物、不生成严重程度总分。") },
                     )
                     SettingRow(
                         icon = AppIcons.Warning,
@@ -161,13 +163,19 @@ fun MineScreen(
                         icon = AppIcons.Document,
                         title = "临床审定与来源说明",
                         desc = "谁审核了内容、依据是什么、如何举报错误",
-                        onClick = {},
+                        onClick = { onInfo("内容均由临床审核人员审定，并标注依据与版本；发现错误可在“反馈与举报”提交。") },
+                    )
+                    SettingRow(
+                        icon = AppIcons.Flag,
+                        title = "反馈与举报",
+                        desc = "报告分析或内容错误；反馈不会自动进入知识库",
+                        onClick = onFeedback,
                     )
                     SettingRow(
                         icon = AppIcons.Settings,
                         title = "版本信息",
                         desc = "App v0.1.0 · 分析模型 ${state.modelName} · 内容库 ${state.contentLibVersion}",
-                        onClick = {},
+                        onClick = { onInfo("版本信息：App v0.1.0 · 分析模型 ${state.modelName} · 内容库 ${state.contentLibVersion}") },
                     )
                 }
 

@@ -183,6 +183,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                     onFallback = { navController.navigate(Routes.Fallback) },
                     onContentDetail = { id -> navController.navigate(Routes.content(id)) },
                     onFeedback = { navController.navigate(Routes.Feedback) },
+                    onSelectTab = onSelectTab,
                 )
             }
             composable(Routes.ReportCompare) { CompareRoute(onBack = back) }
@@ -211,6 +212,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                 HomeRoute(
                     onSelectTab = onSelectTab,
                     onConfirm = { navController.navigate(Routes.Confirm) },
+                    onConfusion = { navController.navigate(Routes.Confusion) },
                     onRecord = { navController.navigate(Routes.Record) },
                     onReport = { navController.navigate(Routes.Report) },
                     onQa = { onSelectTab(TabDestination.Qa) },
@@ -226,6 +228,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                 ContentDetailRoute(
                     contentId = entry.arguments?.getString(Routes.ContentArg).orEmpty(),
                     onBack = back,
+                    onReportContent = { navController.navigate(Routes.Feedback) },
                 )
             }
             composable(Routes.Feedback) { FeedbackRoute(onBack = back) }
@@ -238,6 +241,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                             launchSingleTop = true
                         }
                     },
+                    onFeedback = { navController.navigate(Routes.Feedback) },
                 )
             }
             composable(Routes.Fallback) {

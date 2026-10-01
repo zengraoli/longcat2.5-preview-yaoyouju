@@ -26,12 +26,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- deep link：yaoyouju://A07 直接打开对应页面 -->
+            <!-- deep link：yaoyouju-app://A07 直接打开对应页面（用独立 scheme 避免与其他应用冲突） -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="yaoyouju" />
+                <data android:scheme="yaoyouju-app" />
             </intent-filter>
         </activity>
     </application>
