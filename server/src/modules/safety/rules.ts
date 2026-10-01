@@ -303,6 +303,9 @@ function isNegated(segment: string, keyword: string, fromIndex: number): boolean
   if (NEG_BEFORE_LONG.some((n) => before8.includes(n))) return true;
   const after = segment.slice(idx + keyword.length, idx + keyword.length + 14);
   if (NEG_AFTER.some((n) => after.includes(n))) return true;
+  // 关键词后紧跟否定（“腿部无力没有”“无力：没有”），但跨标点的不算
+  const immediateAfter = segment.slice(idx + keyword.length, idx + keyword.length + 4);
+  if (/^[：:]?(没有|无|未见|未出现|否|否认)/.test(immediateAfter)) return true;
   return false;
 }
 

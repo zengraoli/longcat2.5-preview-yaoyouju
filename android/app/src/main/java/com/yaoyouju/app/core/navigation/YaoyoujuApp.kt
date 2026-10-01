@@ -2,6 +2,7 @@ package com.yaoyouju.app.core.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
@@ -77,17 +78,17 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
         }
     }
 
-    // 登录过期：回到登录页
-    LaunchedEffect(appState.sessionExpired) {
-        if (appState.sessionExpired) {
+    // 登录过期：回到登录页（必须等导航图就绪，否则 NavController 会崩溃）
+    LaunchedEffect(appState.sessionExpired, ready) {
+        if (ready && appState.sessionExpired) {
             appState.sessionExpired = false
             navController.navigate(Routes.Login) { popUpTo(0) { inclusive = true } }
         }
     }
 
     // 任意页面命中红旗：立即进入就医提示页
-    LaunchedEffect(appState.redFlagRequest) {
-        if (appState.redFlagRequest > 0) {
+    LaunchedEffect(appState.redFlagRequest, ready) {
+        if (ready && appState.redFlagRequest > 0) {
             navController.navigate(Routes.RedFlag) { launchSingleTop = true }
         }
     }
@@ -102,14 +103,15 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
     Scaffold(
         containerColor = AppColors.Bg,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { _ ->
+    ) { innerPadding ->
         if (!ready) {
             Box(modifier = Modifier.fillMaxSize().background(AppColors.Bg))
             return@Scaffold
         }
         val start = if (AppGraph.session.token.isNullOrBlank()) Routes.Login else Routes.Home
-        // 内容整体下移，避免 Tab 页标题压在状态栏区域
-        Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        // 内容整体下移，避免 Tab 页标题压在状态栏区域；
+        // consumeWindowInsets 消费 Scaffold 内边距，避免与底部导航重复留白
+        Box(modifier = Modifier.fillMaxSize().statusBarsPadding().consumeWindowInsets(innerPadding)) {
         NavHost(navController = navController, startDestination = start) {
             val back: () -> Unit = { navController.popBackStack() }
 

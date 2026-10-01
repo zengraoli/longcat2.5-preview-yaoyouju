@@ -106,10 +106,10 @@ fun ReportScreen(
                         Text(
                             text = tab.label,
                             color = if (active) AppColors.Surface else AppColors.Text2,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 6.dp),
+                            modifier = Modifier.padding(horizontal = 4.dp),
                         )
                     }
                 }

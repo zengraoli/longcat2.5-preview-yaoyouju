@@ -29,7 +29,7 @@ class ContentDetailViewModel : ViewModel() {
 
     fun load(id: String) {
         if (id.isBlank()) {
-            state = state.copy(loading = false)
+            state = ContentDetailUiState(loading = false)
             return
         }
         viewModelScope.launch {
