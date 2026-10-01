@@ -154,12 +154,13 @@ class VerifyViewModel : ViewModel() {
                     return@launch
                 }
                 AppGraph.appState.lastSafety = result.safety
-                if (result.safety.redFlags.isNotEmpty() || result.status == "blocked") {
+                val taskId = result.taskId
+                if (result.status == "blocked" || taskId == null) {
                     AppGraph.appState.redFlagSelected = result.safety.redFlags.map { it.name }
                     onRedFlag()
                     return@launch
                 }
-                onTask(result.taskId)
+                onTask(taskId)
             } catch (e: ApiException) {
                 if (e.isRedFlag || e.isOutOfScope) {
                     onRedFlag()

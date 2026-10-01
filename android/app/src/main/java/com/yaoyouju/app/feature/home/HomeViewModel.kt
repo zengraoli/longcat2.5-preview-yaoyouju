@@ -124,7 +124,7 @@ class HomeViewModel : ViewModel() {
                 if (weeks > 0) parts += "第 $weeks 周"
             }
         }
-        val lastAt = (events.map { it.occurredAt } + logs.map { it.occurredAt }).maxOrNull()
+        val lastAt = (events.map { it.occurredAt } + logs.mapNotNull { it.occurredAt }).maxOrNull()
         if (!lastAt.isNullOrBlank()) {
             val relative = BeijingTime.relativeDay(lastAt)
             if (relative.isNotBlank()) parts += "上次记录：$relative"

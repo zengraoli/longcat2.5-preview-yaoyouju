@@ -86,7 +86,8 @@ data class CareEvent(
 data class SymptomLog(
     val id: String,
     val careEventId: String? = null,
-    val occurredAt: String,
+    /** 服务端部分接口（新增 / 列表）历史上未返回该字段，设为可空避免解析闪退 */
+    val occurredAt: String? = null,
     val sitMinutes: JsonScalar? = null,
     val plannedActivityDone: JsonScalar? = null,
     val sleepImpact: JsonScalar? = null,
@@ -190,7 +191,8 @@ data class AnalysisResult(
 
 @Serializable
 data class AnalysisCreateResult(
-    val taskId: String,
+    /** 命中红旗 / 越界被拦截时服务端返回 null，必须可空 */
+    val taskId: String? = null,
     val status: String,
     val safety: SafetyCheckResult = SafetyCheckResult(),
 )
@@ -241,6 +243,7 @@ data class QaSessionDetail(
 data class AskResult(
     val message: QaMessage,
     val outOfScope: List<SafetyFlag> = emptyList(),
+    val redFlags: List<SafetyFlag> = emptyList(),
     val roundEnded: Boolean = false,
     val followupQuestionAdded: Boolean = false,
 )

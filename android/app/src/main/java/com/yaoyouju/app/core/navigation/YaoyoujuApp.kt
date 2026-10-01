@@ -20,6 +20,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.TabDestination
+import com.yaoyouju.app.core.network.ApiException
+import com.yaoyouju.app.core.network.apiCall
 import com.yaoyouju.app.core.design.AppColors
 import com.yaoyouju.app.core.navigation.DeepLinkRequest
 import com.yaoyouju.app.feature.analysis.AnalysisRoute
@@ -54,6 +56,15 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
     var ready by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         AppGraph.session.load()
+        // 冷启动先校验令牌：登录过期时直接进登录页，避免先闪一下首页
+        if (!AppGraph.session.token.isNullOrBlank()) {
+            val result = runCatching { apiCall { AppGraph.api.getMe() } }
+            val error = result.exceptionOrNull()
+            if (error is ApiException && error.isUnauthorized) {
+                AppGraph.session.clear()
+                appState.sessionExpired = false
+            }
+        }
         ready = true
     }
 
@@ -73,11 +84,9 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
         }
     }
 
-    // 全局一次性提示
-    LaunchedEffect(appState.message) {
-        val message = appState.message
-        if (message != null) {
-            appState.message = null
+    // 全局一次性提示：Channel 里逐条弹出，不会被重组取消
+    LaunchedEffect(Unit) {
+        for (message in appState.messages) {
             snackbarHostState.showSnackbar(message)
         }
     }

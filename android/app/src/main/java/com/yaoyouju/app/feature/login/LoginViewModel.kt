@@ -113,6 +113,10 @@ class LoginViewModel : ViewModel() {
                     AppGraph.appState.toast("登录失败，请重试")
                     return@launch
                 }
+                // 先落盘新令牌，再拿脱敏手机号；否则 getMe 会带着旧令牌（或空）请求而 401，
+                // 触发全局“登录过期”把刚登录的用户又弹回登录页
+                AppGraph.appState.sessionExpired = false
+                AppGraph.session.saveSession(result.token, null)
                 val masked = runCatching { apiCall { AppGraph.api.getMe() } }.getOrNull()?.maskedPhone
                 AppGraph.session.saveSession(result.token, masked)
                 onSuccess()

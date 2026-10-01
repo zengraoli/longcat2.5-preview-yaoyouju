@@ -123,6 +123,7 @@ export class QaService {
   ): Promise<{
     message: QaMessageView;
     outOfScope: RuleHit[];
+    redFlags?: RuleHit[];
     roundEnded: boolean;
     followupQuestionAdded: boolean;
   }> {
@@ -177,7 +178,8 @@ export class QaService {
         .run(msgId, sessionId, 'assistant', content, now);
       return {
         message: { id: msgId, role: 'assistant', content, citations: [], createdAt: now },
-        outOfScope: redFlags.map((h) => ({ code: h.code, name: h.name, severity: h.severity, action: h.action, message: h.message })),
+        outOfScope: [],
+        redFlags: redFlags.map((h) => ({ code: h.code, name: h.name, severity: h.severity, action: h.action, message: h.message })),
         roundEnded: true,
         followupQuestionAdded: false,
       };

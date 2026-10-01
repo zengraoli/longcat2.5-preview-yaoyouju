@@ -280,6 +280,7 @@ export class EpisodesService {
     return {
       id,
       careEventId: eventId,
+      occurredAt: input.occurredAt,
       sitMinutes: orUnknown(input.sitMinutes ?? null),
       plannedActivityDone: orUnknown(input.plannedActivityDone ?? null),
       sleepImpact: orUnknown(input.sleepImpact ?? null),
@@ -326,7 +327,7 @@ export class EpisodesService {
       .prepare(
         `SELECT s.id, s.care_event_id AS careEventId, s.sit_minutes AS sitMinutes,
                 s.planned_activity_done AS plannedActivityDone, s.sleep_impact AS sleepImpact,
-                s.top_worry AS topWorry, s.leg_change AS legChange
+                s.top_worry AS topWorry, s.leg_change AS legChange, e.occurred_at AS occurredAt
          FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
          WHERE e.episode_id = ? ORDER BY e.occurred_at DESC, s.rowid DESC`,
       )
@@ -338,10 +339,12 @@ export class EpisodesService {
       sleepImpact: number | null;
       topWorry: string | null;
       legChange: string | null;
+      occurredAt: string;
     }>;
     return logs.map((l) => ({
       id: l.id,
       careEventId: l.careEventId,
+      occurredAt: l.occurredAt,
       sitMinutes: orUnknown(l.sitMinutes),
       plannedActivityDone: orUnknown(l.plannedActivityDone),
       sleepImpact: orUnknown(l.sleepImpact),
