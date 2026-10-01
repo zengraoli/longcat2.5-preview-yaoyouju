@@ -43,7 +43,13 @@ class QaViewModel : ViewModel() {
             val episodesResult = runCatching { apiCall { AppGraph.api.listEpisodes() } }
             val failure = episodesResult.exceptionOrNull()
             if (failure is ApiException && failure.isOffline) {
-                state = state.copy(loading = false, error = failure.message)
+                AppGraph.appState.fallbackErrorCode = "NET-5002"
+                // 断网时也要把顶部上下文从“正在加载…”换成明确说明
+                state = state.copy(
+                    loading = false,
+                    error = failure.message,
+                    contextText = "网络不可用，问答暂时不可用",
+                )
                 return@launch
             }
             val episodes = episodesResult.getOrNull().orEmpty()
@@ -63,7 +69,18 @@ class QaViewModel : ViewModel() {
                 return@launch
             }
             // 即使还没有分析，也要恢复历史会话，不能清空
-            val sessions = runCatching { apiCall { AppGraph.api.listQaSessions() } }.getOrNull().orEmpty()
+            val sessionsResult = runCatching { apiCall { AppGraph.api.listQaSessions() } }
+            val sessionsFailure = sessionsResult.exceptionOrNull()
+            // 同意已撤回：历史读不出来时必须明确说明原因，而不是静默清空
+            if (sessionsFailure is ApiException && sessionsFailure.isConsentMissing) {
+                state = state.copy(
+                    loading = false,
+                    error = "已撤回“处理健康信息”的同意，问答历史暂时不可用。可在“我的-数据与授权”重新同意后恢复。",
+                    contextText = contextText,
+                )
+                return@launch
+            }
+            val sessions = sessionsResult.getOrNull().orEmpty()
             val session = (analysis?.let { a -> sessions.firstOrNull { it.analysisId == a.id } })
                 ?: sessions.firstOrNull()
             if (session != null) {
@@ -157,14 +174,16 @@ class QaViewModel : ViewModel() {
                     } else {
                         state.outOfScopeMessageIds
                     },
-                    explainedCount = state.messages.count { it.role == "user" } + 1,
+                    // 新追加的用户消息已计入 state.messages，这里不能再 +1
+                    explainedCount = state.messages.count { it.role == "user" },
                 )
                 // 问答命中红旗：立即进入就医提示页，不只当普通回答
                 if (result.redFlags.isNotEmpty()) {
                     AppGraph.appState.requestRedFlag(result.redFlags.map { it.name })
                 }
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             } finally {
                 state = state.copy(sending = false)
             }
@@ -178,7 +197,8 @@ class QaViewModel : ViewModel() {
                 apiCall { AppGraph.api.addFollowupQuestion(id, AddFollowupQuestionRequest(question)) }
                 AppGraph.appState.toast("已加入复诊问题")
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }

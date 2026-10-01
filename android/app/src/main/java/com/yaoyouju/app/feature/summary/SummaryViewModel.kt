@@ -119,7 +119,8 @@ class SummaryViewModel : ViewModel() {
                 val text = result?.text.orEmpty()
                 onText(text)
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             } finally {
                 state = state.copy(exporting = false)
             }

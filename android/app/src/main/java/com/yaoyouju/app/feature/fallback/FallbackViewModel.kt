@@ -12,7 +12,7 @@ import com.yaoyouju.app.core.network.apiCall
 import kotlinx.coroutines.launch
 
 data class FallbackUiState(
-    val errorCode: String = "ANL-503",
+    val errorCode: String = "",
     val showEmergency: Boolean = false,
     val emergency: EmergencyTips = LocalSafetyTips.tips(),
 )
@@ -23,6 +23,8 @@ class FallbackViewModel : ViewModel() {
         private set
 
     init {
+        // 错误码由进入回退页前设置（分析失败 ANL-503 / 网络不可达 NET-5002），不再固定显示
+        state = state.copy(errorCode = AppGraph.appState.fallbackErrorCode)
         viewModelScope.launch {
             runCatching { apiCall { AppGraph.api.getSafetyTips() } }.getOrNull()?.let { tips ->
                 state = state.copy(emergency = EmergencyTips(tips.title, tips.redFlags, tips.note))

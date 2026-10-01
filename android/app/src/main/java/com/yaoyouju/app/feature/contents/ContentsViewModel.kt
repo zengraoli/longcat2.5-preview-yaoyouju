@@ -33,6 +33,7 @@ class ContentsViewModel : ViewModel() {
             val publishedResult = runCatching { apiCall { AppGraph.api.listPublishedContents() } }
             val failure = publishedResult.exceptionOrNull()
             if (failure is com.yaoyouju.app.core.network.ApiException && failure.isOffline) {
+                com.yaoyouju.app.AppGraph.appState.fallbackErrorCode = "NET-5002"
                 state = state.copy(loading = false, error = failure.message)
                 return@launch
             }

@@ -8,8 +8,13 @@ import { CurrentAdmin, CurrentAdminInfo } from '../admin/current-admin.decorator
 import { FeedbackService } from './feedback.service';
 
 class HelpFeedbackDto {
+  @IsOptional()
   @IsString()
-  analysisId!: string;
+  analysisId?: string;
+
+  @IsOptional()
+  @IsString()
+  contentId?: string;
 
   @IsIn(['看懂了', '知道下一步', '都不好'])
   helpType!: '看懂了' | '知道下一步' | '都不好';
@@ -21,8 +26,13 @@ class HelpFeedbackDto {
 }
 
 class ErrorReportDto {
+  @IsOptional()
   @IsString()
-  analysisId!: string;
+  analysisId?: string;
+
+  @IsOptional()
+  @IsString()
+  contentId?: string;
 
   @IsString()
   @MaxLength(5000)

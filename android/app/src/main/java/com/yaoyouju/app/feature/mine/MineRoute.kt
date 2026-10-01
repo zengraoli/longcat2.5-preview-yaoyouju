@@ -25,6 +25,7 @@ fun MineRoute(
         onSelectTab = onSelectTab,
         onShowEmergency = vm::setShowEmergency,
         onShowConsents = vm::setShowConsents,
+        onRetry = vm::load,
         onRequestRevoke = vm::requestRevokeHealthConsent,
         onGrantConsent = vm::grantHealthConsent,
         onExport = { vm.exportData { text -> copyToClipboard(context, text) } },

@@ -70,10 +70,10 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
         ready = true
     }
 
-    // deep link：yaoyouju-app://A07
+    // deep link：yaoyouju-app://A07；A01 登录页也要能直接打开（即使已登录）
     LaunchedEffect(deepLink, ready) {
         val target = deepLink?.route
-        if (ready && target != null && target != Routes.Login) {
+        if (ready && target != null) {
             navController.navigate(target) { launchSingleTop = true }
         }
     }
@@ -187,7 +187,11 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                     onContents = { navController.navigate(Routes.Contents) },
                     onFallback = { navController.navigate(Routes.Fallback) },
                     onContentDetail = { id -> navController.navigate(Routes.content(id)) },
-                    onFeedback = { navController.navigate(Routes.Feedback) },
+                    onFeedback = {
+                        navController.navigate(
+                            Routes.feedback(analysis = entry.arguments?.getString(Routes.AnalysisArg).orEmpty()),
+                        )
+                    },
                     onSelectTab = onSelectTab,
                 )
             }
@@ -226,6 +230,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                     onSummary = { navController.navigate(Routes.Summary) },
                     onAnalysis = { id -> navController.navigate(Routes.analysis(id)) },
                     onContentDetail = { id -> navController.navigate(Routes.content(id)) },
+                    onContents = { navController.navigate(Routes.Contents) },
                     onFallback = { navController.navigate(Routes.Fallback) },
                 )
             }
@@ -236,10 +241,23 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                 ContentDetailRoute(
                     contentId = entry.arguments?.getString(Routes.ContentArg).orEmpty(),
                     onBack = back,
-                    onReportContent = { navController.navigate(Routes.Feedback) },
+                    onBackToContents = { navController.navigate(Routes.Contents) },
+                    onReportContent = {
+                        navController.navigate(
+                            Routes.feedback(content = entry.arguments?.getString(Routes.ContentArg).orEmpty()),
+                        )
+                    },
                 )
             }
-            composable(Routes.Feedback) { FeedbackRoute(onBack = back) }
+            composable(
+                route = "${Routes.Feedback}?${Routes.FeedbackSourceArg}={${Routes.FeedbackSourceArg}}",
+                arguments = listOf(navArgument(Routes.FeedbackSourceArg) { type = NavType.StringType; defaultValue = "" }),
+            ) { entry ->
+                FeedbackRoute(
+                    source = entry.arguments?.getString(Routes.FeedbackSourceArg).orEmpty(),
+                    onBack = back,
+                )
+            }
             composable(Routes.Mine) {
                 MineRoute(
                     onSelectTab = onSelectTab,
@@ -249,7 +267,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                             launchSingleTop = true
                         }
                     },
-                    onFeedback = { navController.navigate(Routes.Feedback) },
+                    onFeedback = { navController.navigate(Routes.feedback()) },
                 )
             }
             composable(Routes.Fallback) {

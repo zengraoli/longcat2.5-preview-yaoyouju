@@ -8,9 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.network.ApiException
 import com.yaoyouju.app.core.network.apiCall
+import com.yaoyouju.app.core.store.EpisodeSupport
 import com.yaoyouju.app.core.util.BeijingTime
 import com.yaoyouju.app.data.AddSymptomLogRequest
-import com.yaoyouju.app.data.CreateEpisodeRequest
 import kotlinx.coroutines.launch
 
 val SIT_OPTIONS = listOf("<15分钟", "15-30", "30-60", ">60分钟")
@@ -77,12 +77,8 @@ class RecordViewModel : ViewModel() {
         viewModelScope.launch {
             state = state.copy(submitting = true)
             try {
-                val episodeId = ensureEpisodeId()
-                if (episodeId == null) {
-                    AppGraph.appState.toast("无法建立病程，请稍后重试")
-                    return@launch
-                }
-                apiCall {
+                val episodeId = EpisodeSupport.ensureEpisodeId()
+                val log = apiCall {
                     AppGraph.api.addSymptomLog(
                         episodeId,
                         AddSymptomLogRequest(
@@ -96,6 +92,14 @@ class RecordViewModel : ViewModel() {
                             activitiesDone = state.activities.joinToString("、").ifBlank { "尚未确认" },
                         ),
                     )
+                }
+                // 服务端在写入时已做安全预检：命中红旗必须立即进入就医提示页，
+                // 无论是“保存记录”还是“保存并更新当前情况”（产品红线：不被保存动作阻断）
+                val safety = log?.safety
+                if (safety != null && !safety.passed && safety.redFlags.isNotEmpty()) {
+                    AppGraph.appState.lastSafety = safety
+                    AppGraph.appState.requestRedFlag(safety.redFlags.map { it.name })
+                    return@launch
                 }
                 if (updateCurrent) {
                     val safetyText = listOf(state.topWorry, state.changeVsYesterday.orEmpty(), state.legChange.orEmpty())
@@ -118,22 +122,11 @@ class RecordViewModel : ViewModel() {
                 }
                 onDone()
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意已撤回时全局处理器已给出“需要重新同意”的提示，这里不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             } finally {
                 state = state.copy(submitting = false)
             }
         }
-    }
-
-    private suspend fun ensureEpisodeId(): String? {
-        val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
-        if (episodes.isNotEmpty()) {
-            AppGraph.appState.currentEpisode = episodes.first()
-            return episodes.first().id
-        }
-        val created = runCatching {
-            apiCall { AppGraph.api.createEpisode(CreateEpisodeRequest("腰痛", null, "尚未确认")) }
-        }.getOrNull() ?: return null
-        return created.id
     }
 }

@@ -337,26 +337,36 @@ class AllScreensScreenshotTest {
                         "e1", "2026-09-21 · 今天", "症状记录", TimelineTone.Warn,
                         "与上周相比加重；能坐约30分钟；夜间痛醒1次；今天最担心“会不会越来越严重”。",
                         listOf("自述", "腿部无力：尚未确认"), "e1", "症状",
+                   
+                        sortKey = "2026-09-21T00:00:00+08:00",
                     ),
                     TimelineItem(
                         "a2", "2026-09-18", "一页分析 v2", TimelineTone.Info,
                         "生成于模型 M-2609；使用报告 2026-08-30 与 9 条症状记录。",
                         listOf("系统生成", "可查看当时版本"), null, "分析",
+                   
+                        sortKey = "2026-09-18T00:00:00+08:00",
                     ),
                     TimelineItem(
                         "e2", "2026-09-10", "医生建议", TimelineTone.Warn,
                         "医生建议保守治疗，4 周后复查。",
                         listOf("自述转述", "未经核实"), "e2", "医嘱",
+                   
+                        sortKey = "2026-09-10T00:00:00+08:00",
                     ),
                     TimelineItem(
                         "e3", "2026-08-30", "检查报告", TimelineTone.Info,
                         "腰椎 MRI：L5/S1 椎间盘向后突出，相应硬膜囊受压…",
                         listOf("报告原文", "已录入"), "e3", "报告",
+                   
+                        sortKey = "2026-08-30T00:00:00+08:00",
                     ),
                     TimelineItem(
                         "e4", "约 2026-08-15", "症状开始", TimelineTone.Warn,
                         "腰痛开始，起初以久坐后酸痛为主。",
                         listOf("自述", "日期尚未确认"), "e4", "症状",
+                   
+                        sortKey = "2026-08-15T00:00:00+08:00",
                     ),
                 ),
             ),
@@ -454,6 +464,7 @@ class AllScreensScreenshotTest {
         ContentDetailScreen(
             state = ContentDetailUiState(loading = false, detail = DemoData.contentDetail),
             onBack = {},
+            onBackToContents = {},
             onRetellChange = {},
             onSubmitRetell = {},
             onToggleSubtitle = {},
@@ -512,6 +523,7 @@ class AllScreensScreenshotTest {
             onDismissDeleteConfirm = {},
             onLogout = {},
             onFeedback = {},
+            onRetry = {},
             onInfo = {},
             onConfirmRevoke = {},
             onDismissRevokeConfirm = {},

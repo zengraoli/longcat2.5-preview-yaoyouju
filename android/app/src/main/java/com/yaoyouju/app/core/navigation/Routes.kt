@@ -28,9 +28,16 @@ object Routes {
     const val AnalysisArg = "analysisId"
     const val ContentArg = "contentId"
     const val EpisodeArg = "episodeId"
+    /** 反馈页来源：空 = 自动取最新分析；analysis:<id> = 指定分析；content:<id> = 指定内容 */
+    const val FeedbackSourceArg = "source"
 
     fun analysis(id: String) = "$Analysis?$AnalysisArg=$id"
     fun content(id: String) = "$ContentDetail?$ContentArg=$id"
+    fun feedback(analysis: String = "", content: String = "") = when {
+        content.isNotBlank() -> "$Feedback?$FeedbackSourceArg=content:$content"
+        analysis.isNotBlank() -> "$Feedback?$FeedbackSourceArg=analysis:$analysis"
+        else -> "$Feedback?$FeedbackSourceArg="
+    }
 
     /** deep link 的 host 部分（如 yaoyouju-app://A07）映射到路由 */
     fun fromDeepLink(host: String?): String? {

@@ -5,11 +5,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yaoyouju.app.AppGraph
 
-/** A16 路由 */
+/** A16 路由：source 为空时自动取最新分析；content:<id> 时关联到内容库条目 */
 @Composable
-fun FeedbackRoute(onBack: () -> Unit) {
+fun FeedbackRoute(source: String = "", onBack: () -> Unit) {
     val vm: FeedbackViewModel = viewModel()
-    LaunchedEffect(Unit) { vm.load() }
+    LaunchedEffect(source) { vm.load(source) }
     FeedbackScreen(
         state = vm.state,
         onBack = onBack,

@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS REPORT (
   report_date TEXT,
   raw_text TEXT NOT NULL,
   extracted_terms TEXT,
-  oss_key TEXT
+  oss_key TEXT,
+  exam_type TEXT,
+  hospital TEXT
 );
 CREATE TABLE IF NOT EXISTS SYMPTOM_LOG (
   id TEXT PRIMARY KEY,
@@ -80,6 +82,7 @@ CREATE TABLE IF NOT EXISTS FEEDBACK (
   id TEXT PRIMARY KEY,
   user_id TEXT REFERENCES USER(id),
   analysis_id TEXT REFERENCES ANALYSIS(id),
+  content_id TEXT REFERENCES CONTENT_ITEM(id),
   help_type TEXT,
   unsolved_question TEXT,
   is_error_report INTEGER NOT NULL DEFAULT 0,

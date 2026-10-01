@@ -26,6 +26,8 @@ data class TimelineItem(
     val tags: List<String>,
     val eventId: String?,
     val filterKey: String,
+    /** 排序用真实时间戳（降序）；同一天内也按时间从新到旧 */
+    val sortKey: String,
 )
 
 data class ChartBar(val heightFraction: Float, val warn: Boolean)
@@ -89,6 +91,7 @@ class TimelineViewModel : ViewModel() {
             val episodesResult = runCatching { apiCall { AppGraph.api.listEpisodes() } }
             val failure = episodesResult.exceptionOrNull()
             if (failure is ApiException && failure.isOffline) {
+                AppGraph.appState.fallbackErrorCode = "NET-5002"
                 state = state.copy(loading = false, error = failure.message)
                 return@launch
             }
@@ -168,6 +171,7 @@ class TimelineViewModel : ViewModel() {
                 tags = listOf("系统生成", "可查看当时版本"),
                 eventId = null,
                 filterKey = "分析",
+                sortKey = analysisCreatedAt,
             )
         }
 
@@ -184,6 +188,7 @@ class TimelineViewModel : ViewModel() {
                 id = event.id,
                 dateLabel = dateLabel(event.occurredAt),
                 typeLabel = typeLabelOf(event.eventType),
+                sortKey = event.occurredAt,
                 tone = when {
                     event.sourceType == "报告原文" -> TimelineTone.Info
                     event.eventType == "症状" && answered && !hasUnknown -> TimelineTone.Ok
@@ -201,7 +206,8 @@ class TimelineViewModel : ViewModel() {
             )
         }
 
-        return items.sortedByDescending { it.dateLabel }
+        // 按真实时间戳降序：日期新在前，同一天内时间新在前（不再出现日期降序、当天升序的混排）
+        return items.sortedByDescending { it.sortKey }
     }
 
     private fun dateLabel(iso: String): String {
@@ -275,7 +281,8 @@ class TimelineViewModel : ViewModel() {
                     onRedFlag()
                 }
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }
@@ -287,7 +294,8 @@ class TimelineViewModel : ViewModel() {
                 AppGraph.appState.toast("已删除")
                 load()
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }

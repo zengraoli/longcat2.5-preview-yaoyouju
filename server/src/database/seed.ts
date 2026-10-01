@@ -50,6 +50,18 @@ export function initDatabase(
   if (!fbCols.includes('user_id')) {
     appDb.exec('ALTER TABLE FEEDBACK ADD COLUMN user_id TEXT');
   }
+  // 迁移：为旧库补充 FEEDBACK.content_id 列（内容库视频/图文的反馈与举报）
+  if (!fbCols.includes('content_id')) {
+    appDb.exec('ALTER TABLE FEEDBACK ADD COLUMN content_id TEXT');
+  }
+  // 迁移：为旧库补充 REPORT.exam_type / hospital 列（检查类型与机构单独存，不进原文）
+  const rpCols = (appDb.prepare('PRAGMA table_info(REPORT)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!rpCols.includes('exam_type')) {
+    appDb.exec('ALTER TABLE REPORT ADD COLUMN exam_type TEXT');
+  }
+  if (!rpCols.includes('hospital')) {
+    appDb.exec('ALTER TABLE REPORT ADD COLUMN hospital TEXT');
+  }
   // 迁移：为旧库补充 SYMPTOM_LOG 的 change_vs_yesterday / activities_done 列
   const symCols = (appDb.prepare('PRAGMA table_info(SYMPTOM_LOG)').all() as Array<{ name: string }>).map((c) => c.name);
   if (!symCols.includes('change_vs_yesterday')) {

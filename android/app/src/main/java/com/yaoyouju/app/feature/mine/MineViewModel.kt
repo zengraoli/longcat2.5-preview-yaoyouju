@@ -17,8 +17,10 @@ import kotlinx.coroutines.launch
 
 data class MineUiState(
     val loading: Boolean = true,
+    /** 断网 / 服务不可达：此时不能把同意状态显示成“未开启”误导用户 */
+    val error: String? = null,
     val maskedPhone: String = "—",
-    val anonymousId: String = "",
+    val anonymousId: String = "—",
     val consents: List<ConsentView> = emptyList(),
     val consentSummary: String = "健康信息处理：未开启 · 分享/产品改进：未开启",
     val showEmergency: Boolean = false,
@@ -38,8 +40,16 @@ class MineViewModel : ViewModel() {
 
     fun load() {
         viewModelScope.launch {
-            state = state.copy(loading = true)
-            val me = runCatching { apiCall { AppGraph.api.getMe() } }.getOrNull()
+            state = state.copy(loading = true, error = null)
+            val meResult = runCatching { apiCall { AppGraph.api.getMe() } }
+            val meFailure = meResult.exceptionOrNull()
+            // 断网时保留上一次的同意状态与匿名标识，明确提示网络不可用，
+            // 不能把“读不到”显示成“未开启”并给出重新同意按钮
+            if (meFailure is ApiException && meFailure.isOffline) {
+                state = state.copy(loading = false, error = meFailure.message)
+                return@launch
+            }
+            val me = meResult.getOrNull()
             val consents = runCatching { apiCall { AppGraph.api.getConsents() } }.getOrNull().orEmpty()
             val tips = runCatching { apiCall { AppGraph.api.getSafetyTips() } }.getOrNull()
             val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
@@ -49,7 +59,7 @@ class MineViewModel : ViewModel() {
             state = state.copy(
                 loading = false,
                 maskedPhone = me?.maskedPhone ?: AppGraph.session.maskedPhone ?: "—",
-                anonymousId = me?.id?.let { "U-${it.take(4).uppercase()}…" } ?: "",
+                anonymousId = me?.id?.let { "U-${it.take(4).uppercase()}…" } ?: "—",
                 consents = consents,
                 consentSummary = summarize(consents),
                 healthGranted = consents.firstOrNull { it.scope == "健康信息处理" }?.granted == true,
@@ -104,7 +114,8 @@ class MineViewModel : ViewModel() {
                 )
                 AppGraph.appState.toast("已撤回“处理健康信息”的同意")
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }
@@ -120,7 +131,8 @@ class MineViewModel : ViewModel() {
                 )
                 AppGraph.appState.toast("已重新同意处理健康信息")
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }
@@ -140,7 +152,8 @@ class MineViewModel : ViewModel() {
                 }
                 onText(text)
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }
@@ -152,7 +165,8 @@ class MineViewModel : ViewModel() {
                 AppGraph.session.clear()
                 onDeleted()
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }

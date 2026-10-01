@@ -22,6 +22,9 @@ export interface CareEventView {
   sourceType: string;
   rawText: string | null;
   verifyStatus: string;
+  /** 报告事件附带的检查类型与检查机构（来自 REPORT 表，不进原文） */
+  examType?: string;
+  hospital?: string;
 }
 
 export interface SymptomLogView {
@@ -99,8 +102,10 @@ export class EpisodesService {
     return this.appDb
       .prepare(
         `SELECT id, episode_id AS episodeId, event_type AS eventType, occurred_at AS occurredAt,
-                reported_at AS reportedAt, source_type AS sourceType, raw_text AS rawText, verify_status AS verifyStatus
-         FROM CARE_EVENT WHERE episode_id = ? ORDER BY occurred_at ASC, rowid ASC`,
+                reported_at AS reportedAt, source_type AS sourceType, raw_text AS rawText, verify_status AS verifyStatus,
+                r.exam_type AS examType, r.hospital AS hospital
+         FROM CARE_EVENT LEFT JOIN REPORT ON REPORT.care_event_id = CARE_EVENT.id
+         WHERE episode_id = ? ORDER BY occurred_at ASC, rowid ASC`,
       )
       .all(episodeId) as CareEventView[];
   }

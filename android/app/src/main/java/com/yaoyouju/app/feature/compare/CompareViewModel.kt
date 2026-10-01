@@ -70,6 +70,8 @@ class CompareViewModel : ViewModel() {
             val reportEvent = timeline?.events.orEmpty().reversed()
                 .firstOrNull { it.eventType == "报告" && !it.rawText.isNullOrBlank() }
             val rawText = reportEvent?.rawText.orEmpty()
+            // 检查类型优先用录入时选择的值，而不是从原文猜（选 CT 但原文写 MRI 时要以选择为准）
+            val storedExamType = reportEvent?.examType
             val reportSide = extractSide(rawText)
             val selfText = timeline?.events.orEmpty()
                 .filter { it.sourceType == "自述" && !it.rawText.isNullOrBlank() }
@@ -84,7 +86,7 @@ class CompareViewModel : ViewModel() {
                 citations = analysis?.citations.orEmpty(),
                 rawText = rawText,
                 reportDate = reportEvent?.occurredAt?.let { BeijingTime.date(it) }.orEmpty(),
-                examType = examTypeOf(rawText),
+                examType = storedExamType ?: examTypeOf(rawText),
                 sideConflict = conflict,
                 terms = TERM_DEFS.filter { rawText.contains(it.name) },
             )

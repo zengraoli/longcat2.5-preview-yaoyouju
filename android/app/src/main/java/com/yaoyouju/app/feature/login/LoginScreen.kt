@@ -195,7 +195,7 @@ private fun FeatureCard(title: String, desc: String, modifier: Modifier = Modifi
     Column(
         modifier = modifier
             .background(AppColors.Surface, RoundedCornerShape(AppDimens.RadiusCard))
-            .padding(horizontal = 4.dp, vertical = 12.dp),
+            .padding(horizontal = 2.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -209,8 +209,10 @@ private fun FeatureCard(title: String, desc: String, modifier: Modifier = Modifi
             text = desc,
             color = AppColors.Text2,
             style = MaterialTheme.typography.labelSmall,
+            // 屏幕比设计稿窄（360dp）时用 10sp 保持一行，避免“原文对/照”式断词
+            fontSize = 10.sp,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 1,
             modifier = Modifier.padding(top = 2.dp),
         )
     }

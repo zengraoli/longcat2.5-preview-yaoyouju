@@ -45,6 +45,7 @@ fun MineScreen(
     onSelectTab: (TabDestination) -> Unit,
     onShowEmergency: (Boolean) -> Unit,
     onShowConsents: (Boolean) -> Unit,
+    onRetry: () -> Unit,
     onRequestRevoke: () -> Unit,
     onGrantConsent: () -> Unit,
     onExport: () -> Unit,
@@ -78,6 +79,16 @@ fun MineScreen(
                         tint = AppColors.Text1,
                         modifier = Modifier.size(22.dp).clickable { onInfo("设置：演示版暂未提供更多设置项") },
                     )
+                }
+
+                // 断网 / 服务不可达：明确提示，避免把“读不到”当成“未同意”
+                if (state.error != null) {
+                    TipBar(
+                        text = "${state.error}。同意记录与匿名标识暂时读不到，重试后会恢复显示。",
+                        type = TipBarType.Warn,
+                        modifier = Modifier.padding(bottom = AppDimens.CardGap),
+                    )
+                    AppButton(text = "重试", onClick = onRetry, type = AppButtonType.Soft)
                 }
 
                 // 资料卡

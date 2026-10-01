@@ -141,9 +141,7 @@ export class EvidenceService {
 
   /** 本地检索：只检索启用状态的证据 */
   search(query: string, limit = 8) {
-    const tokens = (query.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9/]{2,}/g) ?? []).filter(
-      (t) => t.length >= 2,
-    );
+    const tokens = this.tokenize(query);
     if (tokens.length === 0) return [];
     const rows = this.appDb
       .prepare(
@@ -164,6 +162,30 @@ export class EvidenceService {
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
       .map(({ row }) => ({ id: row.id, docId: row.docId, docTitle: row.docTitle, content: row.content, position: row.position }));
+  }
+
+  /**
+   * 分词：长中文串（如“报告里的术语是什么意思”）拆成 2–3 字滑窗 token，
+   * 避免整句作为一个 token 导致检索不到任何证据。
+   */
+  private tokenize(query: string): string[] {
+    const raw = (query.match(/[\u4e00-\u9fa5]{2,}|[A-Za-z0-9/]{2,}/g) ?? []).filter((t) => t.length >= 2);
+    const tokens: string[] = [];
+    for (const run of raw) {
+      if (/^[A-Za-z0-9/]+$/.test(run)) {
+        tokens.push(run);
+        continue;
+      }
+      if (run.length <= 4) {
+        tokens.push(run);
+        continue;
+      }
+      for (let i = 0; i + 2 <= run.length; i++) {
+        tokens.push(run.slice(i, i + 2));
+        if (i + 3 <= run.length) tokens.push(run.slice(i, i + 3));
+      }
+    }
+    return tokens;
   }
 
   /** 按句切分并入库 */

@@ -28,38 +28,40 @@ export class FeedbackService {
 
   /** 帮助类型反馈（看懂了 / 知道下一步 / 都不好 + 未解决的问题） */
   createHelpFeedback(userId: string, input: {
-    analysisId: string;
+    analysisId?: string;
+    contentId?: string;
     helpType: '看懂了' | '知道下一步' | '都不好';
     unsolvedQuestion?: string;
   }) {
-    this.assertOwnAnalysis(userId, input.analysisId);
+    this.assertFeedbackTarget(userId, input.analysisId, input.contentId);
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
-        `INSERT INTO FEEDBACK (id, user_id, analysis_id, help_type, unsolved_question, is_error_report, created_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?)`,
+        `INSERT INTO FEEDBACK (id, user_id, analysis_id, content_id, help_type, unsolved_question, is_error_report, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
       )
-      .run(id, userId, input.analysisId, input.helpType, input.unsolvedQuestion ?? null, new Date().toISOString());
+      .run(id, userId, input.analysisId ?? null, input.contentId ?? null, input.helpType, input.unsolvedQuestion ?? null, new Date().toISOString());
     return { id, isErrorReport: false };
   }
 
   /** 错误举报：自动附带分析、模型、内容、规则集四类版本，按严重度分级 */
   createErrorReport(userId: string, input: {
-    analysisId: string;
+    analysisId?: string;
+    contentId?: string;
     description: string;
     severity: '高' | '中' | '低';
     problemTypes?: string[];
     authorized?: boolean;
   }) {
-    this.assertOwnAnalysis(userId, input.analysisId);
-    const versions = this.getVersions(input.analysisId);
+    this.assertFeedbackTarget(userId, input.analysisId, input.contentId);
+    const versions = this.getVersions(input.analysisId, input.contentId);
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
-        `INSERT INTO FEEDBACK (id, user_id, analysis_id, help_type, unsolved_question, is_error_report, created_at)
-         VALUES (?, ?, ?, '都不好', ?, 1, ?)`,
+        `INSERT INTO FEEDBACK (id, user_id, analysis_id, content_id, help_type, unsolved_question, is_error_report, created_at)
+         VALUES (?, ?, ?, ?, '都不好', ?, 1, ?)`,
       )
-      .run(id, userId, input.analysisId, input.description, new Date().toISOString());
+      .run(id, userId, input.analysisId ?? null, input.contentId ?? null, input.description, new Date().toISOString());
     this.appDb
       .prepare(
         `INSERT INTO FEEDBACK_REPORT (feedback_id, severity, status, authorized, problem_types)
@@ -392,23 +394,50 @@ export class FeedbackService {
     return { id, revoked: true };
   }
 
-  /** 校验分析属于当前用户 */
-  private assertOwnAnalysis(userId: string, analysisId: string) {
-    const analysis = this.appDb
-      .prepare(
-        `SELECT a.id FROM ANALYSIS a JOIN EPISODE e ON e.id = a.episode_id
-         WHERE a.id = ? AND e.user_id = ?`,
-      )
-      .get(analysisId, userId) as { id: string } | undefined;
-    if (!analysis) {
-      throw ERR.NOT_FOUND('分析不存在');
+  /** 校验反馈关联对象：分析必须属于当前用户；内容必须已存在（内容库对所有人可见） */
+  private assertFeedbackTarget(userId: string, analysisId?: string, contentId?: string) {
+    if (analysisId) {
+      const analysis = this.appDb
+        .prepare(
+          `SELECT a.id FROM ANALYSIS a JOIN EPISODE e ON e.id = a.episode_id
+           WHERE a.id = ? AND e.user_id = ?`,
+        )
+        .get(analysisId, userId) as { id: string } | undefined;
+      if (!analysis) {
+        throw ERR.NOT_FOUND('分析不存在');
+      }
+      return;
+    }
+    if (contentId) {
+      const content = this.appDb
+        .prepare('SELECT id FROM CONTENT_ITEM WHERE id = ?')
+        .get(contentId) as { id: string } | undefined;
+      if (!content) {
+        throw ERR.NOT_FOUND('内容不存在');
+      }
     }
   }
 
-  private getVersions(analysisId: string): VersionSnapshot {
+  private getVersions(analysisId?: string, contentId?: string): VersionSnapshot {
+    if (contentId) {
+      // 内容库反馈：附带内容版本与内容库版本
+      const item = this.appDb
+        .prepare(
+          `SELECT v.version, v.published_at AS publishedAt FROM CONTENT_VERSION v
+           JOIN CONTENT_ITEM i ON i.id = v.item_id WHERE i.id = ?
+           ORDER BY v.version DESC, v.rowid DESC LIMIT 1`,
+        )
+        .get(contentId) as { version: number; publishedAt: string | null } | undefined;
+      return {
+        analysisVersion: null,
+        modelVersion: null,
+        contentVersion: item ? `v${item.version}` : null,
+        rulesetVersion: RULESET_VERSION,
+      };
+    }
     const analysis = this.appDb
       .prepare('SELECT version, retrieval_snapshot AS retrievalSnapshot FROM ANALYSIS WHERE id = ?')
-      .get(analysisId) as { version: number; retrievalSnapshot: string } | undefined;
+      .get(analysisId ?? '') as { version: number; retrievalSnapshot: string } | undefined;
     if (!analysis) {
       return { analysisVersion: null, modelVersion: null, contentVersion: null, rulesetVersion: RULESET_VERSION };
     }

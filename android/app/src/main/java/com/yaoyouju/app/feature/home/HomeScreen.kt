@@ -88,6 +88,12 @@ fun HomeScreen(
                         )
                         Text(text = state.subtitle, color = AppColors.Text2, style = MaterialTheme.typography.bodySmall)
                     }
+                    Text(
+                        text = "内容库",
+                        color = AppColors.Primary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.clickable { onContents() },
+                    )
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(
                             imageVector = AppIcons.Bell,

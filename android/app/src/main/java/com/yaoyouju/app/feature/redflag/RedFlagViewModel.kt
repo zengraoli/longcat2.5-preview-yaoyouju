@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 data class RedFlagUiState(
     val hasSelection: Boolean = false,
     val selectedText: String = "",
+    /** 红旗来自 A02 用户勾选还是系统检测，决定提示文案 */
+    val fromSelection: Boolean = false,
     val reportHint: String = "",
     val showHospitalDialog: Boolean = false,
 )
@@ -27,6 +29,7 @@ class RedFlagViewModel : ViewModel() {
         state = state.copy(
             hasSelection = selected.isNotEmpty(),
             selectedText = selected.joinToString("、"),
+            fromSelection = AppGraph.appState.redFlagFromSelection,
         )
         loadReportHint()
     }

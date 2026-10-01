@@ -8,9 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.network.ApiException
 import com.yaoyouju.app.core.network.apiCall
+import com.yaoyouju.app.core.store.EpisodeSupport
 import com.yaoyouju.app.core.util.BeijingTime
 import com.yaoyouju.app.data.AddEventRequest
-import com.yaoyouju.app.data.CreateEpisodeRequest
 import com.yaoyouju.app.data.CreateReportRequest
 import kotlinx.coroutines.launch
 
@@ -95,50 +95,25 @@ class ReportViewModel : ViewModel() {
                 }
                 state = state.copy(ocrText = text, reportText = if (state.reportText.isBlank()) text else state.reportText)
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
-    }
-
-    private suspend fun ensureEpisodeId(): String? {
-        val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
-        if (episodes.isNotEmpty()) {
-            AppGraph.appState.currentEpisode = episodes.first()
-            return episodes.first().id
-        }
-        val created = runCatching {
-            apiCall {
-                // 报告日期不是病程起病日期，不能当作 onsetDate，否则首页周数与病程起点会算错
-                AppGraph.api.createEpisode(
-                    CreateEpisodeRequest("腰痛", null, "尚未确认"),
-                )
-            }
-        }.getOrNull() ?: return null
-        return created.id
     }
 
     fun submit(onDone: () -> Unit) {
         viewModelScope.launch {
             state = state.copy(submitting = true)
             try {
-                val episodeId = ensureEpisodeId()
-                if (episodeId == null) {
-                    AppGraph.appState.toast("无法建立病程，请稍后重试")
-                    return@launch
-                }
+                val episodeId = EpisodeSupport.ensureEpisodeId()
                 val reportText = state.reportText.trim()
                 if (reportText.isNotEmpty()) {
                     // 报告事件的日期用报告本身的日期，而不是录入时间
                     val reportOccurredAt = state.reportDate.trim().takeIf { it.isNotBlank() }
                         ?.let { if (it.length == 10) "${it}T00:00:00+08:00" else it }
                         ?: BeijingTime.nowIso()
-                    // 检查机构与检查类型也要提交，随报告原文一起保存
-                    val examType = EXAM_TYPES.getOrElse(state.examTypeIndex) { EXAM_TYPES.first() }
-                    val infoParts = buildList {
-                        if (state.hospital.isNotBlank()) add("检查机构：${state.hospital.trim()}")
-                        add("检查类型：$examType")
-                    }
-                    val fullText = "【检查信息】${infoParts.joinToString("；")}\n$reportText"
+                    // 检查机构与检查类型单独存字段，不能拼进报告原文——
+                    // 否则原文对照的行号、一页分析的引用、检查类型判断都会被这行污染
                     val event = apiCall {
                         AppGraph.api.addEvent(
                             episodeId,
@@ -146,7 +121,7 @@ class ReportViewModel : ViewModel() {
                                 eventType = "报告",
                                 occurredAt = reportOccurredAt,
                                 sourceType = "报告原文",
-                                rawText = fullText,
+                                rawText = reportText,
                             ),
                         )
                     }
@@ -157,7 +132,9 @@ class ReportViewModel : ViewModel() {
                                     careEventId = event.id,
                                     reportDate = state.reportDate.ifBlank { null },
                                     sourceType = "报告原文",
-                                    rawText = fullText,
+                                    rawText = reportText,
+                                    examType = EXAM_TYPES.getOrElse(state.examTypeIndex) { EXAM_TYPES.first() },
+                                    hospital = state.hospital.trim().ifBlank { null },
                                 ),
                             )
                         }
@@ -183,7 +160,8 @@ class ReportViewModel : ViewModel() {
                 }
                 onDone()
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             } finally {
                 state = state.copy(submitting = false)
             }

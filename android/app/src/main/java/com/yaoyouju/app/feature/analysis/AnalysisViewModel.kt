@@ -39,31 +39,37 @@ class AnalysisViewModel : ViewModel() {
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             repeat(90) {
-                val res = runCatching { apiCall { AppGraph.api.getAnalysis(taskId) } }.getOrNull()
-                if (res != null) {
+                val res = runCatching { apiCall { AppGraph.api.getAnalysis(taskId) } }
+                val failure = res.exceptionOrNull()
+                if (failure is ApiException && failure.isOffline) {
+                    AppGraph.appState.fallbackErrorCode = "NET-5002"
+                }
+                val analysis = res.getOrNull()
+                if (analysis != null) {
                     when {
-                        res.status == "完成" && res.analysis != null -> {
-                            val result = res.analysis
+                        analysis.status == "完成" && analysis.analysis != null -> {
+                            val result = analysis.analysis
                             AppGraph.appState.latestAnalysis = result
                             state = state.copy(
                                 loading = false,
-                                status = res.status,
+                                status = analysis.status,
                                 result = result,
                                 selectedQuestions = result.sections.next.indices.toSet(),
                             )
                             return@launch
                         }
 
-                        res.status == "失败" -> {
+                        analysis.status == "失败" -> {
+                            AppGraph.appState.fallbackErrorCode = "ANL-503"
                             state = state.copy(
                                 loading = false,
-                                status = res.status,
-                                reason = res.reason ?: "分析生成失败",
+                                status = analysis.status,
+                                reason = analysis.reason ?: "分析生成失败",
                             )
                             return@launch
                         }
 
-                        else -> state = state.copy(loading = false, status = res.status)
+                        else -> state = state.copy(loading = false, status = analysis.status)
                     }
                 }
                 delay(2000)
@@ -113,11 +119,14 @@ class AnalysisViewModel : ViewModel() {
         val analysis = state.result ?: return
         viewModelScope.launch {
             try {
-                apiCall { AppGraph.api.createHelpFeedback(HelpFeedbackRequest(analysis.id, helpType)) }
+                apiCall {
+                    AppGraph.api.createHelpFeedback(HelpFeedbackRequest(analysisId = analysis.id, helpType = helpType))
+                }
                 state = state.copy(feedbackGiven = helpType)
                 AppGraph.appState.toast("感谢反馈")
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }
@@ -126,10 +135,15 @@ class AnalysisViewModel : ViewModel() {
         val analysis = state.result ?: return
         viewModelScope.launch {
             try {
-                apiCall { AppGraph.api.createErrorReport(ErrorReportRequest(analysis.id, "用户报告错误", "中")) }
+                apiCall {
+                    AppGraph.api.createErrorReport(
+                        ErrorReportRequest(analysisId = analysis.id, description = "用户报告错误", severity = "中"),
+                    )
+                }
                 AppGraph.appState.toast("已提交举报")
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             }
         }
     }
@@ -160,7 +174,8 @@ class AnalysisViewModel : ViewModel() {
                 state = state.copy(followupAdded = true)
                 AppGraph.appState.toast("已加入复诊问题清单")
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             } finally {
                 state = state.copy(submitting = false)
             }

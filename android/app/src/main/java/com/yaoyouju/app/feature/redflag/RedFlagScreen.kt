@@ -77,7 +77,7 @@ fun RedFlagScreen(
                         fontWeight = FontWeight.Medium,
                     )
                     Text(
-                        text = if (state.hasSelection) {
+                        text = if (state.fromSelection && state.hasSelection) {
                             "你刚才选择了：${state.selectedText}。这类变化需要医生及时评估，本产品无法替你判断严重程度，本轮不会生成个性化分析。"
                         } else {
                             "你刚才记录的情况需要医生及时评估，本产品无法替你判断严重程度，本轮不会生成个性化分析。"

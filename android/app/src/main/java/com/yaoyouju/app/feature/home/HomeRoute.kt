@@ -18,6 +18,7 @@ fun HomeRoute(
     onSummary: () -> Unit,
     onAnalysis: (String) -> Unit,
     onContentDetail: (String) -> Unit,
+    onContents: () -> Unit,
     onFallback: () -> Unit,
 ) {
     val vm: HomeViewModel = viewModel()

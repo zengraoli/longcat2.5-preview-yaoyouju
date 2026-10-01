@@ -45,6 +45,7 @@ import com.yaoyouju.app.core.design.AppDimens
 fun ContentDetailScreen(
     state: ContentDetailUiState,
     onBack: () -> Unit,
+    onBackToContents: () -> Unit,
     onRetellChange: (String) -> Unit,
     onSubmitRetell: () -> Unit,
     onToggleSubtitle: () -> Unit,
@@ -239,7 +240,7 @@ fun ContentDetailScreen(
 
             AppButton(
                 text = "返回内容库",
-                onClick = onBack,
+                onClick = onBackToContents,
                 type = AppButtonType.Secondary,
                 block = true,
                 modifier = Modifier.padding(top = 16.dp),

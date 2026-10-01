@@ -152,8 +152,13 @@ export class QaService {
     // 名词解释 / 科普类提问：回答定义并附就医提示，不作为用户自报症状处理
     if (DEFINITION_PATTERN.test(question)) {
       const evidence = this.retrieval.search(question, 2);
-      const citations = evidence.map((e) => ({ docId: e.docId, docTitle: e.docTitle, content: e.content }));
-      const body = evidence.length > 0 ? evidence.map((e) => e.content).join('\n') : '证据库中暂无与这个名词直接相关的资料。';
+      // 同一文档只保留一条来源，避免回答下方重复显示两行
+      const citations = evidence
+        .map((e) => ({ docId: e.docId, docTitle: e.docTitle, content: e.content }))
+        .filter((c, i, arr) => arr.findIndex((x) => x.docId === c.docId) === i);
+      const body = evidence.length > 0
+        ? evidence.map((e) => e.content).join('\n')
+        : '报告里常见的术语包括：L5/S1（第 5 腰椎与第 1 骶椎之间的椎间盘）、硬膜囊受压、神经根受压、椎间盘突出等。这些是影像描述，是否引起症状需要医生结合查体判断。';
       const content = `${body}\n\n如果出现大小便控制不了、会阴或鞍区麻木、腿部无力等变化，请及时就医；本回答不构成诊断。`;
       const msgId = crypto.randomUUID();
       this.appDb
@@ -243,7 +248,9 @@ export class QaService {
         .get(sessionId) as { content: string } | undefined;
       const roundEnded = previous?.content === STABLE_EXPLANATION;
       const evidence = this.retrieval.search('影像 症状 不一致 诊断', 1);
-      const citations = evidence.map((e) => ({ docId: e.docId, docTitle: e.docTitle, content: e.content }));
+      const citations = evidence
+        .map((e) => ({ docId: e.docId, docTitle: e.docTitle, content: e.content }))
+        .filter((c, i, arr) => arr.findIndex((x) => x.docId === c.docId) === i);
       const msgId = crypto.randomUUID();
       this.appDb
         .prepare('INSERT INTO QA_MESSAGE (id, session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?, ?)')
@@ -261,7 +268,9 @@ export class QaService {
     let content: string;
     let citations: Array<{ docId: string; docTitle: string; content: string }> = [];
     if (evidence.length > 0) {
-      citations = evidence.map((e) => ({ docId: e.docId, docTitle: e.docTitle, content: e.content }));
+      citations = evidence
+        .map((e) => ({ docId: e.docId, docTitle: e.docTitle, content: e.content }))
+        .filter((c, i, arr) => arr.findIndex((x) => x.docId === c.docId) === i);
       content = evidence.map((e) => e.content).join('\n');
     } else {
       content = '证据库中暂无与这个问题相关的资料。建议把这个问题加入复诊问题清单，复诊时带给医生。';

@@ -106,7 +106,7 @@ fun TimelineScreen(
 
                 if (state.error != null) {
                     AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
-                        TipBar(text = "${state.error}。已审核科普与就医提示仍可查看。", type = TipBarType.Warn)
+                        TipBar(text = "${state.error}。病程记录暂时读不到，重试后会恢复显示。", type = TipBarType.Warn)
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -122,7 +122,8 @@ fun TimelineScreen(
                     }
                 }
 
-                if (state.showFilter) {
+                // 断网 / 服务不可达时不显示“暂无记录”，避免把“读不到”当成“没有记录”
+                if (state.error == null && state.showFilter) {
                     AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
                         ChipRow {
                             TIMELINE_FILTERS.forEach { filter ->
@@ -137,7 +138,7 @@ fun TimelineScreen(
                 }
 
                 // 本次发作
-                if (state.episode != null) {
+                if (state.error == null && state.episode != null) {
                     AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -170,7 +171,8 @@ fun TimelineScreen(
                 }
 
                 // 最近 14 天
-                if (state.chart.isNotEmpty()) {
+                if (state.error == null) {
+                    if (state.chart.isNotEmpty()) {
                     AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {                        Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -209,17 +211,20 @@ fun TimelineScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                } else {
-                    AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
-                        Text(text = "最近 14 天暂无记录", color = AppColors.Text1, style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            text = "记录今天后，这里会显示每天能坐多久的变化。",
-                            color = AppColors.Text2,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
+                    } else {
+                        AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
+                            Text(text = "最近 14 天暂无记录", color = AppColors.Text1, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                text = "记录今天后，这里会显示每天能坐多久的变化。",
+                                color = AppColors.Text2,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
                 }
+
+                if (state.error != null) return@Column
 
                 Text(
                     text = "记录（按事件，保留来源与核实状态）",

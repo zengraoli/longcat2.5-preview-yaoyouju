@@ -64,7 +64,8 @@ data class SafetyCheckResult(
 @Serializable
 data class Episode(
     val id: String,
-    val title: String,
+    /** 创建病程接口只返回 {id}，title 可能缺失，必须可空 */
+    val title: String? = null,
     val onsetDate: String? = null,
     val onsetCertainty: String = "尚未确认",
     val status: String? = null,
@@ -80,6 +81,9 @@ data class CareEvent(
     val sourceType: String,
     val rawText: String? = null,
     val verifyStatus: String = "尚未确认",
+    /** 报告事件附带的检查类型与检查机构（单独字段，不进原文） */
+    val examType: String? = null,
+    val hospital: String? = null,
 )
 
 @Serializable
@@ -95,6 +99,8 @@ data class SymptomLog(
     val legChange: JsonScalar? = null,
     val changeVsYesterday: JsonScalar? = null,
     val activitiesDone: JsonScalar? = null,
+    /** 服务端在写入时做安全预检，命中红旗时随返回带给客户端 */
+    val safety: SafetyCheckResult? = null,
 )
 
 @Serializable
@@ -116,6 +122,9 @@ data class Report(
     val extractedTerms: List<ExtractedTerm> = emptyList(),
     val sourceType: String = "报告原文",
     val verifyStatus: String = "尚未确认",
+    /** 录入时选择的检查类型与检查机构（单独字段，不进原文） */
+    val examType: String? = null,
+    val hospital: String? = null,
 )
 
 @Serializable

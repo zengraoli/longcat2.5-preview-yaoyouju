@@ -53,6 +53,7 @@ class HomeViewModel : ViewModel() {
             val episodesResult = runCatching { apiCall { AppGraph.api.listEpisodes() } }
             val failure = episodesResult.exceptionOrNull()
             if (failure is ApiException && failure.isOffline) {
+                AppGraph.appState.fallbackErrorCode = "NET-5002"
                 state = state.copy(loading = false, error = failure.message)
                 return@launch
             }
@@ -137,14 +138,59 @@ class HomeViewModel : ViewModel() {
         return parts.joinToString(" · ")
     }
 
-    /** 从医嘱中解析“N 周后复查”推算计划复诊日期 */
+    /**
+     * 从医嘱中解析计划复诊日期：优先用医嘱里写的复诊时间（显式日期），
+     * 其次按“N 周后复查 / N 个月后复查”从医嘱日期推算。
+     */
     private fun parseFollowupDate(events: List<CareEvent>): String? {
         for (event in events) {
             if (event.eventType != "医嘱" || event.rawText.isNullOrBlank()) continue
-            val match = Regex("(\\d+)\\s*周后复查").find(event.rawText) ?: continue
-            val weeks = match.groupValues[1].toIntOrNull() ?: continue
-            // 按医嘱本身的日期 + N 周推算，而不是“今天 + N 周”
-            return BeijingTime.plusDaysFrom(event.occurredAt, weeks * 7L)
+            val text = event.rawText
+            // 1) 显式日期：2026-11-08 复诊 / 11月8日复诊 / 2026年11月8日
+            explicitFollowupDate(text)?.let { return it }
+            // 2) N 周后复查：按医嘱本身的日期 + N 周推算，而不是“今天 + N 周”
+            val weeks = Regex("(\\d+)\\s*周后复查").find(text)?.groupValues?.get(1)?.toIntOrNull()
+            if (weeks != null) {
+                return BeijingTime.plusDaysFrom(event.occurredAt, weeks * 7L)
+            }
+            // 3) N 个月后复查
+            val months = Regex("(\\d+)\\s*个月后复查").find(text)?.groupValues?.get(1)?.toIntOrNull()
+            if (months != null) {
+                val base = runCatching {
+                    java.time.Instant.parse(event.occurredAt.let {
+                        if (it.length == 10) "${it}T00:00:00Z" else it
+                    }).atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate()
+                }.getOrElse { java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")) }
+                return base.plusMonths(months.toLong()).toString()
+            }
+        }
+        return null
+    }
+
+    /** 医嘱文本里的显式复诊日期（yyyy-MM-dd 或 M月d日 / yyyy年M月d日） */
+    private fun explicitFollowupDate(text: String): String? {
+        val iso = Regex("(\\d{4})-(\\d{1,2})-(\\d{1,2})").find(text)
+        if (iso != null) {
+            val (y, m, d) = iso.destructured
+            return runCatching {
+                java.time.LocalDate.of(y.toInt(), m.toInt(), d.toInt()).toString()
+            }.getOrNull()
+        }
+        val cn = Regex("(\\d{4})年(\\d{1,2})月(\\d{1,2})日|(\\d{1,2})月(\\d{1,2})日").find(text)
+        if (cn != null) {
+            val groups = cn.groupValues
+            return if (groups[1].isNotBlank()) {
+                runCatching {
+                    java.time.LocalDate.of(groups[1].toInt(), groups[2].toInt(), groups[3].toInt()).toString()
+                }.getOrNull()
+            } else {
+                // 只有月日：年份取医嘱日期所在年（若已过则取明年）
+                val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
+                runCatching {
+                    val candidate = java.time.LocalDate.of(today.year, groups[4].toInt(), groups[5].toInt())
+                    if (candidate.isBefore(today)) candidate.plusYears(1) else candidate
+                }.getOrNull()?.toString()
+            }
         }
         return null
     }

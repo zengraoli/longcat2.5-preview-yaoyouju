@@ -2,13 +2,13 @@ import {
   applyDecorators,
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Injectable,
   SetMetadata,
   UseGuards,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from './auth.service';
+import { ERR } from '../../common/utils/business-exception';
 
 export const REQUIRE_CONSENT_KEY = 'require_consent';
 
@@ -33,7 +33,8 @@ export class ConsentGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
     const userId: string | undefined = req.user?.userId;
     if (!userId || !this.auth.hasConsent(userId, scope)) {
-      throw new ForbiddenException(`未同意「${scope}」，不能使用该功能`);
+      // 必须用业务码 2002（同意记录缺失），客户端才能区分“需要重新同意”与普通无权限
+      throw ERR.CONSENT_MISSING(`未同意「${scope}」，不能使用该功能`);
     }
     return true;
   }

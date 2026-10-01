@@ -5,13 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.AppIcons
-import com.yaoyouju.app.core.network.apiCall
-import com.yaoyouju.app.core.util.BeijingTime
-import com.yaoyouju.app.data.AddEventRequest
-import kotlinx.coroutines.launch
 
 /** 主要困惑选项（文案与设计稿 A04 一致） */
 data class ConfusionOption(
@@ -52,32 +47,12 @@ class ConfusionViewModel : ViewModel() {
         state = state.copy(formats = list)
     }
 
-    /** 把选择的主要困惑与期望解释方式写入病程，后续分析会用到 */
+    /**
+     * 主要困惑与解释方式只保存在会话状态（select 时已写入），供分析与核对页使用；
+     * 不再写成一条“症状”病程事件——否则它会出现在复诊摘要“当前情况”与首页待确认列表里，
+     * 让用户误以为这是自己报告的症状。
+     */
     fun proceed(onDone: () -> Unit) {
-        val option = CONFUSION_OPTIONS.firstOrNull { it.key == state.selected }
-        val formats = state.formats.joinToString("、")
-        viewModelScope.launch {
-            runCatching {
-                var episodeId = AppGraph.appState.episodeId
-                if (episodeId == null) {
-                    val episodes = apiCall { AppGraph.api.listEpisodes() }.orEmpty()
-                    episodeId = episodes.firstOrNull()?.id
-                }
-                val id = episodeId ?: return@runCatching
-                apiCall {
-                    AppGraph.api.addEvent(
-                        id,
-                        AddEventRequest(
-                            eventType = "症状",
-                            occurredAt = BeijingTime.nowIso(),
-                            sourceType = "自述",
-                            rawText = "主要困惑：${option?.title ?: "未选择"}；希望的解释方式：$formats",
-                            verifyStatus = "尚未确认",
-                        ),
-                    )
-                }
-            }
-            onDone()
-        }
+        onDone()
     }
 }

@@ -28,6 +28,16 @@ class CreateReportDto {
   @IsString()
   @MaxLength(20000)
   rawText!: string;
+
+  /** 检查类型与检查机构单独存字段，不拼进报告原文 */
+  @IsOptional()
+  @IsIn(['MRI', 'CT', 'X光', '超声'])
+  examType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  hospital?: string;
 }
 
 class ConfirmReportDto {

@@ -49,6 +49,9 @@ data class CreateReportRequest(
     val reportDate: String? = null,
     val sourceType: String,
     val rawText: String,
+    /** 检查类型（MRI / CT / X光 / 超声）与检查机构单独存字段，不拼进原文 */
+    val examType: String? = null,
+    val hospital: String? = null,
 )
 
 @Serializable
@@ -87,14 +90,16 @@ data class RetellRequest(val text: String)
 
 @Serializable
 data class HelpFeedbackRequest(
-    val analysisId: String,
+    val analysisId: String? = null,
+    val contentId: String? = null,
     val helpType: String,
     val unsolvedQuestion: String? = null,
 )
 
 @Serializable
 data class ErrorReportRequest(
-    val analysisId: String,
+    val analysisId: String? = null,
+    val contentId: String? = null,
     val description: String,
     val severity: String,
     val problemTypes: List<String>? = null,

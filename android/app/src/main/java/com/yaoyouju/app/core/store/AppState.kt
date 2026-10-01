@@ -23,16 +23,23 @@ class AppState {
     /** A02 确认页选中的红旗项，供 A03 就医提示展示 */
     var redFlagSelected: List<String> by mutableStateOf(emptyList())
 
+    /** 红旗是否来自 A02 的用户主动勾选；系统检测（问答 / 记录 / 分析）时为 false，A03 文案不同 */
+    var redFlagFromSelection: Boolean by mutableStateOf(false)
+
     /** 任意页面命中红旗时递增，主界面观察后跳转就医提示页（问答、记录等） */
     var redFlagRequest: Int by mutableStateOf(0)
 
-    fun requestRedFlag(items: List<String>) {
+    fun requestRedFlag(items: List<String>, fromSelection: Boolean = false) {
         if (items.isNotEmpty()) redFlagSelected = items
+        redFlagFromSelection = fromSelection
         redFlagRequest += 1
     }
 
     /** 登录过期：由网络层置位，主界面观察后回到登录页 */
     var sessionExpired: Boolean by mutableStateOf(false)
+
+    /** 进入服务不可用页时携带的错误码（ANL-503 分析失败 / NET-5002 网络不可达等） */
+    var fallbackErrorCode: String by mutableStateOf("ANL-503")
 
     /**
      * 全局一次性提示。用 Channel 而不是可空 state：

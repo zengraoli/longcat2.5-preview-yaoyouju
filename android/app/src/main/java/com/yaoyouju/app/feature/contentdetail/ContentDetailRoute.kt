@@ -7,12 +7,18 @@ import com.yaoyouju.app.AppGraph
 
 /** A15 路由 */
 @Composable
-fun ContentDetailRoute(contentId: String, onBack: () -> Unit, onReportContent: () -> Unit) {
+fun ContentDetailRoute(
+    contentId: String,
+    onBack: () -> Unit,
+    onBackToContents: () -> Unit,
+    onReportContent: () -> Unit,
+) {
     val vm: ContentDetailViewModel = viewModel()
     LaunchedEffect(contentId) { vm.load(contentId) }
     ContentDetailScreen(
         state = vm.state,
         onBack = onBack,
+        onBackToContents = onBackToContents,
         onRetellChange = vm::setRetell,
         onSubmitRetell = vm::submitRetell,
         onToggleSubtitle = vm::toggleSubtitle,

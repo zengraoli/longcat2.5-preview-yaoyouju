@@ -12,6 +12,9 @@ export interface ReportView {
   extractedTerms: Array<{ term: string; position: number }>;
   sourceType: string;
   verifyStatus: string;
+  /** 录入时选择的检查类型（MRI / CT / X光 / 超声）与检查机构，单独存字段，不进原文 */
+  examType?: string;
+  hospital?: string;
 }
 
 export interface VerifyView {
@@ -31,7 +34,14 @@ export class ReportsService {
   /** 录入报告：粘贴文字为主，记录来源类型与报告日期，抽取术语 */
   createReport(
     userId: string,
-    input: { careEventId: string; reportDate?: string | null; sourceType: string; rawText: string },
+    input: {
+      careEventId: string;
+      reportDate?: string | null;
+      sourceType: string;
+      rawText: string;
+      examType?: string;
+      hospital?: string;
+    },
   ): ReportView {
     const event = this.appDb
       .prepare(
@@ -46,8 +56,8 @@ export class ReportsService {
     const id = crypto.randomUUID();
     this.appDb
       .prepare(
-        `INSERT INTO REPORT (id, care_event_id, report_date, raw_text, extracted_terms, oss_key)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO REPORT (id, care_event_id, report_date, raw_text, extracted_terms, oss_key, exam_type, hospital)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -56,6 +66,8 @@ export class ReportsService {
         input.rawText,
         JSON.stringify(terms),
         `oss/reports/${id}.txt`,
+        input.examType ?? null,
+        input.hospital ?? null,
       );
     return {
       id,
@@ -65,6 +77,8 @@ export class ReportsService {
       extractedTerms: terms,
       sourceType: input.sourceType,
       verifyStatus: '尚未确认',
+      examType: input.examType,
+      hospital: input.hospital,
     };
   }
 
@@ -88,7 +102,8 @@ export class ReportsService {
     const report = this.appDb
       .prepare(
         `SELECT r.id, r.care_event_id AS careEventId, r.report_date AS reportDate, r.raw_text AS rawText,
-                r.extracted_terms AS extractedTerms, e.source_type AS sourceType, e.verify_status AS verifyStatus
+                r.extracted_terms AS extractedTerms, e.source_type AS sourceType, e.verify_status AS verifyStatus,
+                r.exam_type AS examType, r.hospital AS hospital
          FROM REPORT r
          JOIN CARE_EVENT e ON e.id = r.care_event_id
          JOIN EPISODE ep ON ep.id = e.episode_id
@@ -103,6 +118,8 @@ export class ReportsService {
           extractedTerms: string;
           sourceType: string;
           verifyStatus: string;
+          examType: string | null;
+          hospital: string | null;
         }
       | undefined;
     if (!report) throw new NotFoundException('报告不存在');
@@ -114,6 +131,8 @@ export class ReportsService {
       extractedTerms: JSON.parse(report.extractedTerms ?? '[]'),
       sourceType: report.sourceType,
       verifyStatus: report.verifyStatus,
+      examType: report.examType ?? undefined,
+      hospital: report.hospital ?? undefined,
     };
   }
 

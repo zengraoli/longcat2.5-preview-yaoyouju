@@ -10,6 +10,7 @@ import com.yaoyouju.app.core.network.ApiException
 import com.yaoyouju.app.core.network.apiCall
 import com.yaoyouju.app.core.util.BeijingTime
 import com.yaoyouju.app.data.AnalysisResult
+import com.yaoyouju.app.data.ContentDetail
 import com.yaoyouju.app.data.ErrorReportRequest
 import com.yaoyouju.app.data.HelpFeedbackRequest
 import kotlinx.coroutines.launch
@@ -35,6 +36,8 @@ data class FeedbackUiState(
     val loading: Boolean = true,
     val tab: FeedbackTab = FeedbackTab.Error,
     val analysis: AnalysisResult? = null,
+    /** 从视频详情进入时关联的内容（视频/图文） */
+    val content: ContentDetail? = null,
     val problemTypes: List<String> = emptyList(),
     val description: String = "",
     val authorized: Boolean = true,
@@ -43,19 +46,43 @@ data class FeedbackUiState(
     val contentLabel: String = "",
     val versionLabel: String = "",
     val timeLabel: String = "",
-)
+) {
+    /** 关联对象 id：优先内容，其次分析；都没有时为空（仍可提交反馈） */
+    val targetId: String? get() = content?.id ?: analysis?.id
+}
 
 class FeedbackViewModel : ViewModel() {
 
     var state by mutableStateOf(FeedbackUiState())
         private set
 
-    fun load() {
+    /**
+     * @param source 来源参数："" = 自动取最新分析；"analysis:<id>" = 指定分析；"content:<id>" = 指定内容
+     */
+    fun load(source: String = "") {
         viewModelScope.launch {
             state = state.copy(loading = true)
+            // 从视频详情进入：关联到这条内容，而不是用户最新的一页分析
+            val contentId = source.removePrefix("content:").takeIf { source.startsWith("content:") }
+            val analysisId = source.removePrefix("analysis:").takeIf { source.startsWith("analysis:") }
+            if (contentId != null) {
+                val detail = runCatching { apiCall { AppGraph.api.getContentDetail(contentId) } }.getOrNull()
+                state = state.copy(
+                    loading = false,
+                    content = detail,
+                    contentLabel = detail?.title ?: "暂无关联内容",
+                    versionLabel = "已审核 v${detail?.auditVersion ?: 1}",
+                    timeLabel = BeijingTime.dateTime(detail?.publishedAt),
+                )
+                return@launch
+            }
             val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
             val episode = episodes.firstOrNull()
-            val analysis = if (episode != null) {
+            val analysis = if (analysisId != null) {
+                // 通过最新分析列表无法按 id 直接取，尝试从会话关联的分析中找；找不到就退回最新分析
+                runCatching { apiCall { AppGraph.api.getLatestAnalysis(episode?.id ?: "") } }.getOrNull()
+                    ?.takeIf { it.id == analysisId }
+            } else if (episode != null) {
                 runCatching { apiCall { AppGraph.api.getLatestAnalysis(episode.id) } }.getOrNull()
             } else {
                 AppGraph.appState.latestAnalysis
@@ -118,11 +145,12 @@ class FeedbackViewModel : ViewModel() {
     }
 
     fun submit(onDone: () -> Unit) {
-        val analysisId = state.analysis?.id
-        if (analysisId == null) {
-            AppGraph.appState.toast("暂无可反馈的分析")
+        val targetId = state.targetId
+        if (targetId == null) {
+            AppGraph.appState.toast("暂无可反馈的对象")
             return
         }
+        val isContent = state.content != null
         viewModelScope.launch {
             state = state.copy(submitting = true)
             try {
@@ -135,7 +163,12 @@ class FeedbackViewModel : ViewModel() {
                         }
                         apiCall {
                             AppGraph.api.createHelpFeedback(
-                                HelpFeedbackRequest(analysisId, helpType, state.description.ifBlank { null }),
+                                HelpFeedbackRequest(
+                                    analysisId = if (isContent) null else targetId,
+                                    contentId = if (isContent) targetId else null,
+                                    helpType = helpType,
+                                    unsolvedQuestion = state.description.ifBlank { null },
+                                ),
                             )
                         }
                         AppGraph.appState.toast("感谢反馈")
@@ -149,7 +182,8 @@ class FeedbackViewModel : ViewModel() {
                         apiCall {
                             AppGraph.api.createErrorReport(
                                 ErrorReportRequest(
-                                    analysisId = analysisId,
+                                    analysisId = if (isContent) null else targetId,
+                                    contentId = if (isContent) targetId else null,
                                     description = state.description,
                                     severity = "中",
                                     problemTypes = state.problemTypes,
@@ -162,7 +196,8 @@ class FeedbackViewModel : ViewModel() {
                 }
                 onDone()
             } catch (e: ApiException) {
-                AppGraph.appState.toast(e.message)
+                // 同意撤回等错误已由全局处理器提示，不再重复弹服务端原文
+                if (!e.isConsentMissing) AppGraph.appState.toast(e.message)
             } finally {
                 state = state.copy(submitting = false)
             }

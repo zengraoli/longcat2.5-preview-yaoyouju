@@ -8,9 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.network.ApiException
 import com.yaoyouju.app.core.network.apiCall
+import com.yaoyouju.app.core.store.EpisodeSupport
 import com.yaoyouju.app.core.util.BeijingTime
 import com.yaoyouju.app.data.AddEventRequest
-import com.yaoyouju.app.data.CreateEpisodeRequest
 import kotlinx.coroutines.launch
 
 val CHANGE_OPTIONS = listOf("加重", "差不多", "减轻", "尚未确认")
@@ -62,6 +62,7 @@ class ConfirmViewModel : ViewModel() {
         list.add(option)
         state = state.copy(redFlags = list, noneSelected = false)
         AppGraph.appState.redFlagSelected = list
+        AppGraph.appState.redFlagFromSelection = true
         viewModelScope.launch { saveRedFlagEvent(list) }
         onRedFlag()
     }
@@ -95,6 +96,7 @@ class ConfirmViewModel : ViewModel() {
     fun next(onRedFlag: () -> Unit, onContinue: () -> Unit) {
         if (state.redFlags.isNotEmpty()) {
             AppGraph.appState.redFlagSelected = state.redFlags
+            AppGraph.appState.redFlagFromSelection = true
             viewModelScope.launch { saveRedFlagEvent(state.redFlags) }
             onRedFlag()
             return
@@ -124,17 +126,7 @@ class ConfirmViewModel : ViewModel() {
         }
     }
 
-    private suspend fun currentEpisodeId(): String? {
-        val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
-        if (episodes.isNotEmpty()) {
-            AppGraph.appState.currentEpisode = episodes.first()
-            return episodes.first().id
-        }
-        val created = runCatching {
-            apiCall { AppGraph.api.createEpisode(CreateEpisodeRequest("腰痛", null, "尚未确认")) }
-        }.getOrNull() ?: return null
-        return created.id
-    }
+    private suspend fun currentEpisodeId(): String? = runCatching { EpisodeSupport.ensureEpisodeId() }.getOrNull()
 
     private suspend fun saveRedFlagEvent(flags: List<String>) {
         runCatching {
