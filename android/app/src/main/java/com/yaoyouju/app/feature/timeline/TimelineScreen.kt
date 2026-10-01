@@ -38,10 +38,13 @@ import com.yaoyouju.app.core.components.AppChipState
 import com.yaoyouju.app.core.components.AppIcons
 import com.yaoyouju.app.core.components.AppTextArea
 import com.yaoyouju.app.core.components.BottomTabBar
+import com.yaoyouju.app.core.components.ChineseDatePickerDialog
 import com.yaoyouju.app.core.components.ChipRow
 import com.yaoyouju.app.core.components.SimpleChoiceDialogHost
 import com.yaoyouju.app.core.components.StatusTag
 import com.yaoyouju.app.core.components.TabDestination
+import com.yaoyouju.app.core.components.TipBar
+import com.yaoyouju.app.core.components.TipBarType
 import com.yaoyouju.app.core.design.AppColors
 import com.yaoyouju.app.core.design.AppDimens
 
@@ -58,6 +61,8 @@ fun TimelineScreen(
     onAddText: (String) -> Unit,
     onSaveEvent: () -> Unit,
     onDeleteEvent: (String) -> Unit,
+    onRetry: () -> Unit,
+    onFallback: () -> Unit,
 ) {
     var deleteTarget by remember { mutableStateOf<TimelineItem?>(null) }
     var showTypePicker by remember { mutableStateOf(false) }
@@ -96,6 +101,24 @@ fun TimelineScreen(
                             tint = AppColors.Text1,
                             modifier = Modifier.size(22.dp).clickable { onShowAdd(true) },
                         )
+                    }
+                }
+
+                if (state.error != null) {
+                    AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
+                        TipBar(text = "${state.error}。已审核科普与就医提示仍可查看。", type = TipBarType.Warn)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            AppButton(text = "重试", onClick = onRetry, modifier = Modifier.weight(1f))
+                            AppButton(
+                                text = "服务不可用说明",
+                                onClick = onFallback,
+                                type = com.yaoyouju.app.core.components.AppButtonType.Secondary,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
 
@@ -148,8 +171,7 @@ fun TimelineScreen(
 
                 // 最近 14 天
                 if (state.chart.isNotEmpty()) {
-                    AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
-                        Row(
+                    AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {                        Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
@@ -185,6 +207,16 @@ fun TimelineScreen(
                             text = "图中变化只反映你的记录，不代表影像变化或病情恶化。",
                             color = AppColors.Text2,
                             style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                } else {
+                    AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
+                        Text(text = "最近 14 天暂无记录", color = AppColors.Text1, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = "记录今天后，这里会显示每天能坐多久的变化。",
+                            color = AppColors.Text2,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }
@@ -303,7 +335,8 @@ fun TimelineScreen(
         }
 
         if (showDatePicker) {
-            DatePickerHost(
+            ChineseDatePickerDialog(
+                initial = state.addDate,
                 onSelect = { onAddDate(it); showDatePicker = false },
                 onDismiss = { showDatePicker = false },
             )
@@ -405,31 +438,5 @@ private fun FieldButton(text: String, onClick: () -> Unit) {
             .padding(horizontal = 14.dp, vertical = 13.dp),
     ) {
         Text(text = text, color = AppColors.Text1, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun DatePickerHost(onSelect: (String) -> Unit, onDismiss: () -> Unit) {
-    val pickerState = androidx.compose.material3.rememberDatePickerState()
-    androidx.compose.material3.DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = {
-                pickerState.selectedDateMillis?.let { millis ->
-                    val date = java.time.Instant.ofEpochMilli(millis)
-                        .atZone(java.time.ZoneId.of("Asia/Shanghai"))
-                        .toLocalDate()
-                        .toString()
-                    onSelect(date)
-                }
-                onDismiss()
-            }) { Text("确定") }
-        },
-        dismissButton = {
-            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("取消") }
-        },
-    ) {
-        androidx.compose.material3.DatePicker(state = pickerState)
     }
 }

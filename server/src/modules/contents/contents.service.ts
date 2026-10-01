@@ -548,7 +548,8 @@ export class ContentsService {
       .prepare(
         `SELECT i.id, i.type, i.title, i.applicable_scope AS applicableScope, i.not_applicable AS notApplicable,
                 v.script, v.subtitle_text AS subtitleText, v.model_asset_version AS modelAssetVersion,
-                v.duration, v.published_at AS publishedAt
+                v.duration, v.published_at AS publishedAt,
+                (SELECT MAX(v2.version) FROM CONTENT_VERSION v2 WHERE v2.item_id = i.id) AS auditVersion
          FROM CONTENT_ITEM i LEFT JOIN CONTENT_VERSION v ON v.item_id = i.id
          WHERE i.id = ? AND i.current_status = '已发布' AND i.offline_switch = 0
          ORDER BY v.version DESC LIMIT 1`,
@@ -565,6 +566,7 @@ export class ContentsService {
           modelAssetVersion: string | null;
           duration: string | null;
           publishedAt: string | null;
+          auditVersion: number | null;
         }
       | undefined;
     if (!item) throw new NotFoundException('内容不存在或已下线');

@@ -106,7 +106,7 @@ fun FallbackScreen(
             FallbackItem(
                 icon = AppIcons.Play,
                 title = "已审核科普",
-                desc = "8 个视频/图文，含字幕与文字替代，不依赖模型",
+                desc = "已审核科普（视频/图文），含字幕与文字替代，不依赖模型",
                 onClick = onContents,
             )
             FallbackItem(

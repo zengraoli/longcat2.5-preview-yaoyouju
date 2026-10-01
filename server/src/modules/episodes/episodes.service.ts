@@ -27,11 +27,14 @@ export interface CareEventView {
 export interface SymptomLogView {
   id: string;
   careEventId: string;
+  occurredAt?: string;
   sitMinutes: number | '尚未确认';
   plannedActivityDone: string | '尚未确认';
   sleepImpact: number | '尚未确认';
   topWorry: string | '尚未确认';
   legChange: string | '尚未确认';
+  changeVsYesterday?: string | '尚未确认';
+  activitiesDone?: string | '尚未确认';
 }
 
 /** 缺失字段统一返回"尚未确认"语义，而不是空或"无" */
@@ -201,7 +204,9 @@ export class EpisodesService {
       .prepare(
         `SELECT s.id, s.care_event_id AS careEventId, s.sit_minutes AS sitMinutes,
                 s.planned_activity_done AS plannedActivityDone, s.sleep_impact AS sleepImpact,
-                s.top_worry AS topWorry, s.leg_change AS legChange, e.occurred_at AS occurredAt
+                s.top_worry AS topWorry, s.leg_change AS legChange,
+                s.change_vs_yesterday AS changeVsYesterday, s.activities_done AS activitiesDone,
+                e.occurred_at AS occurredAt
          FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
          WHERE e.episode_id = ? ORDER BY e.occurred_at ASC, s.rowid ASC`,
       )
@@ -213,6 +218,8 @@ export class EpisodesService {
       sleepImpact: number | null;
       topWorry: string | null;
       legChange: string | null;
+      changeVsYesterday: string | null;
+      activitiesDone: string | null;
       occurredAt: string;
     }>;
     return {
@@ -226,6 +233,8 @@ export class EpisodesService {
         sleepImpact: orUnknown(l.sleepImpact),
         topWorry: orUnknown(l.topWorry),
         legChange: orUnknown(l.legChange),
+        changeVsYesterday: orUnknown(l.changeVsYesterday),
+        activitiesDone: orUnknown(l.activitiesDone),
       })),
     };
   }
@@ -286,6 +295,8 @@ export class EpisodesService {
       sleepImpact: orUnknown(input.sleepImpact ?? null),
       topWorry: orUnknown(input.topWorry ?? null),
       legChange: orUnknown(input.legChange ?? null),
+      changeVsYesterday: orUnknown(input.changeVsYesterday ?? null),
+      activitiesDone: orUnknown(input.activitiesDone ?? null),
       safety: safety
         ? {
             passed: safety.passed,
@@ -327,7 +338,9 @@ export class EpisodesService {
       .prepare(
         `SELECT s.id, s.care_event_id AS careEventId, s.sit_minutes AS sitMinutes,
                 s.planned_activity_done AS plannedActivityDone, s.sleep_impact AS sleepImpact,
-                s.top_worry AS topWorry, s.leg_change AS legChange, e.occurred_at AS occurredAt
+                s.top_worry AS topWorry, s.leg_change AS legChange,
+                s.change_vs_yesterday AS changeVsYesterday, s.activities_done AS activitiesDone,
+                e.occurred_at AS occurredAt
          FROM SYMPTOM_LOG s JOIN CARE_EVENT e ON e.id = s.care_event_id
          WHERE e.episode_id = ? ORDER BY e.occurred_at DESC, s.rowid DESC`,
       )
@@ -339,6 +352,8 @@ export class EpisodesService {
       sleepImpact: number | null;
       topWorry: string | null;
       legChange: string | null;
+      changeVsYesterday: string | null;
+      activitiesDone: string | null;
       occurredAt: string;
     }>;
     return logs.map((l) => ({
@@ -350,6 +365,8 @@ export class EpisodesService {
       sleepImpact: orUnknown(l.sleepImpact),
       topWorry: orUnknown(l.topWorry),
       legChange: orUnknown(l.legChange),
+      changeVsYesterday: orUnknown(l.changeVsYesterday),
+      activitiesDone: orUnknown(l.activitiesDone),
     }));
   }
 }

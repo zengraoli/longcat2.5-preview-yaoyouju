@@ -3,6 +3,7 @@ package com.yaoyouju.app.core.navigation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -107,6 +108,8 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
             return@Scaffold
         }
         val start = if (AppGraph.session.token.isNullOrBlank()) Routes.Login else Routes.Home
+        // 内容整体下移，避免 Tab 页标题压在状态栏区域
+        Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         NavHost(navController = navController, startDestination = start) {
             val back: () -> Unit = { navController.popBackStack() }
 
@@ -187,11 +190,12 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                 )
             }
             composable(Routes.ReportCompare) { CompareRoute(onBack = back) }
-            composable(Routes.Qa) { QaRoute(onSelectTab = onSelectTab) }
+            composable(Routes.Qa) { QaRoute(onSelectTab = onSelectTab, onFallback = { navController.navigate(Routes.Fallback) }) }
             composable(Routes.Timeline) {
                 TimelineRoute(
                     onSelectTab = onSelectTab,
                     onRedFlag = { navController.navigate(Routes.RedFlag) },
+                    onFallback = { navController.navigate(Routes.Fallback) },
                 )
             }
             composable(Routes.Record) {
@@ -206,6 +210,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                     onSelectTab = onSelectTab,
                     onBack = back,
                     onOpenDetail = { id -> navController.navigate(Routes.content(id)) },
+                    onFallback = { navController.navigate(Routes.Fallback) },
                 )
             }
             composable(Routes.Home) {
@@ -219,6 +224,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                     onSummary = { navController.navigate(Routes.Summary) },
                     onAnalysis = { id -> navController.navigate(Routes.analysis(id)) },
                     onContentDetail = { id -> navController.navigate(Routes.content(id)) },
+                    onFallback = { navController.navigate(Routes.Fallback) },
                 )
             }
             composable(
@@ -252,6 +258,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
                     onTimeline = { onSelectTab(TabDestination.Timeline) },
                 )
             }
+        }
         }
     }
 }

@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.yaoyouju.app.core.components.AppChip
 import com.yaoyouju.app.core.components.AppChipState
 import com.yaoyouju.app.core.components.AppIcons
+import com.yaoyouju.app.core.components.AppButton
+import com.yaoyouju.app.core.components.AppCard
 import com.yaoyouju.app.core.components.AppTextField
 import com.yaoyouju.app.core.components.BottomTabBar
 import com.yaoyouju.app.core.components.ChipRow
@@ -46,6 +48,8 @@ fun ContentsScreen(
     onQueryChange: (String) -> Unit,
     onToggleSearch: () -> Unit,
     onOpenDetail: (String) -> Unit,
+    onRetry: () -> Unit,
+    onFallback: () -> Unit,
     showSearch: Boolean = true,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(AppColors.Bg)) {
@@ -76,6 +80,24 @@ fun ContentsScreen(
                     placeholder = "搜索已审核内容",
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
+            }
+
+            if (state.error != null) {
+                AppCard(modifier = Modifier.padding(bottom = 16.dp)) {
+                    TipBar(text = "${state.error}。内容库暂时无法加载。", type = TipBarType.Warn)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        AppButton(text = "重试", onClick = onRetry, modifier = Modifier.weight(1f))
+                        AppButton(
+                            text = "服务不可用说明",
+                            onClick = onFallback,
+                            type = com.yaoyouju.app.core.components.AppButtonType.Secondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
             }
 
             ChipRow(modifier = Modifier.padding(bottom = 16.dp)) {

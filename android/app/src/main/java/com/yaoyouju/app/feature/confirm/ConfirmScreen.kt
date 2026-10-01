@@ -31,6 +31,7 @@ import com.yaoyouju.app.core.components.AppCheckbox
 import com.yaoyouju.app.core.components.AppChip
 import com.yaoyouju.app.core.components.AppChipState
 import com.yaoyouju.app.core.components.AppIcons
+import com.yaoyouju.app.core.components.ChineseDatePickerDialog
 import com.yaoyouju.app.core.components.ChipRow
 import com.yaoyouju.app.core.components.TipBar
 import com.yaoyouju.app.core.components.TipBarType
@@ -192,27 +193,11 @@ fun ConfirmScreen(
     }
 
     if (state.showDatePicker) {
-        val pickerState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { onShowDatePicker(false) },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        val date = java.time.Instant.ofEpochMilli(millis)
-                            .atZone(java.time.ZoneId.of("Asia/Shanghai"))
-                            .toLocalDate()
-                            .toString()
-                        onSetOnsetDate(date)
-                    }
-                    onShowDatePicker(false)
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { onShowDatePicker(false) }) { Text("取消") }
-            },
-        ) {
-            DatePicker(state = pickerState)
-        }
+        ChineseDatePickerDialog(
+            initial = state.onsetDate,
+            onSelect = { onSetOnsetDate(it); onShowDatePicker(false) },
+            onDismiss = { onShowDatePicker(false) },
+        )
     }
 }
 

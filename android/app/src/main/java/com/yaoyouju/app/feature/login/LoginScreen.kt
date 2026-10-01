@@ -210,7 +210,7 @@ private fun FeatureCard(title: String, desc: String, modifier: Modifier = Modifi
             color = AppColors.Text2,
             style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = 2,
             modifier = Modifier.padding(top = 2.dp),
         )
     }

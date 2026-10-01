@@ -12,6 +12,8 @@ class ApiException(val code: Int, override val message: String) : Exception(mess
     val isOutOfScope: Boolean get() = code == 3002
     /** 功能开关关闭 */
     val isSwitchOff: Boolean get() = code == 3003
-    /** 服务不可用 */
+    /** 服务不可用 / 网络不可达 */
     val isServiceUnavailable: Boolean get() = code == 5002
+    /** 是否属于“服务不可达”，页面应显示重试与回退入口 */
+    val isOffline: Boolean get() = code == 5002 || code == 5001
 }

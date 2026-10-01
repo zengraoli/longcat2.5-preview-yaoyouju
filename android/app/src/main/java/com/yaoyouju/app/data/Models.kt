@@ -93,6 +93,8 @@ data class SymptomLog(
     val sleepImpact: JsonScalar? = null,
     val topWorry: JsonScalar? = null,
     val legChange: JsonScalar? = null,
+    val changeVsYesterday: JsonScalar? = null,
+    val activitiesDone: JsonScalar? = null,
 )
 
 @Serializable

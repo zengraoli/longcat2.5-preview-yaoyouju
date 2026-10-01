@@ -108,7 +108,7 @@ fun ContentDetailScreen(
                     )
                 }
                 Text(
-                    text = "示意动画：L5/S1 节段位置（非本人影像）",
+                    text = "示意动画：${detail.title}（非本人影像）",
                     color = AppColors.Surface.copy(alpha = 0.85f),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 16.dp),

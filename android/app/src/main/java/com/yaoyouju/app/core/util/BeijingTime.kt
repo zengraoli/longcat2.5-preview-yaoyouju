@@ -57,6 +57,13 @@ object BeijingTime {
     /** 目标日期加 N 天 */
     fun plusDays(days: Long): String = LocalDate.now(zone).plusDays(days).format(dateFormatter)
 
+    /** 以某个时间为基准加 N 天，返回 yyyy-MM-dd（用于按医嘱日期推算复诊日） */
+    fun plusDaysFrom(iso: String, days: Long): String {
+        val base = runCatching { Instant.parse(normalize(iso)).atZone(zone).toLocalDate() }
+            .getOrElse { LocalDate.now(zone) }
+        return base.plusDays(days).format(dateFormatter)
+    }
+
     private fun normalize(iso: String): String {
         // 兼容 "2026-01-01" 与 "2026-01-01T00:00:00Z" 两种写法
         return if (iso.length == 10) "${iso}T00:00:00Z" else iso

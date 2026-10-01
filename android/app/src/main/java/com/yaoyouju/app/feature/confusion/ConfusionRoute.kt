@@ -15,6 +15,6 @@ fun ConfusionRoute(
         onBack = onBack,
         onSelect = vm::select,
         onToggleFormat = vm::toggleFormat,
-        onNext = onNext,
+        onNext = { vm.proceed(onNext) },
     )
 }

@@ -32,6 +32,7 @@ data class ChartBar(val heightFraction: Float, val warn: Boolean)
 
 data class TimelineUiState(
     val loading: Boolean = true,
+    val error: String? = null,
     val episode: Episode? = null,
     val onsetLabel: String = "尚未确认",
     val recordCount: Int = 0,
@@ -84,8 +85,14 @@ class TimelineViewModel : ViewModel() {
 
     fun load() {
         viewModelScope.launch {
-            state = state.copy(loading = true)
-            val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
+            state = state.copy(loading = true, error = null)
+            val episodesResult = runCatching { apiCall { AppGraph.api.listEpisodes() } }
+            val failure = episodesResult.exceptionOrNull()
+            if (failure is ApiException && failure.isOffline) {
+                state = state.copy(loading = false, error = failure.message)
+                return@launch
+            }
+            val episodes = episodesResult.getOrNull().orEmpty()
             val episode = episodes.firstOrNull()
             if (episode == null) {
                 state = state.copy(loading = false)
@@ -123,6 +130,8 @@ class TimelineViewModel : ViewModel() {
             val minutes = log.sitMinutes?.raw?.toIntOrNull()
             if (minutes != null && day.isNotBlank()) minutesByDay[day] = minutes
         }
+        // 没有任何有效记录时不画满 0 值柱子
+        if (minutesByDay.isEmpty()) return emptyList()
         return days.map { day ->
             val minutes = minutesByDay[day]
             if (minutes == null) {
@@ -164,13 +173,29 @@ class TimelineViewModel : ViewModel() {
 
         events.forEach { event ->
             val log = logByEventId[event.id]
+            val answered = log != null && listOf(
+                log.sitMinutes?.raw, log.plannedActivityDone?.raw, log.sleepImpact?.raw,
+                log.topWorry?.raw, log.legChange?.raw, log.changeVsYesterday?.raw, log.activitiesDone?.raw,
+            ).any { !it.isNullOrBlank() && it != "尚未确认" }
+            val hasUnknown = log != null && listOf(
+                log.legChange?.raw, log.plannedActivityDone?.raw, log.sitMinutes?.raw,
+            ).any { it.isNullOrBlank() || it == "尚未确认" }
             items += TimelineItem(
                 id = event.id,
                 dateLabel = dateLabel(event.occurredAt),
                 typeLabel = typeLabelOf(event.eventType),
-                tone = toneOf(event),
+                tone = when {
+                    event.sourceType == "报告原文" -> TimelineTone.Info
+                    event.eventType == "症状" && answered && !hasUnknown -> TimelineTone.Ok
+                    event.verifyStatus == "尚未确认" && !(event.eventType == "症状" && answered) -> TimelineTone.Warn
+                    else -> TimelineTone.Ok
+                },
                 text = eventText(event, log),
-                tags = listOf(event.sourceType, event.verifyStatus),
+                tags = if (event.eventType == "症状" && log != null) {
+                    listOf(event.sourceType, if (hasUnknown) "尚未确认" else "已确认")
+                } else {
+                    listOf(event.sourceType, event.verifyStatus)
+                },
                 eventId = event.id,
                 filterKey = event.eventType,
             )
@@ -207,10 +232,13 @@ class TimelineViewModel : ViewModel() {
     private fun eventText(event: CareEvent, log: SymptomLog?): String {
         if (event.eventType == "症状" && log != null) {
             val parts = mutableListOf<String>()
+            log.changeVsYesterday?.raw?.takeIf { it != "尚未确认" }?.let { parts += "与昨天相比：$it" }
             log.topWorry?.raw?.takeIf { it != "尚未确认" }?.let { parts += "最担心：$it" }
-            log.legChange?.raw?.takeIf { it != "尚未确认" }?.let { parts += "腿部：$it" }
-            log.plannedActivityDone?.raw?.takeIf { it != "尚未确认" }?.let { parts += "活动：$it" }
+            log.legChange?.raw?.takeIf { it != "尚未确认" }?.let { parts += "腿部麻木或无力：$it" }
+            log.plannedActivityDone?.raw?.takeIf { it != "尚未确认" }?.let { parts += "计划活动：$it" }
             log.sitMinutes?.raw?.takeIf { it != "尚未确认" }?.let { parts += "能坐约 $it 分钟" }
+            log.sleepImpact?.raw?.takeIf { it != "尚未确认" }?.let { parts += "睡眠影响：$it/3" }
+            log.activitiesDone?.raw?.takeIf { it != "尚未确认" }?.let { parts += "今天做了：$it" }
             if (parts.isNotEmpty()) return parts.joinToString("；")
         }
         return event.rawText ?: "（无原文）"

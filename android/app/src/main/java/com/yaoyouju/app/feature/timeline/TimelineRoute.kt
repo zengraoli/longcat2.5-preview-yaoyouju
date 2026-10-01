@@ -10,6 +10,7 @@ import com.yaoyouju.app.core.components.TabDestination
 fun TimelineRoute(
     onSelectTab: (TabDestination) -> Unit,
     onRedFlag: () -> Unit,
+    onFallback: () -> Unit,
 ) {
     val vm: TimelineViewModel = viewModel()
     LaunchedEffect(Unit) { vm.load() }
@@ -24,5 +25,7 @@ fun TimelineRoute(
         onAddText = vm::setAddText,
         onSaveEvent = { vm.addEvent(onRedFlag) },
         onDeleteEvent = vm::deleteEvent,
+        onRetry = vm::load,
+        onFallback = onFallback,
     )
 }

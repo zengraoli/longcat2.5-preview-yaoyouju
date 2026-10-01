@@ -7,7 +7,7 @@ import com.yaoyouju.app.core.components.TabDestination
 
 /** A09 路由 */
 @Composable
-fun QaRoute(onSelectTab: (TabDestination) -> Unit) {
+fun QaRoute(onSelectTab: (TabDestination) -> Unit, onFallback: () -> Unit) {
     val vm: QaViewModel = viewModel()
     LaunchedEffect(Unit) { vm.loadSession() }
     QaScreen(
@@ -20,5 +20,7 @@ fun QaRoute(onSelectTab: (TabDestination) -> Unit) {
         onOpenHistory = vm::openHistory,
         onCloseHistory = vm::closeHistory,
         onOpenSession = vm::openSession,
+        onRetry = vm::loadSession,
+        onFallback = onFallback,
     )
 }

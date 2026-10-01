@@ -107,7 +107,7 @@ fun CompareScreen(
                         style = MaterialTheme.typography.labelLarge,
                     )
                     Text(
-                        text = "对应原文：第 ${state.currentLine} 行",
+                        text = if (state.currentLine > 0) "对应原文：第 ${state.currentLine} 行" else "对应原文：报告未提及",
                         color = AppColors.Text2,
                         style = MaterialTheme.typography.bodySmall,
                     )

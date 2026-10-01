@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yaoyouju.app.core.components.AppButton
 import com.yaoyouju.app.core.components.AppCard
@@ -35,6 +36,7 @@ import com.yaoyouju.app.core.components.AppChipState
 import com.yaoyouju.app.core.components.AppIcons
 import com.yaoyouju.app.core.components.AppTextArea
 import com.yaoyouju.app.core.components.AppTextField
+import com.yaoyouju.app.core.components.ChineseDatePickerDialog
 import com.yaoyouju.app.core.components.ChipRow
 import com.yaoyouju.app.core.components.StatusTag
 import com.yaoyouju.app.core.components.TipBar
@@ -105,6 +107,9 @@ fun ReportScreen(
                             text = tab.label,
                             color = if (active) AppColors.Surface else AppColors.Text2,
                             style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 6.dp),
                         )
                     }
                 }
@@ -250,25 +255,11 @@ fun ReportScreen(
     }
 
     if (state.showDatePicker) {
-        val pickerState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { onShowDatePicker(false) },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        val date = java.time.Instant.ofEpochMilli(millis)
-                            .atZone(java.time.ZoneId.of("Asia/Shanghai"))
-                            .toLocalDate()
-                            .toString()
-                        onReportDateChange(date)
-                    }
-                    onShowDatePicker(false)
-                }) { Text("确定") }
-            },
-            dismissButton = { TextButton(onClick = { onShowDatePicker(false) }) { Text("取消") } },
-        ) {
-            DatePicker(state = pickerState)
-        }
+        ChineseDatePickerDialog(
+            initial = state.reportDate,
+            onSelect = { onReportDateChange(it); onShowDatePicker(false) },
+            onDismiss = { onShowDatePicker(false) },
+        )
     }
 
     if (state.showExamTypePicker) {

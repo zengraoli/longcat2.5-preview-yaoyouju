@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.EmergencyTips
 import com.yaoyouju.app.core.components.LocalSafetyTips
+import com.yaoyouju.app.core.network.ApiException
 import com.yaoyouju.app.core.network.apiCall
 import com.yaoyouju.app.core.util.BeijingTime
 import com.yaoyouju.app.data.AnalysisResult
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val loading: Boolean = true,
+    val error: String? = null,
     val episode: Episode? = null,
     val subtitle: String = "本次发作",
     val pendingItems: List<String> = emptyList(),
@@ -47,8 +49,14 @@ class HomeViewModel : ViewModel() {
 
     fun load() {
         viewModelScope.launch {
-            state = state.copy(loading = true)
-            val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
+            state = state.copy(loading = true, error = null)
+            val episodesResult = runCatching { apiCall { AppGraph.api.listEpisodes() } }
+            val failure = episodesResult.exceptionOrNull()
+            if (failure is ApiException && failure.isOffline) {
+                state = state.copy(loading = false, error = failure.message)
+                return@launch
+            }
+            val episodes = episodesResult.getOrNull().orEmpty()
             val episode = episodes.firstOrNull()
             AppGraph.appState.currentEpisode = episode
 
@@ -135,7 +143,8 @@ class HomeViewModel : ViewModel() {
             if (event.eventType != "医嘱" || event.rawText.isNullOrBlank()) continue
             val match = Regex("(\\d+)\\s*周后复查").find(event.rawText) ?: continue
             val weeks = match.groupValues[1].toIntOrNull() ?: continue
-            return BeijingTime.plusDays(weeks * 7L)
+            // 按医嘱本身的日期 + N 周推算，而不是“今天 + N 周”
+            return BeijingTime.plusDaysFrom(event.occurredAt, weeks * 7L)
         }
         return null
     }

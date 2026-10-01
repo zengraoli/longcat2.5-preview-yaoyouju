@@ -10,5 +10,8 @@ class YaoyoujuApplication : Application() {
         ApiEvents.onUnauthorized = {
             AppGraph.appState.sessionExpired = true
         }
+        ApiEvents.onConsentMissing = {
+            AppGraph.appState.toast("已撤回健康信息处理同意，请在“我的”重新同意后再记录")
+        }
     }
 }

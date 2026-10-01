@@ -306,6 +306,8 @@ class AllScreensScreenshotTest {
             onOpenHistory = {},
             onCloseHistory = {},
             onOpenSession = {},
+            onRetry = {},
+            onFallback = {},
         )
     }
 
@@ -367,6 +369,8 @@ class AllScreensScreenshotTest {
             onAddText = {},
             onSaveEvent = {},
             onDeleteEvent = {},
+            onRetry = {},
+            onFallback = {},
         )
     }
 
@@ -391,6 +395,7 @@ class AllScreensScreenshotTest {
             onToggleActivity = {},
             onTopWorryChange = {},
             onSave = {},
+            onSaveAndUpdate = {},
         )
     }
 
@@ -438,6 +443,8 @@ class AllScreensScreenshotTest {
             onQueryChange = {},
             onToggleSearch = {},
             onOpenDetail = {},
+            onRetry = {},
+            onFallback = {},
         )
     }
 
@@ -497,7 +504,8 @@ class AllScreensScreenshotTest {
             onSelectTab = {},
             onShowEmergency = {},
             onShowConsents = {},
-            onRevokeConsent = {},
+            onRequestRevoke = {},
+            onGrantConsent = {},
             onExport = {},
             onDeleteAccount = {},
             onConfirmDelete = {},
@@ -505,6 +513,8 @@ class AllScreensScreenshotTest {
             onLogout = {},
             onFeedback = {},
             onInfo = {},
+            onConfirmRevoke = {},
+            onDismissRevokeConfirm = {},
         )
     }
 
@@ -555,6 +565,8 @@ class AllScreensScreenshotTest {
             onConfusion = {},
             onNotification = {},
             onAvatar = {},
+            onRetry = {},
+            onFallback = {},
         )
     }
 }

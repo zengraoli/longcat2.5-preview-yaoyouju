@@ -15,6 +15,10 @@ import java.util.concurrent.TimeUnit
 object ApiEvents {
     @Volatile
     var onUnauthorized: (() -> Unit)? = null
+
+    /** 已撤回健康信息处理同意：所有写入类接口会失败，需要明确提示用户 */
+    @Volatile
+    var onConsentMissing: (() -> Unit)? = null
 }
 
 /**
@@ -67,6 +71,7 @@ suspend fun <T> apiCall(block: suspend () -> ApiResponse<T>): T? {
         return resp.data
     } catch (e: ApiException) {
         if (e.isUnauthorized) ApiEvents.onUnauthorized?.invoke()
+        if (e.isConsentMissing) ApiEvents.onConsentMissing?.invoke()
         throw e
     } catch (e: HttpException) {
         val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
@@ -77,6 +82,7 @@ suspend fun <T> apiCall(block: suspend () -> ApiResponse<T>): T? {
         val message = parsed?.message?.takeIf { it.isNotBlank() } ?: "请求失败"
         val ex = ApiException(code, message)
         if (ex.isUnauthorized) ApiEvents.onUnauthorized?.invoke()
+        if (ex.isConsentMissing) ApiEvents.onConsentMissing?.invoke()
         throw ex
     } catch (e: IOException) {
         throw ApiException(5002, "网络不可用，请检查网络后重试")

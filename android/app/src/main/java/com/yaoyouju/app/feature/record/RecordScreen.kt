@@ -48,6 +48,7 @@ fun RecordScreen(
     onToggleActivity: (String) -> Unit,
     onTopWorryChange: (String) -> Unit,
     onSave: () -> Unit,
+    onSaveAndUpdate: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -248,7 +249,7 @@ fun RecordScreen(
             color = AppColors.Primary,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().clickable { onSave() }.padding(vertical = 16.dp),
+            modifier = Modifier.fillMaxWidth().clickable { onSaveAndUpdate() }.padding(vertical = 16.dp),
         )
     }
 }

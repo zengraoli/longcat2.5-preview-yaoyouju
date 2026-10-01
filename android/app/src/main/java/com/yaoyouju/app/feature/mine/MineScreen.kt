@@ -45,7 +45,8 @@ fun MineScreen(
     onSelectTab: (TabDestination) -> Unit,
     onShowEmergency: (Boolean) -> Unit,
     onShowConsents: (Boolean) -> Unit,
-    onRevokeConsent: () -> Unit,
+    onRequestRevoke: () -> Unit,
+    onGrantConsent: () -> Unit,
     onExport: () -> Unit,
     onDeleteAccount: () -> Unit,
     onConfirmDelete: () -> Unit,
@@ -53,6 +54,8 @@ fun MineScreen(
     onLogout: () -> Unit,
     onFeedback: () -> Unit,
     onInfo: (String) -> Unit,
+    onConfirmRevoke: () -> Unit,
+    onDismissRevokeConfirm: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize().background(AppColors.Bg)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -112,12 +115,21 @@ fun MineScreen(
                         trailing = { StatusTag(label = "可撤回", tone = TagTone.Ok) },
                         onClick = { onShowConsents(true) },
                     )
-                    SettingRow(
-                        icon = AppIcons.Close,
-                        title = "撤回“处理健康信息”的同意",
-                        desc = "撤回后停止个性化分析，已审核科普与已导出摘要仍可用",
-                        onClick = onRevokeConsent,
-                    )
+                    if (state.healthGranted) {
+                        SettingRow(
+                            icon = AppIcons.Close,
+                            title = "撤回“处理健康信息”的同意",
+                            desc = "撤回后停止个性化分析，已审核科普与已导出摘要仍可用",
+                            onClick = onRequestRevoke,
+                        )
+                    } else {
+                        SettingRow(
+                            icon = AppIcons.Check,
+                            title = "重新同意处理健康信息",
+                            desc = "重新同意后才能继续记录、问答与生成分析",
+                            onClick = onGrantConsent,
+                        )
+                    }
                     SettingRow(
                         icon = AppIcons.Download,
                         title = "导出我的全部数据",
@@ -238,7 +250,12 @@ fun MineScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             StatusTag(
-                                label = if (consent.granted) "已同意" else "已撤回",
+                                label = when {
+                                    consent.granted -> "已同意"
+                                    consent.revokedAt != null -> "已撤回"
+                                    consent.grantedAt != null -> "已撤回"
+                                    else -> "未授权"
+                                },
                                 tone = if (consent.granted) TagTone.Ok else TagTone.Warn,
                             )
                         }
@@ -249,6 +266,25 @@ fun MineScreen(
                     onClick = { onShowConsents(false) },
                     block = true,
                     modifier = Modifier.padding(top = 16.dp),
+                )
+            }
+        }
+
+        if (state.showRevokeConfirm) {
+            DialogMask(onDismiss = onDismissRevokeConfirm) {
+                Text(text = "撤回同意", color = AppColors.Text1, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = "撤回后将停止个性化分析；已审核科普与已导出的摘要仍可查看。可随时在“我的”重新同意。",
+                    color = AppColors.Text2,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                )
+                AppButton(text = "确认撤回", onClick = onConfirmRevoke, type = AppButtonType.Danger, block = true)
+                Text(
+                    text = "取消",
+                    color = AppColors.Text2,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth().clickable { onDismissRevokeConfirm() }.padding(vertical = 12.dp),
                 )
             }
         }

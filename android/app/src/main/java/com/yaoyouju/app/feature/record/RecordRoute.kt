@@ -21,5 +21,6 @@ fun RecordRoute(
         onToggleActivity = vm::toggleActivity,
         onTopWorryChange = vm::setTopWorry,
         onSave = { vm.save(onSaved) },
+        onSaveAndUpdate = { vm.saveAndUpdate(onSaved) },
     )
 }

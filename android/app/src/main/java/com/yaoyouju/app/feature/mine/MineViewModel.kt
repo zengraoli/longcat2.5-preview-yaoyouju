@@ -24,8 +24,10 @@ data class MineUiState(
     val showEmergency: Boolean = false,
     val showConsents: Boolean = false,
     val showDeleteConfirm: Boolean = false,
-    val modelName: String = "M-2609",
-    val contentLibVersion: String = "2026-09",
+    val showRevokeConfirm: Boolean = false,
+    val healthGranted: Boolean = false,
+    val modelName: String = "—",
+    val contentLibVersion: String = "—",
     val emergency: EmergencyTips = LocalSafetyTips.tips(),
 )
 
@@ -50,6 +52,7 @@ class MineViewModel : ViewModel() {
                 anonymousId = me?.id?.let { "U-${it.take(4).uppercase()}…" } ?: "",
                 consents = consents,
                 consentSummary = summarize(consents),
+                healthGranted = consents.firstOrNull { it.scope == "健康信息处理" }?.granted == true,
                 modelName = analysis?.modelReleaseId ?: state.modelName,
                 contentLibVersion = analysis?.contentLibVersion ?: state.contentLibVersion,
                 emergency = tips?.let { EmergencyTips(it.title, it.redFlags, it.note) } ?: state.emergency,
@@ -81,12 +84,41 @@ class MineViewModel : ViewModel() {
         state = state.copy(showDeleteConfirm = show)
     }
 
+    fun requestRevokeHealthConsent() {
+        state = state.copy(showRevokeConfirm = true)
+    }
+
+    fun dismissRevokeHealthConsent() {
+        state = state.copy(showRevokeConfirm = false)
+    }
+
     fun revokeHealthConsent() {
         viewModelScope.launch {
             try {
                 val consents = apiCall { AppGraph.api.setConsent(ConsentRequest("健康信息处理", "false")) }
-                state = state.copy(consents = consents.orEmpty(), consentSummary = summarize(consents.orEmpty()))
+                state = state.copy(
+                    consents = consents.orEmpty(),
+                    consentSummary = summarize(consents.orEmpty()),
+                    healthGranted = false,
+                    showRevokeConfirm = false,
+                )
                 AppGraph.appState.toast("已撤回“处理健康信息”的同意")
+            } catch (e: ApiException) {
+                AppGraph.appState.toast(e.message)
+            }
+        }
+    }
+
+    fun grantHealthConsent() {
+        viewModelScope.launch {
+            try {
+                val consents = apiCall { AppGraph.api.setConsent(ConsentRequest("健康信息处理", "true")) }
+                state = state.copy(
+                    consents = consents.orEmpty(),
+                    consentSummary = summarize(consents.orEmpty()),
+                    healthGranted = true,
+                )
+                AppGraph.appState.toast("已重新同意处理健康信息")
             } catch (e: ApiException) {
                 AppGraph.appState.toast(e.message)
             }
@@ -97,7 +129,16 @@ class MineViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val data = apiCall { AppGraph.api.exportData() }
-                onText(data?.toString() ?: "{}")
+                val text = if (data == null) {
+                    "{}"
+                } else {
+                    val pretty = kotlinx.serialization.json.Json { prettyPrint = true }
+                    pretty.encodeToString(
+                        kotlinx.serialization.json.JsonElement.serializer(),
+                        kotlinx.serialization.json.JsonObject(data),
+                    )
+                }
+                onText(text)
             } catch (e: ApiException) {
                 AppGraph.appState.toast(e.message)
             }

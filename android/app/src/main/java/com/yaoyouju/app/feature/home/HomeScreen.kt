@@ -36,6 +36,8 @@ import com.yaoyouju.app.core.components.EmergencyBar
 import com.yaoyouju.app.core.components.EmergencyDialog
 import com.yaoyouju.app.core.components.StatusTag
 import com.yaoyouju.app.core.components.TabDestination
+import com.yaoyouju.app.core.components.TipBar
+import com.yaoyouju.app.core.components.TipBarType
 import com.yaoyouju.app.core.design.AppColors
 import com.yaoyouju.app.core.design.AppDimens
 import com.yaoyouju.app.core.util.BeijingTime
@@ -60,6 +62,8 @@ fun HomeScreen(
     onConfusion: () -> Unit,
     onNotification: () -> Unit,
     onAvatar: () -> Unit,
+    onRetry: () -> Unit,
+    onFallback: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize().background(AppColors.Bg)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -99,6 +103,28 @@ fun HomeScreen(
                                 text = "U",
                                 color = AppColors.Primary,
                                 style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
+                    }
+                }
+
+                // 离线 / 服务不可达：明确提示并提供重试与回退入口
+                if (state.error != null) {
+                    AppCard(modifier = Modifier.padding(bottom = AppDimens.CardGap)) {
+                        TipBar(
+                            text = "${state.error}。你仍可查看就医提示与已审核资料。",
+                            type = TipBarType.Warn,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            AppButton(text = "重试", onClick = onRetry, type = AppButtonType.Soft, modifier = Modifier.weight(1f))
+                            AppButton(
+                                text = "服务不可用说明",
+                                onClick = onFallback,
+                                type = AppButtonType.Secondary,
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }
@@ -224,7 +250,7 @@ fun HomeScreen(
                                     maxLines = 1,
                                 )
                                 Text(
-                                    text = "来源：你录入的医嘱“4周后复查” · 未经核实",
+                                    text = "来源：你录入的医嘱 · 未经核实",
                                     color = AppColors.Text2,
                                     style = MaterialTheme.typography.bodySmall,
                                 )

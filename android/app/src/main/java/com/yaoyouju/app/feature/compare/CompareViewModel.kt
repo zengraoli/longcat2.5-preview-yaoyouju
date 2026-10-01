@@ -33,15 +33,14 @@ data class CompareUiState(
 ) {
     val current: AnalysisSection? get() = explanations.getOrNull(index)
 
-    /** 本条解释对应的原文行号 */
+    /** 本条解释对应的原文行号（从 1 开始）；未匹配到返回 -1，表示报告未提及 */
     val currentLine: Int
         get() {
             val text = current?.text.orEmpty()
             val lines = rawText.split("\n")
             val matched = TERM_NAMES.firstOrNull { text.contains(it) && rawText.contains(it) }
             val idx = if (matched != null) lines.indexOfFirst { it.contains(matched) } else -1
-            // 设计稿按 0 基行号标注（第 2 行 = 第三行）
-            return if (idx >= 0) idx else index
+            return if (idx >= 0) idx + 1 else -1
         }
 }
 

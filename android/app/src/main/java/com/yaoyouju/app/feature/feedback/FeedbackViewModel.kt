@@ -72,14 +72,17 @@ class FeedbackViewModel : ViewModel() {
 
     private fun contentLabelOf(analysis: AnalysisResult?): String {
         if (analysis == null) return "暂无关联分析"
-        val explanation = analysis.sections.explanation.getOrNull(1) ?: analysis.sections.explanation.firstOrNull()
-        val term = explanation?.text?.let { text ->
-            listOf("硬膜囊受压", "神经根受压", "椎间盘突出", "L5/S1").firstOrNull { text.contains(it) }
-        }
+        val explanations = analysis.sections.explanation
+        val index = explanations.indexOfFirst { item ->
+            listOf("硬膜囊受压", "神经根受压", "椎间盘突出", "L5/S1").any { item.text.contains(it) }
+        }.takeIf { it >= 0 } ?: explanations.indices.firstOrNull()
+        if (index == null) return "一页分析 v${analysis.version}"
+        val term = listOf("硬膜囊受压", "神经根受压", "椎间盘突出", "L5/S1")
+            .firstOrNull { explanations[index].text.contains(it) }
         return if (term != null) {
-            "一页分析 v${analysis.version} · ②-2 “$term” 解释"
+            "一页分析 v${analysis.version} · ②-${index + 1} “$term” 解释"
         } else {
-            "一页分析 v${analysis.version}"
+            "一页分析 v${analysis.version} · ②-${index + 1} 解释"
         }
     }
 

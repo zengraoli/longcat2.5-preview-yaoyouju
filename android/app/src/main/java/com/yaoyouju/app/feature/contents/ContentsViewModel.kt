@@ -14,6 +14,7 @@ val CONTENT_CATEGORIES = listOf("全部", "报告术语", "节段位置", "医�
 
 data class ContentsUiState(
     val loading: Boolean = true,
+    val error: String? = null,
     val category: String = "全部",
     val recommended: List<ContentItem> = emptyList(),
     val all: List<ContentItem> = emptyList(),
@@ -28,8 +29,14 @@ class ContentsViewModel : ViewModel() {
 
     fun load() {
         viewModelScope.launch {
-            state = state.copy(loading = true)
-            val published = runCatching { apiCall { AppGraph.api.listPublishedContents() } }.getOrNull().orEmpty()
+            state = state.copy(loading = true, error = null)
+            val publishedResult = runCatching { apiCall { AppGraph.api.listPublishedContents() } }
+            val failure = publishedResult.exceptionOrNull()
+            if (failure is com.yaoyouju.app.core.network.ApiException && failure.isOffline) {
+                state = state.copy(loading = false, error = failure.message)
+                return@launch
+            }
+            val published = publishedResult.getOrNull().orEmpty()
             val recommended = runCatching { apiCall { AppGraph.api.recommendedContents() } }
                 .getOrNull().orEmpty().ifEmpty { published.take(2) }
             state = state.copy(

@@ -56,6 +56,8 @@ fun QaScreen(
     onOpenHistory: () -> Unit,
     onCloseHistory: () -> Unit,
     onOpenSession: (String) -> Unit,
+    onRetry: () -> Unit,
+    onFallback: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     val initialCount = remember { state.messages.size }
@@ -97,6 +99,25 @@ fun QaScreen(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f),
                 )
+            }
+            if (state.error != null) {
+                TipBar(
+                    text = "${state.error}。问答暂时不可用。",
+                    type = TipBarType.Warn,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    AppButton(text = "重试", onClick = onRetry, modifier = Modifier.weight(1f))
+                    AppButton(
+                        text = "服务不可用说明",
+                        onClick = onFallback,
+                        type = com.yaoyouju.app.core.components.AppButtonType.Secondary,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
 

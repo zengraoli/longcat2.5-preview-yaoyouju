@@ -18,6 +18,7 @@ fun HomeRoute(
     onSummary: () -> Unit,
     onAnalysis: (String) -> Unit,
     onContentDetail: (String) -> Unit,
+    onFallback: () -> Unit,
 ) {
     val vm: HomeViewModel = viewModel()
     LaunchedEffect(Unit) { vm.load() }
@@ -37,5 +38,7 @@ fun HomeRoute(
         onConfusion = onConfusion,
         onNotification = { AppGraph.appState.toast("通知：演示版暂无新通知") },
         onAvatar = { onSelectTab(TabDestination.Mine) },
+        onRetry = vm::load,
+        onFallback = onFallback,
     )
 }

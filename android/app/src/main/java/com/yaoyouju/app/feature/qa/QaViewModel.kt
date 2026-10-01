@@ -18,13 +18,14 @@ import kotlinx.coroutines.launch
 
 data class QaUiState(
     val loading: Boolean = true,
+    val error: String? = null,
     val contextText: String = "正在加载…",
     val messages: List<QaMessage> = emptyList(),
     val outOfScopeMessageIds: Set<String> = emptySet(),
     val explainedCount: Int = 0,
     val input: String = "",
     val sending: Boolean = false,
-    val quickQuestions: List<String> = listOf("复诊时该怎么描述？", "哪些变化要提前就医？", "保守治疗一般多久？"),
+    val quickQuestions: List<String> = listOf("复诊时该怎么描述？", "哪些变化要提前就医？", "报告里的术语是什么意思？"),
     val showHistory: Boolean = false,
     val sessions: List<QaSession> = emptyList(),
 )
@@ -38,7 +39,14 @@ class QaViewModel : ViewModel() {
 
     fun loadSession() {
         viewModelScope.launch {
-            val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
+            state = state.copy(error = null)
+            val episodesResult = runCatching { apiCall { AppGraph.api.listEpisodes() } }
+            val failure = episodesResult.exceptionOrNull()
+            if (failure is ApiException && failure.isOffline) {
+                state = state.copy(loading = false, error = failure.message)
+                return@launch
+            }
+            val episodes = episodesResult.getOrNull().orEmpty()
             val episode = episodes.firstOrNull()
             if (episode != null) AppGraph.appState.currentEpisode = episode
             val analysis = episode?.let {

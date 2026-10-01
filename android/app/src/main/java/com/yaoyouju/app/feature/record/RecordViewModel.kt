@@ -68,7 +68,12 @@ class RecordViewModel : ViewModel() {
         state = state.copy(topWorry = value)
     }
 
-    fun save(onDone: () -> Unit) {
+    fun save(onDone: () -> Unit) = saveInternal(updateCurrent = false, onDone = onDone)
+
+    /** “保存并更新当前情况”：保存记录后立即刷新一页分析 */
+    fun saveAndUpdate(onDone: () -> Unit) = saveInternal(updateCurrent = true, onDone = onDone)
+
+    private fun saveInternal(updateCurrent: Boolean, onDone: () -> Unit) {
         viewModelScope.launch {
             state = state.copy(submitting = true)
             try {
@@ -92,7 +97,25 @@ class RecordViewModel : ViewModel() {
                         ),
                     )
                 }
-                AppGraph.appState.toast("已保存记录")
+                if (updateCurrent) {
+                    val safetyText = listOf(state.topWorry, state.changeVsYesterday.orEmpty(), state.legChange.orEmpty())
+                        .filter { it.isNotBlank() && it != "尚未确认" && it != "没有" && it != "无" }
+                        .joinToString("，")
+                    val result = runCatching {
+                        apiCall {
+                            AppGraph.api.createAnalysis(
+                                com.yaoyouju.app.data.CreateAnalysisRequest(episodeId, safetyText.ifBlank { null }),
+                            )
+                        }
+                    }.getOrNull()
+                    if (result != null && (result.status == "blocked" || result.taskId == null)) {
+                        AppGraph.appState.requestRedFlag(result.safety.redFlags.map { it.name })
+                    } else {
+                        AppGraph.appState.toast("已保存并更新当前情况")
+                    }
+                } else {
+                    AppGraph.appState.toast("已保存记录")
+                }
                 onDone()
             } catch (e: ApiException) {
                 AppGraph.appState.toast(e.message)

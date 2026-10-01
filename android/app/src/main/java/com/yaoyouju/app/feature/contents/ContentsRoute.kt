@@ -15,6 +15,7 @@ fun ContentsRoute(
     onSelectTab: (TabDestination) -> Unit,
     onBack: () -> Unit,
     onOpenDetail: (String) -> Unit,
+    onFallback: () -> Unit,
 ) {
     val vm: ContentsViewModel = viewModel()
     LaunchedEffect(Unit) { vm.load() }
@@ -27,6 +28,8 @@ fun ContentsRoute(
         onQueryChange = vm::setQuery,
         onToggleSearch = { searchVisible = !searchVisible },
         onOpenDetail = onOpenDetail,
+        onRetry = vm::load,
+        onFallback = onFallback,
         showSearch = searchVisible,
     )
 }
