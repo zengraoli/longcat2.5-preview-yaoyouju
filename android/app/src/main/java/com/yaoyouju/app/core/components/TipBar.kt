@@ -29,12 +29,12 @@ fun TipBar(
     type: TipBarType = TipBarType.Info,
 ) {
     val fg = when (type) {
-        TipBarType.Info -> AppColors.Primary
+        TipBarType.Info -> AppColors.Info
         TipBarType.Warn -> AppColors.Warn
         TipBarType.Error -> AppColors.Error
     }
     val bg = when (type) {
-        TipBarType.Info -> AppColors.PrimaryLight
+        TipBarType.Info -> AppColors.tint(AppColors.Info, 0.1f)
         TipBarType.Warn -> AppColors.tint(AppColors.Warn, 0.08f)
         TipBarType.Error -> AppColors.tint(AppColors.Error, 0.08f)
     }

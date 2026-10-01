@@ -36,14 +36,18 @@ import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /** 本地图标库（Material Icons，随 APK 打包，不加载外部资源） */
@@ -82,6 +86,7 @@ object AppIcons {
     val Logout = Icons.AutoMirrored.Outlined.Logout
     val Lock = Icons.Outlined.Lock
     val CloudOff = Icons.Outlined.CloudOff
+    val WifiOff = Icons.Outlined.WifiOff
     val Refresh = Icons.Outlined.Refresh
     val Lightbulb = Icons.Outlined.Lightbulb
     val Help = Icons.AutoMirrored.Outlined.HelpOutline
@@ -92,6 +97,8 @@ object AppIcons {
     val More = Icons.Outlined.MoreHoriz
     val Add = Icons.Outlined.Add
     val Filter = Icons.Outlined.FilterAlt
+    val Settings = Icons.Outlined.Settings
+    val People = Icons.Outlined.People
 
     val All: List<ImageVector> = emptyList()
 }

@@ -21,14 +21,18 @@ import androidx.navigation.navArgument
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.TabDestination
 import com.yaoyouju.app.core.design.AppColors
+import com.yaoyouju.app.core.navigation.DeepLinkRequest
 import com.yaoyouju.app.feature.analysis.AnalysisRoute
 import com.yaoyouju.app.feature.compare.CompareRoute
 import com.yaoyouju.app.feature.confirm.ConfirmRoute
 import com.yaoyouju.app.feature.confusion.ConfusionRoute
 import com.yaoyouju.app.feature.contentdetail.ContentDetailRoute
 import com.yaoyouju.app.feature.contents.ContentsRoute
+import com.yaoyouju.app.feature.fallback.FallbackRoute
+import com.yaoyouju.app.feature.feedback.FeedbackRoute
 import com.yaoyouju.app.feature.home.HomeRoute
 import com.yaoyouju.app.feature.login.LoginRoute
+import com.yaoyouju.app.feature.mine.MineRoute
 import com.yaoyouju.app.feature.qa.QaRoute
 import com.yaoyouju.app.feature.record.RecordRoute
 import com.yaoyouju.app.feature.redflag.RedFlagRoute
@@ -42,7 +46,7 @@ import com.yaoyouju.app.feature.verify.VerifyRoute
  * 每个路由对应设计稿的一个编号（A01–A18）。
  */
 @Composable
-fun YaoyoujuApp(startDeepLink: String? = null) {
+fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
     val navController = rememberNavController()
     val appState = AppGraph.appState
     val snackbarHostState = remember { SnackbarHostState() }
@@ -54,9 +58,9 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
     }
 
     // deep link：yaoyouju://A07
-    LaunchedEffect(startDeepLink) {
-        val target = startDeepLink
-        if (target != null && target != Routes.Login) {
+    LaunchedEffect(deepLink, ready) {
+        val target = deepLink?.route
+        if (ready && target != null && target != Routes.Login) {
             navController.navigate(target) { launchSingleTop = true }
         }
     }
@@ -208,9 +212,26 @@ fun YaoyoujuApp(startDeepLink: String? = null) {
                     onBack = back,
                 )
             }
-            composable(Routes.Feedback) { PlaceholderScreen(Routes.Feedback, back) }
-            composable(Routes.Mine) { PlaceholderScreen(Routes.Mine) }
-            composable(Routes.Fallback) { PlaceholderScreen(Routes.Fallback, back) }
+            composable(Routes.Feedback) { FeedbackRoute(onBack = back) }
+            composable(Routes.Mine) {
+                MineRoute(
+                    onSelectTab = onSelectTab,
+                    onLoggedOut = {
+                        navController.navigate(Routes.Login) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+            composable(Routes.Fallback) {
+                FallbackRoute(
+                    onBack = back,
+                    onContents = { navController.navigate(Routes.Contents) },
+                    onSummary = { navController.navigate(Routes.Summary) },
+                    onTimeline = { onSelectTab(TabDestination.Timeline) },
+                )
+            }
         }
     }
 }

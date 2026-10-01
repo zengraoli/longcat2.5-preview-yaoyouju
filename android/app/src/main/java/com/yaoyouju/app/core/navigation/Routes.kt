@@ -58,3 +58,6 @@ object Routes {
         }
     }
 }
+
+/** deep link 请求：序号用于触发重复导航（同一页面再次打开也能生效） */
+data class DeepLinkRequest(val seq: Int, val route: String)

@@ -19,6 +19,11 @@ import com.yaoyouju.app.feature.confirm.ConfirmScreen
 import com.yaoyouju.app.feature.confirm.ConfirmUiState
 import com.yaoyouju.app.feature.confusion.ConfusionScreen
 import com.yaoyouju.app.feature.confusion.ConfusionUiState
+import com.yaoyouju.app.feature.fallback.FallbackScreen
+import com.yaoyouju.app.feature.fallback.FallbackUiState
+import com.yaoyouju.app.feature.feedback.FeedbackScreen
+import com.yaoyouju.app.feature.feedback.FeedbackTab
+import com.yaoyouju.app.feature.feedback.FeedbackUiState
 import com.yaoyouju.app.feature.home.HomeScreen
 import com.yaoyouju.app.feature.home.HomeUiState
 import com.yaoyouju.app.feature.login.LoginScreen
@@ -31,6 +36,8 @@ import com.yaoyouju.app.feature.contentdetail.ContentDetailScreen
 import com.yaoyouju.app.feature.contentdetail.ContentDetailUiState
 import com.yaoyouju.app.feature.contents.ContentsScreen
 import com.yaoyouju.app.feature.contents.ContentsUiState
+import com.yaoyouju.app.feature.mine.MineScreen
+import com.yaoyouju.app.feature.mine.MineUiState
 import com.yaoyouju.app.feature.qa.QaScreen
 import com.yaoyouju.app.feature.qa.QaUiState
 import com.yaoyouju.app.feature.record.RecordScreen
@@ -439,6 +446,68 @@ class AllScreensScreenshotTest {
             onToggleSubtitle = {},
             onFeedback = {},
             reviewDate = "2026-08",
+        )
+    }
+
+    /* ---------- A16 反馈与举报 ---------- */
+    @Test
+    fun a16Feedback() = capture("A16-feedback") {
+        FeedbackScreen(
+            state = FeedbackUiState(
+                loading = false,
+                tab = FeedbackTab.Error,
+                analysis = DemoData.analysis,
+                problemTypes = listOf("与我的报告不符", "左右侧/日期混淆"),
+                contentLabel = "一页分析 v3 · ②-2 “硬膜囊受压” 解释",
+                versionLabel = "分析 v3 · 模型 M-2609 · 科普 #07 v1 · 检索策略 R-4",
+                timeLabel = "2026-09-21 09:41",
+            ),
+            onBack = {},
+            onSelectTab = {},
+            onToggleProblemType = {},
+            onDescriptionChange = {},
+            onToggleAuthorized = {},
+            onSelectHelpType = {},
+            onSubmit = {},
+            onCancel = {},
+        )
+    }
+
+    /* ---------- A17 我的 · 数据与授权 ---------- */
+    @Test
+    fun a17Mine() = capture("A17-mine") {
+        MineScreen(
+            state = MineUiState(
+                loading = false,
+                maskedPhone = "138****1234",
+                anonymousId = "U-8F3K…",
+                consentSummary = "健康信息处理：已同意 2026-09-01 · 分享/产品改进：未开启",
+                modelName = "M-2609",
+                contentLibVersion = "2026-09",
+            ),
+            onSelectTab = {},
+            onShowEmergency = {},
+            onShowConsents = {},
+            onRevokeConsent = {},
+            onExport = {},
+            onDeleteAccount = {},
+            onConfirmDelete = {},
+            onDismissDeleteConfirm = {},
+            onLogout = {},
+        )
+    }
+
+    /* ---------- A18 服务不可用回退 ---------- */
+    @Test
+    fun a18Fallback() = capture("A18-fallback") {
+        FallbackScreen(
+            state = FallbackUiState(errorCode = "ANL-503"),
+            onBack = {},
+            onShowEmergency = {},
+            onContents = {},
+            onSummary = {},
+            onTimeline = {},
+            onRetry = {},
         )
     }
 

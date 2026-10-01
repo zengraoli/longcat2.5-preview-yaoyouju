@@ -1,0 +1,168 @@
+package com.yaoyouju.app.feature.feedback
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.yaoyouju.app.AppGraph
+import com.yaoyouju.app.core.network.ApiException
+import com.yaoyouju.app.core.network.apiCall
+import com.yaoyouju.app.core.util.BeijingTime
+import com.yaoyouju.app.data.AnalysisResult
+import com.yaoyouju.app.data.ErrorReportRequest
+import com.yaoyouju.app.data.HelpFeedbackRequest
+import kotlinx.coroutines.launch
+
+enum class FeedbackTab(val label: String) {
+    Help("帮助类型反馈"),
+    Error("错误举报"),
+}
+
+val PROBLEM_TYPES = listOf(
+    "事实错误",
+    "与我的报告不符",
+    "越界（给了不该给的判断）",
+    "缺少重要就医提示",
+    "看不懂",
+    "左右侧/日期混淆",
+    "隐私问题",
+    "其他",
+)
+val HELP_TYPES = listOf("看懂了", "知道下一步", "都不好，问题没解决")
+
+data class FeedbackUiState(
+    val loading: Boolean = true,
+    val tab: FeedbackTab = FeedbackTab.Error,
+    val analysis: AnalysisResult? = null,
+    val problemTypes: List<String> = emptyList(),
+    val description: String = "",
+    val authorized: Boolean = true,
+    val helpType: String? = null,
+    val submitting: Boolean = false,
+    val contentLabel: String = "",
+    val versionLabel: String = "",
+    val timeLabel: String = "",
+)
+
+class FeedbackViewModel : ViewModel() {
+
+    var state by mutableStateOf(FeedbackUiState())
+        private set
+
+    fun load() {
+        viewModelScope.launch {
+            state = state.copy(loading = true)
+            val episodes = runCatching { apiCall { AppGraph.api.listEpisodes() } }.getOrNull().orEmpty()
+            val episode = episodes.firstOrNull()
+            val analysis = if (episode != null) {
+                runCatching { apiCall { AppGraph.api.getLatestAnalysis(episode.id) } }.getOrNull()
+            } else {
+                AppGraph.appState.latestAnalysis
+            }
+            state = state.copy(
+                loading = false,
+                analysis = analysis,
+                contentLabel = contentLabelOf(analysis),
+                versionLabel = versionLabelOf(analysis),
+                timeLabel = BeijingTime.dateTime(analysis?.createdAt),
+            )
+        }
+    }
+
+    private fun contentLabelOf(analysis: AnalysisResult?): String {
+        if (analysis == null) return "暂无关联分析"
+        val explanation = analysis.sections.explanation.getOrNull(1) ?: analysis.sections.explanation.firstOrNull()
+        val term = explanation?.text?.let { text ->
+            listOf("硬膜囊受压", "神经根受压", "椎间盘突出", "L5/S1").firstOrNull { text.contains(it) }
+        }
+        return if (term != null) {
+            "一页分析 v${analysis.version} · ②-2 “$term” 解释"
+        } else {
+            "一页分析 v${analysis.version}"
+        }
+    }
+
+    private fun versionLabelOf(analysis: AnalysisResult?): String {
+        if (analysis == null) return "—"
+        val ruleset = analysis.retrievalSnapshot.rulesetVersion.ifBlank { "R-4" }
+        val contentLib = analysis.retrievalSnapshot.contentLibVersion
+            .ifBlank { analysis.contentLibVersion.orEmpty() }
+            .ifBlank { "—" }
+        return "分析 v${analysis.version} · 模型 ${analysis.modelReleaseId} · 科普 $contentLib · 检索策略 $ruleset"
+    }
+
+    fun selectTab(tab: FeedbackTab) {
+        state = state.copy(tab = tab)
+    }
+
+    fun toggleProblemType(type: String) {
+        val list = state.problemTypes.toMutableList()
+        if (list.contains(type)) list.remove(type) else list.add(type)
+        state = state.copy(problemTypes = list)
+    }
+
+    fun setDescription(text: String) {
+        state = state.copy(description = text)
+    }
+
+    fun toggleAuthorized() {
+        state = state.copy(authorized = !state.authorized)
+    }
+
+    fun selectHelpType(type: String) {
+        state = state.copy(helpType = type)
+    }
+
+    fun submit(onDone: () -> Unit) {
+        val analysisId = state.analysis?.id
+        if (analysisId == null) {
+            AppGraph.appState.toast("暂无可反馈的分析")
+            return
+        }
+        viewModelScope.launch {
+            state = state.copy(submitting = true)
+            try {
+                when (state.tab) {
+                    FeedbackTab.Help -> {
+                        val helpType = state.helpType
+                        if (helpType == null) {
+                            AppGraph.appState.toast("请选择帮助类型")
+                            return@launch
+                        }
+                        apiCall {
+                            AppGraph.api.createHelpFeedback(
+                                HelpFeedbackRequest(analysisId, helpType, state.description.ifBlank { null }),
+                            )
+                        }
+                        AppGraph.appState.toast("感谢反馈")
+                    }
+
+                    FeedbackTab.Error -> {
+                        if (state.description.isBlank()) {
+                            AppGraph.appState.toast("请填写具体描述")
+                            return@launch
+                        }
+                        apiCall {
+                            AppGraph.api.createErrorReport(
+                                ErrorReportRequest(
+                                    analysisId = analysisId,
+                                    description = state.description,
+                                    severity = "中",
+                                    problemTypes = state.problemTypes,
+                                    authorized = state.authorized,
+                                ),
+                            )
+                        }
+                        AppGraph.appState.toast("已提交举报")
+                    }
+                }
+                onDone()
+            } catch (e: ApiException) {
+                AppGraph.appState.toast(e.message)
+            } finally {
+                state = state.copy(submitting = false)
+            }
+        }
+    }
+}
