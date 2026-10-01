@@ -101,11 +101,13 @@ export class EpisodesService {
     this.getEpisode(userId, episodeId);
     return this.appDb
       .prepare(
-        `SELECT id, episode_id AS episodeId, event_type AS eventType, occurred_at AS occurredAt,
-                reported_at AS reportedAt, source_type AS sourceType, raw_text AS rawText, verify_status AS verifyStatus,
-                r.exam_type AS examType, r.hospital AS hospital
+        `SELECT CARE_EVENT.id, CARE_EVENT.episode_id AS episodeId, CARE_EVENT.event_type AS eventType,
+                CARE_EVENT.occurred_at AS occurredAt, CARE_EVENT.reported_at AS reportedAt,
+                CARE_EVENT.source_type AS sourceType, CARE_EVENT.raw_text AS rawText,
+                CARE_EVENT.verify_status AS verifyStatus,
+                REPORT.exam_type AS examType, REPORT.hospital AS hospital
          FROM CARE_EVENT LEFT JOIN REPORT ON REPORT.care_event_id = CARE_EVENT.id
-         WHERE episode_id = ? ORDER BY occurred_at ASC, rowid ASC`,
+         WHERE CARE_EVENT.episode_id = ? ORDER BY CARE_EVENT.occurred_at ASC, CARE_EVENT.rowid ASC`,
       )
       .all(episodeId) as CareEventView[];
   }

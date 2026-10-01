@@ -176,7 +176,7 @@ class HomeViewModel : ViewModel() {
                 java.time.LocalDate.of(y.toInt(), m.toInt(), d.toInt()).toString()
             }.getOrNull()
         }
-        val cn = Regex("(\\d{4})年(\\d{1,2})月(\\d{1,2})日|(\\d{1,2})月(\\d{1,2})日").find(text)
+        val cn = Regex("(\\d{4})年(\\d{1,2})月(\\d{1,2})日|(\\d{1,2})\\s*月\\s*(\\d{1,2})\\s*日").find(text)
         if (cn != null) {
             val groups = cn.groupValues
             return if (groups[1].isNotBlank()) {
