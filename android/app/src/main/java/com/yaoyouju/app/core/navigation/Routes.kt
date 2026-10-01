@@ -2,7 +2,7 @@ package com.yaoyouju.app.core.navigation
 
 /**
  * 路由与设计稿编号的对应关系（A01–A18）。
- * deep link `yaoyouju://A07` 会打开对应页面。
+ * deep link `yaoyouju-app://A07` 会打开对应页面。
  */
 object Routes {
     const val Login = "A01"
@@ -32,7 +32,7 @@ object Routes {
     fun analysis(id: String) = "$Analysis?$AnalysisArg=$id"
     fun content(id: String) = "$ContentDetail?$ContentArg=$id"
 
-    /** deep link 的 host 部分（如 yaoyouju://A07）映射到路由 */
+    /** deep link 的 host 部分（如 yaoyouju-app://A07）映射到路由 */
     fun fromDeepLink(host: String?): String? {
         val code = host?.trim()?.uppercase() ?: return null
         return when (code) {

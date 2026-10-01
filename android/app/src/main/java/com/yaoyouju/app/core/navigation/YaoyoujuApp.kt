@@ -70,7 +70,7 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
         ready = true
     }
 
-    // deep link：yaoyouju://A07
+    // deep link：yaoyouju-app://A07
     LaunchedEffect(deepLink, ready) {
         val target = deepLink?.route
         if (ready && target != null && target != Routes.Login) {

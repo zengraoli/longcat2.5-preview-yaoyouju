@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** deep link `yaoyouju://A01`–`A18` 必须映射到对应页面。 */
+/** deep link `yaoyouju-app://A01`–`A18` 必须映射到对应页面。 */
 class RoutesTest {
 
     @Test
