@@ -142,9 +142,11 @@ class VerifyViewModel : ViewModel() {
         viewModelScope.launch {
             state = state.copy(submitting = true)
             try {
+                // 只把阳性/不确定的描述交给安全规则：阴性回答（“没有/无”）不应被当成红旗
+                val negatives = setOf("尚未确认", "没有", "无", "未回答", "报告未提及")
                 val text = (
-                    state.symptoms.filter { it.text.isNotBlank() && it.text != "尚未确认" }.map { "${it.label}${it.text}" } +
-                        state.advices.filter { it.text.isNotBlank() && it.text != "尚未确认" }.map { it.text }
+                    state.symptoms.filter { it.text.isNotBlank() && it.text !in negatives }.map { "${it.label}${it.text}" } +
+                        state.advices.filter { it.text.isNotBlank() && it.text !in negatives }.map { it.text }
                     ).joinToString("，")
                 val result = apiCall {
                     AppGraph.api.createAnalysis(CreateAnalysisRequest(episodeId, text.ifBlank { null }))

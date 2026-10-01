@@ -77,7 +77,11 @@ fun RedFlagScreen(
                         fontWeight = FontWeight.Medium,
                     )
                     Text(
-                        text = "你刚才选择了：${state.selectedText}。这类变化需要医生及时评估，本产品无法替你判断严重程度，本轮不会生成个性化分析。",
+                        text = if (state.hasSelection) {
+                            "你刚才选择了：${state.selectedText}。这类变化需要医生及时评估，本产品无法替你判断严重程度，本轮不会生成个性化分析。"
+                        } else {
+                            "你刚才记录的情况需要医生及时评估，本产品无法替你判断严重程度，本轮不会生成个性化分析。"
+                        },
                         color = AppColors.Error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 4.dp),
@@ -106,7 +110,7 @@ fun RedFlagScreen(
                 modifier = Modifier.padding(top = 10.dp),
             )
             AppButton(
-                text = "联系我的主治医生（已保存）",
+                text = "复诊时联系我的主治医生",
                 onClick = onContactDoctor,
                 type = AppButtonType.Secondary,
                 block = true,

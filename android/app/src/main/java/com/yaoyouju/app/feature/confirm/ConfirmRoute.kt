@@ -16,7 +16,7 @@ fun ConfirmRoute(
         state = vm.state,
         onBack = onBack,
         onSelectChange = vm::selectChange,
-        onToggleRedFlag = vm::toggleRedFlag,
+        onToggleRedFlag = { option -> vm.selectRedFlag(option, onRedFlag) },
         onToggleNone = vm::toggleNone,
         onToggleUncertain = vm::toggleUncertain,
         onSelectSide = vm::selectSide,

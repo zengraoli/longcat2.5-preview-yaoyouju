@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.EmergencyTips
+import com.yaoyouju.app.core.components.LocalSafetyTips
 import com.yaoyouju.app.core.network.ApiException
 import com.yaoyouju.app.core.network.apiCall
 import com.yaoyouju.app.data.LoginRequest
@@ -22,11 +23,7 @@ data class LoginUiState(
     val countdown: Int = 0,
     val loading: Boolean = false,
     val showEmergency: Boolean = false,
-    val emergency: EmergencyTips = EmergencyTips(
-        title = "出现以下情况请及时就医",
-        redFlags = emptyList(),
-        note = "本提示不构成诊断；如症状持续或加重，请前往正规医疗机构就诊。",
-    ),
+    val emergency: EmergencyTips = LocalSafetyTips.tips(),
 )
 
 class LoginViewModel : ViewModel() {

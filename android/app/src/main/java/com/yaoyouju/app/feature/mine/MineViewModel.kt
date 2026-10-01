@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.EmergencyTips
+import com.yaoyouju.app.core.components.LocalSafetyTips
 import com.yaoyouju.app.core.network.ApiException
 import com.yaoyouju.app.core.network.apiCall
 import com.yaoyouju.app.core.util.BeijingTime
@@ -25,11 +26,7 @@ data class MineUiState(
     val showDeleteConfirm: Boolean = false,
     val modelName: String = "M-2609",
     val contentLibVersion: String = "2026-09",
-    val emergency: EmergencyTips = EmergencyTips(
-        title = "出现以下情况请及时就医",
-        redFlags = emptyList(),
-        note = "本提示不构成诊断；如症状持续或加重，请前往正规医疗机构就诊。",
-    ),
+    val emergency: EmergencyTips = LocalSafetyTips.tips(),
 )
 
 class MineViewModel : ViewModel() {

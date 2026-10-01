@@ -84,6 +84,13 @@ fun YaoyoujuApp(deepLink: DeepLinkRequest? = null) {
         }
     }
 
+    // 任意页面命中红旗：立即进入就医提示页
+    LaunchedEffect(appState.redFlagRequest) {
+        if (appState.redFlagRequest > 0) {
+            navController.navigate(Routes.RedFlag) { launchSingleTop = true }
+        }
+    }
+
     // 全局一次性提示：Channel 里逐条弹出，不会被重组取消
     LaunchedEffect(Unit) {
         for (message in appState.messages) {

@@ -123,8 +123,12 @@ class QaViewModel : ViewModel() {
                     } else {
                         state.outOfScopeMessageIds
                     },
-                    explainedCount = state.messages.count { it.role == "user" },
+                    explainedCount = state.messages.count { it.role == "user" } + 1,
                 )
+                // 问答命中红旗：立即进入就医提示页，不只当普通回答
+                if (result.redFlags.isNotEmpty()) {
+                    AppGraph.appState.requestRedFlag(result.redFlags.map { it.name })
+                }
             } catch (e: ApiException) {
                 AppGraph.appState.toast(e.message)
             } finally {

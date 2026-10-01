@@ -51,6 +51,21 @@ class ConfirmViewModel : ViewModel() {
         state = state.copy(redFlags = list, noneSelected = if (list.isNotEmpty()) false else state.noneSelected)
     }
 
+    /** 勾选红旗项的当下立即进入就医提示（不等“下一步”、不依赖网络） */
+    fun selectRedFlag(option: String, onRedFlag: () -> Unit) {
+        val list = state.redFlags.toMutableList()
+        if (list.contains(option)) {
+            list.remove(option)
+            state = state.copy(redFlags = list)
+            return
+        }
+        list.add(option)
+        state = state.copy(redFlags = list, noneSelected = false)
+        AppGraph.appState.redFlagSelected = list
+        viewModelScope.launch { saveRedFlagEvent(list) }
+        onRedFlag()
+    }
+
     fun toggleNone() {
         val next = !state.noneSelected
         state = state.copy(noneSelected = next, redFlags = if (next) emptyList() else state.redFlags)
@@ -76,8 +91,14 @@ class ConfirmViewModel : ViewModel() {
         state = state.copy(showDatePicker = show)
     }
 
-    /** 下一步：先做安全预检；命中红旗优先跳转就医提示，不被其他流程阻断。 */
+    /** 下一步：先做本地红旗判断（离线也能命中）；否则再做服务端安全预检。 */
     fun next(onRedFlag: () -> Unit, onContinue: () -> Unit) {
+        if (state.redFlags.isNotEmpty()) {
+            AppGraph.appState.redFlagSelected = state.redFlags
+            viewModelScope.launch { saveRedFlagEvent(state.redFlags) }
+            onRedFlag()
+            return
+        }
         val text = buildList {
             if (state.change.isNotBlank()) add("症状${state.change}")
             addAll(state.redFlags)
@@ -90,9 +111,9 @@ class ConfirmViewModel : ViewModel() {
             val safety = runCatching { apiCall { AppGraph.api.checkSafety(mapOf("text" to text, "source" to "confirm")) } }
                 .getOrNull()
             if (safety != null && !safety.passed && safety.redFlags.isNotEmpty()) {
-                AppGraph.appState.redFlagSelected = state.redFlags
+                AppGraph.appState.redFlagSelected = safety.redFlags.map { it.name }
                 AppGraph.appState.lastSafety = safety
-                saveRedFlagEvent()
+                saveRedFlagEvent(state.redFlags)
                 state = state.copy(submitting = false)
                 onRedFlag()
                 return@launch
@@ -115,7 +136,7 @@ class ConfirmViewModel : ViewModel() {
         return created.id
     }
 
-    private suspend fun saveRedFlagEvent() {
+    private suspend fun saveRedFlagEvent(flags: List<String>) {
         runCatching {
             val episodeId = AppGraph.appState.episodeId ?: currentEpisodeId() ?: return@runCatching
             apiCall {
@@ -125,7 +146,7 @@ class ConfirmViewModel : ViewModel() {
                         eventType = "症状",
                         occurredAt = BeijingTime.nowIso(),
                         sourceType = "自述",
-                        rawText = "确认时选择的红旗项：${state.redFlags.joinToString("、")}",
+                        rawText = "确认时选择的红旗项：${flags.joinToString("、")}",
                         verifyStatus = "尚未确认",
                     ),
                 )

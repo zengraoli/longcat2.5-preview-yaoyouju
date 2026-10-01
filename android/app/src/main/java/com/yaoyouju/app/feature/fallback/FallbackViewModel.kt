@@ -7,17 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yaoyouju.app.AppGraph
 import com.yaoyouju.app.core.components.EmergencyTips
+import com.yaoyouju.app.core.components.LocalSafetyTips
 import com.yaoyouju.app.core.network.apiCall
 import kotlinx.coroutines.launch
 
 data class FallbackUiState(
     val errorCode: String = "ANL-503",
     val showEmergency: Boolean = false,
-    val emergency: EmergencyTips = EmergencyTips(
-        title = "出现以下情况请及时就医",
-        redFlags = emptyList(),
-        note = "本提示不构成诊断；如症状持续或加重，请前往正规医疗机构就诊。",
-    ),
+    val emergency: EmergencyTips = LocalSafetyTips.tips(),
 )
 
 class FallbackViewModel : ViewModel() {

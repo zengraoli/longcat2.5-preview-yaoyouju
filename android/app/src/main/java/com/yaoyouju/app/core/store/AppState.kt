@@ -23,6 +23,14 @@ class AppState {
     /** A02 确认页选中的红旗项，供 A03 就医提示展示 */
     var redFlagSelected: List<String> by mutableStateOf(emptyList())
 
+    /** 任意页面命中红旗时递增，主界面观察后跳转就医提示页（问答、记录等） */
+    var redFlagRequest: Int by mutableStateOf(0)
+
+    fun requestRedFlag(items: List<String>) {
+        if (items.isNotEmpty()) redFlagSelected = items
+        redFlagRequest += 1
+    }
+
     /** 登录过期：由网络层置位，主界面观察后回到登录页 */
     var sessionExpired: Boolean by mutableStateOf(false)
 

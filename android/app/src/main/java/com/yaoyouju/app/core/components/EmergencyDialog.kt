@@ -28,6 +28,28 @@ data class EmergencyTips(
     val note: String,
 )
 
+/**
+ * 就医提示的本地兜底内容：服务不可达时也必须能看到红旗清单（产品红线 3）。
+ * 与 server /safety/tips 的 SAFETY_TIPS 保持一致。
+ */
+object LocalSafetyTips {
+    val redFlags: List<String> = listOf(
+        "大小便功能异常或鞍区麻木",
+        "进行性下肢肌力下降",
+        "夜间痛醒伴体重明显下降",
+        "外伤后腰部剧痛",
+        "发热伴腰痛",
+        "疼痛剧烈、止痛药无法缓解",
+        "有肿瘤病史又出现新发腰痛",
+    )
+
+    fun tips(): EmergencyTips = EmergencyTips(
+        title = "出现以下情况请及时就医",
+        redFlags = redFlags,
+        note = "本提示不构成诊断；如症状持续或加重，请前往正规医疗机构就诊。",
+    )
+}
+
 /** 就医提示弹层：无需登录，任意页面可达 */
 @Composable
 fun EmergencyDialog(

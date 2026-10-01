@@ -11,10 +11,10 @@ import com.yaoyouju.app.core.util.BeijingTime
 import kotlinx.coroutines.launch
 
 data class RedFlagUiState(
-    val selectedText: String = "你选择的变化（记录见病程）",
+    val hasSelection: Boolean = false,
+    val selectedText: String = "",
     val reportHint: String = "",
     val showHospitalDialog: Boolean = false,
-    val doctorSaved: Boolean = true,
 )
 
 class RedFlagViewModel : ViewModel() {
@@ -25,7 +25,8 @@ class RedFlagViewModel : ViewModel() {
     init {
         val selected = AppGraph.appState.redFlagSelected
         state = state.copy(
-            selectedText = if (selected.isNotEmpty()) selected.joinToString("、") else "你选择的变化（记录见病程）",
+            hasSelection = selected.isNotEmpty(),
+            selectedText = selected.joinToString("、"),
         )
         loadReportHint()
     }
